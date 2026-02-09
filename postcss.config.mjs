@@ -12,4 +12,10 @@
  *
  * Otherwise, you can leave this file empty.
  */
-export default {}
+export default {
+  plugins: {
+    "@tailwindcss/postcss": {},
+    autoprefixer: {},
+  },
+};
+
