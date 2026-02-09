@@ -1,4 +1,9 @@
 import { useState } from "react";
+import {
+  calculateRiskRating,
+  requiresAfterControls,
+} from "@/app/utils/risk-utils";
+
 import { RiskMethodology } from "./risk-methodology";
 import { RiskAssessmentBeforeControls } from "./risk-assessment-before-controls";
 import { RiskAssessmentAfterControls } from "./risk-assessment-after-controls";
@@ -32,8 +37,8 @@ interface DetailsData {
 /* ---------------- COMPONENT ---------------- */
 export function NewRiskAssessment() {
   const [step, setStep] = useState<1 | 2 | 3 | 4 | 5>(1);
+  const [needsAfterControls, setNeedsAfterControls] = useState(false);
 
-  /* ---------------- STATES ---------------- */
   const [beforeControls, setBeforeControls] = useState<BeforeControlsData>({
     hazard: "",
     consequence: "",
@@ -57,99 +62,78 @@ export function NewRiskAssessment() {
     assessmentDate: new Date().toISOString().slice(0, 10),
   });
 
-  /* ---------------- NAVIGATION ---------------- */
-  const nextStep = () =>
-    setStep((prev) => (prev < 5 ? ((prev + 1) as any) : prev));
-  const prevStep = () =>
-    setStep((prev) => (prev > 1 ? ((prev - 1) as any) : prev));
+  /* ---------------- FLOW CONTROL ---------------- */
+  const handleBeforeControlsNext = () => {
+    const rating = calculateRiskRating(beforeControls.score);
+    const reassess = requiresAfterControls(rating);
+
+    setNeedsAfterControls(reassess);
+    setBeforeControls((prev) => ({ ...prev, rating }));
+
+    setStep(reassess ? 3 : 4);
+  };
 
   /* ---------------- RENDER ---------------- */
   return (
     <div className="h-screen overflow-y-auto px-6 py-4 bg-gray-50">
-      {/* Progress Indicator */}
-      <div className="mb-6 flex gap-4 text-sm font-medium">
-        <span className={step === 1 ? "text-blue-600" : "text-gray-400"}>
-          1. Methodology
-        </span>
-        <span className={step === 2 ? "text-blue-600" : "text-gray-400"}>
-          2. Risk Assessment Before Controls
-        </span>
-        <span className={step === 3 ? "text-blue-600" : "text-gray-400"}>
-          3. Risk Assessment After Controls
-        </span>
-        <span className={step === 4 ? "text-blue-600" : "text-gray-400"}>
-          4. Details
-        </span>
-        <span className={step === 5 ? "text-blue-600" : "text-gray-400"}>
-          5. Summary
-        </span>
-      </div>
-
       {/* ---------------- PAGE 1 ---------------- */}
       {step === 1 && (
         <div className="max-w-6xl mx-auto">
-          <RiskMethodology onNext={nextStep} />
-          <div className="mt-6 flex justify-end">
-            <button
-              onClick={nextStep}
-              className="px-6 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-            >
-              Start Risk Assessment
-            </button>
-          </div>
+          <RiskMethodology onNext={() => setStep(2)} />
         </div>
       )}
 
+      {/* ---------------- PAGE 2 ---------------- */}
       {/* ---------------- PAGE 2: BEFORE CONTROLS ---------------- */}
-      {step === 2 && (
-        <RiskAssessmentBeforeControls
-          data={beforeControls}
-          setData={setBeforeControls}
-          onNext={nextStep}
-        />
-      )}
+{step === 2 && (
+  <RiskAssessmentBeforeControls
+    data={beforeControls}
+    setData={setBeforeControls}
+    onComplete={(data) => {
+      // data contains current severity, probability, score, rating
+      setBeforeControls(data);
 
-      {/* ---------------- PAGE 3: AFTER CONTROLS ---------------- */}
+      if (data.rating === "Critical" || data.rating === "High Risk") {
+        setNeedsAfterControls(true);
+        setStep(3); // go to After Controls
+      } else {
+        setNeedsAfterControls(false);
+        setStep(4); // skip After Controls
+      }
+    }}
+  />
+)}
+
+
+      {/* ---------------- PAGE 3 ---------------- */}
       {step === 3 && (
         <RiskAssessmentAfterControls
-          severity={afterControls.severity}
-          probability={afterControls.probability}
-          onChange={(data) => setAfterControls(data)}
-          onBack={prevStep}
-          onNext={nextStep}
+          data={afterControls}
+          setData={setAfterControls}
+          onBack={() => setStep(2)}
+          onNext={() => setStep(4)}
         />
       )}
 
-      {/* ---------------- PAGE 4: DETAILS ---------------- */}
+      {/* ---------------- PAGE 4 ---------------- */}
       {step === 4 && (
         <RiskAssessmentDetails
-          onBack={prevStep}
+          onBack={() => setStep(needsAfterControls ? 3 : 2)}
           onSubmit={(data) => {
             setDetails(data);
-            nextStep();
+            setStep(5);
           }}
         />
       )}
 
-      {/* ---------------- PAGE 5: SUMMARY ---------------- */}
+      {/* ---------------- PAGE 5 ---------------- */}
       {step === 5 && (
         <div className="max-w-7xl mx-auto p-6 bg-white rounded-lg shadow-md">
-          <h1 className="text-2xl font-bold mb-4 text-gray-400">Risk Assessment Summary</h1>
-
           <RiskAssessmentTable
             beforeControls={beforeControls}
-            afterControls={afterControls}
+            afterControls={needsAfterControls ? afterControls : null}
             details={details}
           />
-
-          <div className="flex justify-end mt-6">
-            <button
-              onClick={prevStep}
-              className="px-6 py-2 bg-gray-200 rounded hover:bg-gray-300 "
-            >
-              Back
-            </button>
-          </div>
         </div>
       )}
     </div>

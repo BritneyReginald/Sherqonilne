@@ -1,30 +1,40 @@
 import { useEffect, useState } from "react";
 
-type Props = {
-  onNext: () => void;
+type BeforeControlsData = {
+  hazard: string;
+  consequence: string;
+  severity: number | null;
+  probability: number | null;
+  controls: string;
+  score: number;
+  rating: string;
 };
 
-export function RiskAssessmentBeforeControls({ onNext }: Props) {
-  const [hazard, setHazard] = useState("");
-  const [consequence, setConsequence] = useState("");
-  const [severity, setSeverity] = useState<number | null>(null);
-  const [probability, setProbability] = useState<number | null>(null);
-  const [controls, setControls] = useState("");
+type Props = {
+  data: BeforeControlsData;
+  setData: React.Dispatch<React.SetStateAction<BeforeControlsData>>;
+  onComplete: (data: BeforeControlsData) => void;
+};
 
-  const [riskScore, setRiskScore] = useState<number>(0);
-  const [riskRating, setRiskRating] = useState("");
+export function RiskAssessmentBeforeControls({
+  data,
+  setData,
+  onComplete,
+}: Props) {
+  const [riskScore, setRiskScore] = useState<number>(data.score);
+  const [riskRating, setRiskRating] = useState<string>(data.rating);
 
   /* ---------------- Risk Calculations ---------------- */
   useEffect(() => {
-    if (severity != null && probability != null) {
-      const score = severity * probability;
+    if (data.severity && data.probability) {
+      const score = data.severity * data.probability;
       setRiskScore(score);
       setRiskRating(getRiskRating(score));
     } else {
       setRiskScore(0);
       setRiskRating("");
     }
-  }, [severity, probability]);
+  }, [data.severity, data.probability]);
 
   const getRiskRating = (score: number) => {
     if (score === 25) return "Critical";
@@ -57,41 +67,41 @@ export function RiskAssessmentBeforeControls({ onNext }: Props) {
         Risk Assessment – Before Controls
       </h1>
 
-      {/* Hazard */}
+      {/* 1. Hazard */}
       <div>
         <label className="font-semibold block mb-1 text-gray-900">
-          1. What is the hazard / aspect?
+          1. Hazard / Aspect
         </label>
         <textarea
-          value={hazard}
-          onChange={(e) => setHazard(e.target.value)}
+          value={data.hazard}
+          onChange={(e) => setData({ ...data, hazard: e.target.value })}
           className="w-full border rounded p-2 text-gray-900"
           rows={2}
         />
       </div>
 
-      {/* Consequence */}
+      {/* 2. Consequence */}
       <div>
         <label className="font-semibold block mb-1 text-gray-900">
-          2. What are the possible consequences?
+          2. Possible Consequences
         </label>
         <textarea
-          value={consequence}
-          onChange={(e) => setConsequence(e.target.value)}
+          value={data.consequence}
+          onChange={(e) => setData({ ...data, consequence: e.target.value })}
           className="w-full border rounded p-2 text-gray-900"
           rows={2}
         />
       </div>
 
-      {/* Severity */}
+      {/* 3. Severity */}
       <div>
         <label className="font-semibold block mb-1 text-gray-900">
-          3. Severity (Consequence rating)
+          3. Consequence (Severity)
         </label>
         <select
-          value={severity ?? ""}
+          value={data.severity ?? ""}
           onChange={(e) =>
-            setSeverity(e.target.value ? Number(e.target.value) : null)
+            setData({ ...data, severity: Number(e.target.value) })
           }
           className="w-full border rounded p-2 text-gray-900"
         >
@@ -104,15 +114,15 @@ export function RiskAssessmentBeforeControls({ onNext }: Props) {
         </select>
       </div>
 
-      {/* Probability */}
+      {/* 4. Probability */}
       <div>
         <label className="font-semibold block mb-1 text-gray-900">
           4. Exposure (Probability)
         </label>
         <select
-          value={probability ?? ""}
+          value={data.probability ?? ""}
           onChange={(e) =>
-            setProbability(e.target.value ? Number(e.target.value) : null)
+            setData({ ...data, probability: Number(e.target.value) })
           }
           className="w-full border rounded p-2 text-gray-900"
         >
@@ -125,20 +135,19 @@ export function RiskAssessmentBeforeControls({ onNext }: Props) {
         </select>
       </div>
 
-      {/* Risk Score */}
+      {/* 5. Risk Score */}
       <div>
         <label className="font-semibold block mb-1 text-gray-900">
           5. Risk Score (Severity × Probability)
         </label>
         <input
-          type="text"
           value={riskScore || ""}
           readOnly
           className="w-full border rounded p-2 bg-gray-100 text-gray-900"
         />
       </div>
 
-      {/* Risk Rating */}
+      {/* 6. Risk Rating (COLOURED – unchanged position) */}
       <div>
         <label className="font-semibold block mb-1 text-gray-900">
           6. Risk Rating
@@ -150,29 +159,33 @@ export function RiskAssessmentBeforeControls({ onNext }: Props) {
         </div>
       </div>
 
-      {/* Existing Controls */}
+      {/* 7. Existing Controls */}
       <div>
         <label className="font-semibold block mb-1 text-gray-900">
-          7. Existing control measures
+          7. Existing Control Measures
         </label>
         <textarea
-          value={controls}
-          onChange={(e) => setControls(e.target.value)}
+          value={data.controls}
+          onChange={(e) => setData({ ...data, controls: e.target.value })}
           className="w-full border rounded p-2 text-gray-900"
           rows={3}
         />
       </div>
 
-      {/* Actions */}
-      <div className="flex justify-end pt-4">
-        <button
-          onClick={onNext}
-          disabled={severity == null || probability == null}
-          className="px-6 py-3 bg-blue-600 text-white rounded font-medium hover:bg-blue-700 disabled:opacity-50"
-        >
-          Proceed to After Controls
-        </button>
-      </div>
+      {/* Continue */}
+      <button
+        onClick={() =>
+          onComplete({
+            ...data,
+            score: riskScore,
+            rating: riskRating,
+          })
+        }
+        disabled={!data.severity || !data.probability}
+        className="px-6 py-3 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
+      >
+        Continue
+      </button>
     </div>
   );
 }
