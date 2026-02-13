@@ -1,13 +1,25 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
+import { PageLayout } from "../components/page-layout";
+import {
+  calculateRiskScore,
+  calculateRiskRating,
+  getRiskRatingColor,
+  RiskRating,
+} from "@/app/utils/risk-utils";
+import { Plus, Trash2 } from "lucide-react";
 
-type BeforeControlsData = {
+/* ---------------- TYPES ---------------- */
+
+type HazardItem = {
+  id: string;
   hazard: string;
-  consequence: string;
   severity: number | null;
   probability: number | null;
-  controls: string;
-  score: number;
-  rating: string;
+  controls: string[];
+};
+
+type BeforeControlsData = {
+  hazards: HazardItem[];
 };
 
 type Props = {
@@ -16,176 +28,284 @@ type Props = {
   onComplete: (data: BeforeControlsData) => void;
 };
 
+/* ---------------- COMPONENT ---------------- */
+
 export function RiskAssessmentBeforeControls({
   data,
   setData,
   onComplete,
 }: Props) {
-  const [riskScore, setRiskScore] = useState<number>(data.score);
-  const [riskRating, setRiskRating] = useState<string>(data.rating);
+  /* ---------------- HELPERS ---------------- */
 
-  /* ---------------- Risk Calculations ---------------- */
-  useEffect(() => {
-    if (data.severity && data.probability) {
-      const score = data.severity * data.probability;
-      setRiskScore(score);
-      setRiskRating(getRiskRating(score));
-    } else {
-      setRiskScore(0);
-      setRiskRating("");
-    }
-  }, [data.severity, data.probability]);
-
-  const getRiskRating = (score: number) => {
-    if (score === 25) return "Critical";
-    if (score >= 15) return "High Risk";
-    if (score >= 12) return "Substantial Risk";
-    if (score >= 4) return "Possible Risk";
-    return "Low Risk";
+  const addHazard = () => {
+    setData((prev) => ({
+      hazards: [
+        ...prev.hazards,
+        {
+          id: crypto.randomUUID(),
+          hazard: "",
+          severity: null,
+          probability: null,
+          controls: [""],
+        },
+      ],
+    }));
   };
 
-  const getRatingColor = () => {
-    switch (riskRating) {
-      case "Critical":
-        return "bg-red-600 text-white";
-      case "High Risk":
-        return "bg-orange-500 text-white";
-      case "Substantial Risk":
-        return "bg-yellow-400 text-black";
-      case "Possible Risk":
-        return "bg-blue-400 text-white";
-      case "Low Risk":
-        return "bg-green-500 text-white";
-      default:
-        return "bg-gray-200 text-gray-700";
-    }
+  const removeHazard = (id: string) => {
+    setData((prev) => ({
+      hazards: prev.hazards.filter((h) => h.id !== id),
+    }));
   };
+
+  const updateHazard = (id: string, updated: Partial<HazardItem>) => {
+    setData((prev) => ({
+      hazards: prev.hazards.map((h) =>
+        h.id === id ? { ...h, ...updated } : h
+      ),
+    }));
+  };
+
+  const addControl = (hazardId: string) => {
+    setData((prev) => ({
+      hazards: prev.hazards.map((h) =>
+        h.id === hazardId
+          ? { ...h, controls: [...h.controls, ""] }
+          : h
+      ),
+    }));
+  };
+
+  const updateControl = (
+    hazardId: string,
+    index: number,
+    value: string
+  ) => {
+    setData((prev) => ({
+      hazards: prev.hazards.map((h) =>
+        h.id === hazardId
+          ? {
+              ...h,
+              controls: h.controls.map((c, i) =>
+                i === index ? value : c
+              ),
+            }
+          : h
+      ),
+    }));
+  };
+
+  const removeControl = (hazardId: string, index: number) => {
+    setData((prev) => ({
+      hazards: prev.hazards.map((h) =>
+        h.id === hazardId
+          ? {
+              ...h,
+              controls: h.controls.filter((_, i) => i !== index),
+            }
+          : h
+      ),
+    }));
+  };
+
+  /* ---------------- RENDER ---------------- */
 
   return (
-    <div className="max-w-4xl mx-auto p-6 bg-white rounded-lg shadow-md space-y-6">
-      <h1 className="text-2xl font-bold text-gray-900">
-        Risk Assessment – Before Controls
-      </h1>
+    <PageLayout
+      title="Risk Assessment – Before Controls"
+      description="Identify hazards, calculate initial risk scores, and record existing control measures."
+    >
+      <div className="space-y-8">
+        {data.hazards.map((hazardItem, index) => {
+          const score = calculateRiskScore(
+            hazardItem.severity,
+            hazardItem.probability
+          );
 
-      {/* 1. Hazard */}
-      <div>
-        <label className="font-semibold block mb-1 text-gray-900">
-          1. Hazard / Aspect
-        </label>
-        <textarea
-          value={data.hazard}
-          onChange={(e) => setData({ ...data, hazard: e.target.value })}
-          className="w-full border rounded p-2 text-gray-900"
-          rows={2}
-        />
-      </div>
+          const rating: RiskRating | "" = score
+            ? calculateRiskRating(score)
+            : "";
 
-      {/* 2. Consequence */}
-      <div>
-        <label className="font-semibold block mb-1 text-gray-900">
-          2. Possible Consequences
-        </label>
-        <textarea
-          value={data.consequence}
-          onChange={(e) => setData({ ...data, consequence: e.target.value })}
-          className="w-full border rounded p-2 text-gray-900"
-          rows={2}
-        />
-      </div>
+          return (
+            <div
+              key={hazardItem.id}
+              className="bg-white rounded-xl shadow p-6 space-y-6"
+            >
+              <div className="flex justify-between items-center">
+                <h2 className="text-lg font-semibold text-gray-900">
+                  Hazard {index + 1}
+                </h2>
 
-      {/* 3. Severity */}
-      <div>
-        <label className="font-semibold block mb-1 text-gray-900">
-          3. Consequence (Severity)
-        </label>
-        <select
-          value={data.severity ?? ""}
-          onChange={(e) =>
-            setData({ ...data, severity: Number(e.target.value) })
-          }
-          className="w-full border rounded p-2 text-gray-900"
+                {data.hazards.length > 1 && (
+                  <button
+                    onClick={() => removeHazard(hazardItem.id)}
+                    className="text-red-600 hover:text-red-800"
+                  >
+                    <Trash2 size={18} />
+                  </button>
+                )}
+              </div>
+
+              {/* Hazard Description */}
+              <div>
+                <label className="font-semibold block mb-1 text-gray-900">
+                  What is the Hazard and / or Aspect
+                </label>
+                <textarea
+                  value={hazardItem.hazard}
+                  onChange={(e) =>
+                    updateHazard(hazardItem.id, {
+                      hazard: e.target.value,
+                    })
+                  }
+                  className="w-full border rounded p-2 text-gray-900"
+                  rows={2}
+                />
+              </div>
+
+              {/* Severity */}
+              <div>
+                <label className="font-semibold block mb-1 text-gray-900">
+                  Consequence (Severity)
+                </label>
+                <select
+                  value={hazardItem.severity ?? ""}
+                  onChange={(e) =>
+                    updateHazard(hazardItem.id, {
+                      severity: e.target.value
+                        ? Number(e.target.value)
+                        : null,
+                    })
+                  }
+                  className="w-full border rounded p-2 text-gray-900"
+                >
+                  <option value="">Select severity</option>
+                  <option value={1}>1 – Noticeable</option>
+                  <option value={2}>2 – Important</option>
+                  <option value={3}>3 – Serious</option>
+                  <option value={4}>4 – Very Serious</option>
+                  <option value={5}>5 – Disaster</option>
+                </select>
+              </div>
+
+              {/* Probability */}
+              <div>
+                <label className="font-semibold block mb-1 text-gray-900">
+                  Exposure (Probability)
+                </label>
+                <select
+                  value={hazardItem.probability ?? ""}
+                  onChange={(e) =>
+                    updateHazard(hazardItem.id, {
+                      probability: e.target.value
+                        ? Number(e.target.value)
+                        : null,
+                    })
+                  }
+                  className="w-full border rounded p-2 text-gray-900"
+                >
+                  <option value="">Select probability</option>
+                  <option value={1}>1 – Conceivable</option>
+                  <option value={2}>2 – Remotely possible</option>
+                  <option value={3}>3 – Unusual but possible</option>
+                  <option value={4}>4 – Likely</option>
+                  <option value={5}>5 – Almost certain</option>
+                </select>
+              </div>
+
+              {/* Score */}
+              <div>
+                <label className="font-semibold block mb-1 text-gray-900">
+                  Risk Score
+                </label>
+                <input
+                  readOnly
+                  value={score || ""}
+                  className="w-full border rounded p-2 bg-gray-100 text-gray-900"
+                />
+              </div>
+
+              {/* Rating */}
+              <div>
+                <label className="font-semibold block mb-1 text-gray-900">
+                  Risk Rating
+                </label>
+                <div
+                  className={`p-3 rounded font-semibold text-center ${
+                    rating
+                      ? getRiskRatingColor(rating)
+                      : "bg-gray-200 text-gray-700"
+                  }`}
+                >
+                  {rating || "Not calculated"}
+                </div>
+              </div>
+
+              {/* Controls */}
+              <div className="space-y-3">
+                <label className="font-semibold block text-gray-900">
+                  Existing Control Measures
+                </label>
+
+                {hazardItem.controls.map((control, i) => (
+                  <div
+                    key={i}
+                    className="flex gap-2 items-start text-gray-900"
+                  >
+                    <textarea
+                      value={control}
+                      onChange={(e) =>
+                        updateControl(
+                          hazardItem.id,
+                          i,
+                          e.target.value
+                        )
+                      }
+                      className="flex-1 border rounded p-2"
+                      rows={2}
+                    />
+                    {hazardItem.controls.length > 1 && (
+                      <button
+                        onClick={() =>
+                          removeControl(hazardItem.id, i)
+                        }
+                        className="text-red-600 mt-2"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    )}
+                  </div>
+                ))}
+
+                <button
+                  onClick={() => addControl(hazardItem.id)}
+                  className="flex items-center gap-2 text-blue-600"
+                >
+                  <Plus size={16} />
+                  Add Control
+                </button>
+              </div>
+            </div>
+          );
+        })}
+
+        {/* Add Hazard */}
+        <button
+          onClick={addHazard}
+          className="flex items-center gap-2 text-blue-600 font-semibold"
         >
-          <option value="">Select severity</option>
-          <option value={1}>1 – Noticeable</option>
-          <option value={2}>2 – Important</option>
-          <option value={3}>3 – Serious</option>
-          <option value={4}>4 – Very Serious</option>
-          <option value={5}>5 – Disaster</option>
-        </select>
-      </div>
+          <Plus size={18} />
+          Add Another Hazard
+        </button>
 
-      {/* 4. Probability */}
-      <div>
-        <label className="font-semibold block mb-1 text-gray-900">
-          4. Exposure (Probability)
-        </label>
-        <select
-          value={data.probability ?? ""}
-          onChange={(e) =>
-            setData({ ...data, probability: Number(e.target.value) })
-          }
-          className="w-full border rounded p-2 text-gray-900"
+        {/* Continue */}
+        <button
+          onClick={() => onComplete(data)}
+          className="px-6 py-3 bg-blue-600 text-white rounded hover:bg-blue-700"
         >
-          <option value="">Select probability</option>
-          <option value={1}>1 – Conceivable</option>
-          <option value={2}>2 – Remotely possible</option>
-          <option value={3}>3 – Unusual but possible</option>
-          <option value={4}>4 – Likely</option>
-          <option value={5}>5 – Almost certain</option>
-        </select>
+          Continue
+        </button>
       </div>
-
-      {/* 5. Risk Score */}
-      <div>
-        <label className="font-semibold block mb-1 text-gray-900">
-          5. Risk Score (Severity × Probability)
-        </label>
-        <input
-          value={riskScore || ""}
-          readOnly
-          className="w-full border rounded p-2 bg-gray-100 text-gray-900"
-        />
-      </div>
-
-      {/* 6. Risk Rating (COLOURED – unchanged position) */}
-      <div>
-        <label className="font-semibold block mb-1 text-gray-900">
-          6. Risk Rating
-        </label>
-        <div
-          className={`p-3 rounded font-semibold text-center ${getRatingColor()}`}
-        >
-          {riskRating || "Not calculated"}
-        </div>
-      </div>
-
-      {/* 7. Existing Controls */}
-      <div>
-        <label className="font-semibold block mb-1 text-gray-900">
-          7. Existing Control Measures
-        </label>
-        <textarea
-          value={data.controls}
-          onChange={(e) => setData({ ...data, controls: e.target.value })}
-          className="w-full border rounded p-2 text-gray-900"
-          rows={3}
-        />
-      </div>
-
-      {/* Continue */}
-      <button
-        onClick={() =>
-          onComplete({
-            ...data,
-            score: riskScore,
-            rating: riskRating,
-          })
-        }
-        disabled={!data.severity || !data.probability}
-        className="px-6 py-3 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
-      >
-        Continue
-      </button>
-    </div>
+    </PageLayout>
   );
 }

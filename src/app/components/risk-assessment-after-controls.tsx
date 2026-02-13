@@ -1,150 +1,144 @@
-import { useMemo } from "react";
+import { PageLayout } from "../components/page-layout";
+import { calculateRiskScore, calculateRiskRating, getRiskRatingColor, RiskRating } from "@/app/utils/risk-utils";
 
-interface AfterControlsProps {
+/* ---------------- TYPES ---------------- */
+interface HazardItem {
+  id: string;
+  hazard: string;
+  controls: string[];
   severity: number | null;
   probability: number | null;
-  onChange: (data: {
-    severity: number;
-    probability: number;
-    score: number;
-    rating: string;
-  }) => void;
-  onNext: () => void;
-  onBack: () => void;
 }
 
-const getRiskRating = (score: number) => {
-  if (score === 25) return "Critical";
-  if (score >= 15) return "High Risk";
-  if (score >= 12) return "Substantial Risk";
-  if (score >= 4) return "Possible Risk";
-  return "Low Risk";
-};
+interface AfterControlsData {
+  hazards: HazardItem[];
+}
 
-export function RiskAssessmentAfterControls({
-  severity,
-  probability,
-  onChange,
-  onNext,
-  onBack,
-}: AfterControlsProps) {
-  const score = useMemo(() => {
-    if (!severity || !probability) return 0;
-    return severity * probability;
-  }, [severity, probability]);
+interface Props {
+  data: AfterControlsData;
+  setData: React.Dispatch<React.SetStateAction<AfterControlsData>>;
+  onBack: () => void;
+  onNext: () => void;
+}
 
-  const rating = useMemo(() => {
-    if (!score) return "";
-    return getRiskRating(score);
-  }, [score]);
+/* ---------------- COMPONENT ---------------- */
+export function RiskAssessmentAfterControls({ data, setData, onBack, onNext }: Props) {
 
-  const handleSeverityChange = (value: number) => {
-    onChange({
-      severity: value,
-      probability: probability ?? 0,
-      score: value * (probability ?? 0),
-      rating: getRiskRating(value * (probability ?? 0)),
-    });
-  };
-
-  const handleProbabilityChange = (value: number) => {
-    onChange({
-      severity: severity ?? 0,
-      probability: value,
-      score: (severity ?? 0) * value,
-      rating: getRiskRating((severity ?? 0) * value),
-    });
+  const updateHazard = (id: string, updated: Partial<HazardItem>) => {
+    setData((prev) => ({
+      hazards: prev.hazards.map((h) => h.id === id ? { ...h, ...updated } : h),
+    }));
   };
 
   return (
-    <div className="max-w-3xl mx-auto p-6 bg-white rounded-lg shadow-md">
-      <h1 className="text-2xl font-bold mb-2 text-gray-900">
-        Risk Assessment After Controls
-      </h1>
+    <PageLayout
+      title="Risk Assessment – After Controls"
+      description="Re-assess hazards that were high risk or critical, considering the control measures in place."
+    >
+      <div className="space-y-8">
+        {data.hazards.map((hazardItem, index) => {
+          const score = calculateRiskScore(hazardItem.severity, hazardItem.probability);
+          const rating: RiskRating | "" = score ? calculateRiskRating(score) : "";
 
-      <p className="text-gray-600 mb-6 text-gray-900">
-        Re-evaluate the risk after all control measures have been implemented.
-      </p>
+          return (
+            <div key={hazardItem.id} className="bg-white rounded-xl shadow p-6 space-y-6">
+              <h2 className="text-lg font-semibold text-gray-900">Hazard {index + 1}</h2>
 
-      {/* Severity */}
-      <div className="mb-4">
-        <label className="block font-medium mb-1 text-gray-900">
-          Consequence / Severity (After Controls)
-        </label>
-        <select
-          value={severity ?? ""}
-          onChange={(e) => handleSeverityChange(Number(e.target.value))}
-          className="w-full border rounded p-2 text-gray-900"
-        >
-          <option value="">Select severity</option>
-          <option value={1}>1 – Noticeable</option>
-          <option value={2}>2 – Important</option>
-          <option value={3}>3 – Serious</option>
-          <option value={4}>4 – Very Serious</option>
-          <option value={5}>5 – Disaster</option>
-        </select>
+              {/* Hazard Description */}
+              <div>
+                <label className="font-semibold block mb-1 text-gray-900">Hazard / Aspect</label>
+                <div className="p-2 bg-gray-100 rounded text-gray-900">{hazardItem.hazard}</div>
+              </div>
+
+              {/* Existing Controls */}
+              <div>
+                <label className="font-semibold block mb-1 text-gray-900">Existing Control Measures</label>
+                <div className="space-y-2">
+                  {hazardItem.controls.map((control, i) => (
+                    <div key={i} className="p-2 bg-gray-100 rounded text-gray-900">{control}</div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Severity */}
+              <div>
+                <label className="font-semibold block mb-1 text-gray-900">Consequence (Severity)</label>
+                <select
+                  value={hazardItem.severity ?? ""}
+                  onChange={(e) => updateHazard(hazardItem.id, {
+                    severity: e.target.value ? Number(e.target.value) : null,
+                  })}
+                  className="w-full border rounded p-2 text-gray-900"
+                >
+                  <option value="">Select severity</option>
+                  <option value={1}>1 – Noticeable</option>
+                  <option value={2}>2 – Important</option>
+                  <option value={3}>3 – Serious</option>
+                  <option value={4}>4 – Very Serious</option>
+                  <option value={5}>5 – Disaster</option>
+                </select>
+              </div>
+
+              {/* Probability */}
+              <div>
+                <label className="font-semibold block mb-1 text-gray-900">Exposure (Probability)</label>
+                <select
+                  value={hazardItem.probability ?? ""}
+                  onChange={(e) => updateHazard(hazardItem.id, {
+                    probability: e.target.value ? Number(e.target.value) : null,
+                  })}
+                  className="w-full border rounded p-2 text-gray-900"
+                >
+                  <option value="">Select probability</option>
+                  <option value={1}>1 – Conceivable</option>
+                  <option value={2}>2 – Remotely possible</option>
+                  <option value={3}>3 – Unusual but possible</option>
+                  <option value={4}>4 – Likely</option>
+                  <option value={5}>5 – Almost certain</option>
+                </select>
+              </div>
+
+              {/* Score */}
+              <div>
+                <label className="font-semibold block mb-1 text-gray-900">Risk Score</label>
+                <input
+                  readOnly
+                  value={score || ""}
+                  className="w-full border rounded p-2 bg-gray-100 text-gray-900"
+                />
+              </div>
+
+              {/* Rating */}
+              <div>
+                <label className="font-semibold block mb-1 text-gray-900">Risk Rating</label>
+                <div
+                  className={`p-3 rounded font-semibold text-center ${
+                    rating ? getRiskRatingColor(rating) : "bg-gray-200 text-gray-700"
+                  }`}
+                >
+                  {rating || "Not calculated"}
+                </div>
+              </div>
+            </div>
+          );
+        })}
+
+        {/* Navigation Buttons */}
+        <div className="flex justify-between">
+          <button
+            onClick={onBack}
+            className="px-6 py-3 bg-gray-400 text-white rounded hover:bg-gray-500"
+          >
+            Back
+          </button>
+          <button
+            onClick={onNext}
+            className="px-6 py-3 bg-blue-600 text-white rounded hover:bg-blue-700"
+          >
+            Continue
+          </button>
+        </div>
       </div>
-
-      {/* Probability */}
-      <div className="mb-4">
-        <label className="block font-medium mb-1 text-gray-900">
-          Exposure / Probability (After Controls)
-        </label>
-        <select
-          value={probability ?? ""}
-          onChange={(e) => handleProbabilityChange(Number(e.target.value))}
-          className="w-full border rounded p-2 text-gray-900"
-        >
-          <option value="">Select probability</option>
-          <option value={1}>1 – Conceivable</option>
-          <option value={2}>2 – Remotely Possible</option>
-          <option value={3}>3 – Unusual but Possible</option>
-          <option value={4}>4 – Likely</option>
-          <option value={5}>5 – Almost Certain</option>
-        </select>
-      </div>
-
-      {/* Calculated Risk Score */}
-      <div className="mb-4">
-        <label className="block font-medium mb-1 text-gray-900">
-          Risk Score (Calculated)
-        </label>
-        <input
-          value={score || ""}
-          readOnly
-          className="w-full border rounded p-2 bg-gray-100 text-gray-900"
-        />
-      </div>
-
-      {/* Calculated Risk Rating */}
-      <div className="mb-6">
-        <label className="block font-medium mb-1 text-gray-900">
-          Risk Rating (Calculated)
-        </label>
-        <input
-          value={rating}
-          readOnly
-          className="w-full border rounded p-2 bg-gray-100 font-semibold text-gray-900"
-        />
-      </div>
-
-      {/* Actions */}
-      <div className="flex justify-between">
-        <button
-          onClick={onBack}
-          className="px-6 py-2 rounded bg-gray-200 hover:bg-gray-300"
-        >
-          Back
-        </button>
-
-        <button
-          onClick={onNext}
-          disabled={!severity || !probability}
-          className="px-6 py-2 rounded bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 text-gray-900"
-        >
-          Continue to Summary
-        </button>
-      </div>
-    </div>
+    </PageLayout>
   );
 }

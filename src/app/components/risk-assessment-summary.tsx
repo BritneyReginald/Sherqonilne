@@ -1,21 +1,26 @@
-interface RiskAssessmentSummaryProps {
-  data: {
-    id: number;
-    hazard: string;
-    before: {
-      severity: number;
-      probability: number;
-      score: number;
-      rating: string;
-      controls: string;
-    };
-    after: {
-      severity: number;
-      probability: number;
-      score: number;
-      rating: string;
-    };
+import { PageLayout } from "@/app/components/page-layout";
+
+export interface RiskItem {
+  id: number;
+  hazard: string;
+  consequence: string;
+  before: {
+    severity: number | null;
+    probability: number | null;
+    score: number;
+    rating: string;
+    controls: string;
   };
+  after?: {
+    severity: number | null;
+    probability: number | null;
+    score: number;
+    rating: string;
+  };
+}
+
+interface RiskAssessmentSummaryProps {
+  data: RiskItem[];
   onBack: () => void;
   onSubmit: () => void;
 }
@@ -43,108 +48,123 @@ export function RiskAssessmentSummary({
   onSubmit,
 }: RiskAssessmentSummaryProps) {
   return (
-    <div className="max-w-6xl mx-auto p-6 bg-white rounded-lg shadow-md overflow-x-auto">
-      <h1 className="text-2xl font-bold mb-6 text-gray-900">
-        Risk Assessment Summary
-      </h1>
+    <PageLayout
+      title="Risk Assessment Summary"
+      description="Review the final risk assessment results before generating the report."
+    >
+      <div className="overflow-x-auto">
+        <table className="w-full border-collapse border text-sm">
+          <thead>
+            <tr className="bg-gray-100">
+              <th rowSpan={2} className="border p-2">ID</th>
+              <th rowSpan={2} className="border p-2">Hazard</th>
+              <th rowSpan={2} className="border p-2">Consequence</th>
 
-      <table className="w-full border-collapse border text-sm">
-        <thead>
-          <tr className="bg-gray-100">
-            <th rowSpan={2} className="border p-2 text-gray-900">
-              Risk Ass. ID
-            </th>
-            <th rowSpan={2} className="border p-2 text-gray-900">
-              Hazard / Aspect
-            </th>
-            <th colSpan={4} className="border p-2 text-gray-900">
-              Assessment of Risk Before Controls
-            </th>
-            <th rowSpan={2} className="border p-2 text-gray-900">
-              Current Control Measures
-            </th>
-            <th colSpan={4} className="border p-2 text-gray-900">
-              Assessment of Risk After Controls
-            </th>
-          </tr>
-          <tr className="bg-gray-100">
-            <th className="border p-2">A<br />Severity</th>
-            <th className="border p-2">B<br />Probability</th>
-            <th className="border p-2">C<br />Score</th>
-            <th className="border p-2">Rating</th>
+              <th colSpan={4} className="border p-2">
+                Before Controls
+              </th>
 
-            <th className="border p-2">A<br />Severity</th>
-            <th className="border p-2">B<br />Probability</th>
-            <th className="border p-2">C<br />Score</th>
-            <th className="border p-2">Rating</th>
-          </tr>
-        </thead>
+              <th rowSpan={2} className="border p-2">
+                Controls
+              </th>
 
-        <tbody>
-          <tr>
-            <td className="border p-2 text-center">{data.id}</td>
+              <th colSpan={4} className="border p-2">
+                After Controls
+              </th>
+            </tr>
 
-            <td className="border p-2">{data.hazard}</td>
+            <tr className="bg-gray-100">
+              <th className="border p-2">Severity</th>
+              <th className="border p-2">Probability</th>
+              <th className="border p-2">Score</th>
+              <th className="border p-2">Rating</th>
 
-            {/* Before controls */}
-            <td className="border p-2 text-center">
-              {data.before.severity}
-            </td>
-            <td className="border p-2 text-center">
-              {data.before.probability}
-            </td>
-            <td className="border p-2 text-center">
-              {data.before.score}
-            </td>
-            <td
-              className={`border p-2 text-center font-semibold ${ratingColor(
-                data.before.rating
-              )}`}
-            >
-              {data.before.rating}
-            </td>
+              <th className="border p-2">Severity</th>
+              <th className="border p-2">Probability</th>
+              <th className="border p-2">Score</th>
+              <th className="border p-2">Rating</th>
+            </tr>
+          </thead>
 
-            <td className="border p-2 whitespace-pre-line">
-              {data.before.controls}
-            </td>
+          <tbody>
+            {data.map((item) => (
+              <tr key={item.id}>
+                <td className="border p-2 text-center">
+                  {item.id}
+                </td>
 
-            {/* After controls */}
-            <td className="border p-2 text-center">
-              {data.after.severity}
-            </td>
-            <td className="border p-2 text-center">
-              {data.after.probability}
-            </td>
-            <td className="border p-2 text-center">
-              {data.after.score}
-            </td>
-            <td
-              className={`border p-2 text-center font-semibold ${ratingColor(
-                data.after.rating
-              )}`}
-            >
-              {data.after.rating}
-            </td>
-          </tr>
-        </tbody>
-      </table>
+                <td className="border p-2">
+                  {item.hazard}
+                </td>
 
-      {/* Actions */}
-      <div className="flex justify-between mt-6">
-        <button
-          onClick={onBack}
-          className="px-6 py-2 rounded bg-gray-200 hover:bg-gray-300"
-        >
-          Back
-        </button>
+                <td className="border p-2">
+                  {item.consequence}
+                </td>
 
-        <button
-          onClick={onSubmit}
-          className="px-6 py-2 rounded bg-green-600 text-white hover:bg-green-700"
-        >
-          Generate Risk Assessment
-        </button>
+                <td className="border p-2 text-center">
+                  {item.before.severity ?? "-"}
+                </td>
+
+                <td className="border p-2 text-center">
+                  {item.before.probability ?? "-"}
+                </td>
+
+                <td className="border p-2 text-center">
+                  {item.before.score ?? "-"}
+                </td>
+
+                <td
+                  className={`border p-2 text-center font-semibold ${ratingColor(
+                    item.before.rating
+                  )}`}
+                >
+                  {item.before.rating || "-"}
+                </td>
+
+                <td className="border p-2">
+                  {item.before.controls || "-"}
+                </td>
+
+                <td className="border p-2 text-center">
+                  {item.after?.severity ?? "-"}
+                </td>
+
+                <td className="border p-2 text-center">
+                  {item.after?.probability ?? "-"}
+                </td>
+
+                <td className="border p-2 text-center">
+                  {item.after?.score ?? "-"}
+                </td>
+
+                <td
+                  className={`border p-2 text-center font-semibold ${ratingColor(
+                    item.after?.rating || ""
+                  )}`}
+                >
+                  {item.after?.rating || "-"}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+
+        <div className="flex justify-between mt-6">
+          <button
+            onClick={onBack}
+            className="px-6 py-2 rounded bg-gray-200 hover:bg-gray-300"
+          >
+            Back
+          </button>
+
+          <button
+            onClick={onSubmit}
+            className="px-6 py-2 rounded bg-green-600 text-white hover:bg-green-700"
+          >
+            Generate Risk Assessment
+          </button>
+        </div>
       </div>
-    </div>
+    </PageLayout>
   );
 }

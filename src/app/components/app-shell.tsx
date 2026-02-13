@@ -36,6 +36,12 @@ import { CompanySites } from "@/app/components/company-sites";
 import { Appointments } from "@/app/components/appointments";
 import { useAlerts } from "@/app/contexts/alert-context";
 import { useTheme } from "@/app/contexts/theme-context";
+import { NewRiskAssessment } from "@/app/components/new-risk-assessment";
+import { RiskMethodology } from "@/app/components/risk-methodology";
+import { RiskAssessmentBeforeControls } from "@/app/components/risk-assessment-before-controls";
+import { RiskAssessmentAfterControls } from "@/app/components/risk-assessment-after-controls";
+import { RiskAssessmentSummary } from "@/app/components/risk-assessment-summary";
+
 
 interface NavigationItem {
   id: string;
@@ -478,47 +484,48 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
 
         {/* Page Content */}
         <main className="flex-1 overflow-auto bg-background">
-          {activeItem === "dashboard" ? (
-            <Dashboard />
-          ) : activeItem === "company-sites" ? (
-            <CompanySites />
-          ) : activeItem === "workforce" ? (
-            <Workforce />
-          ) : activeItem === "appointments" ? (
-            <Appointments />
-          ) : activeItem === "training" ? (
-            <TrainingMatrix />
-          ) : activeItem === "document-library" ? (
-            <DocumentLibrary />
-          ) : activeItem === "global-training-matrix" ? (
-            <GlobalTrainingMatrix />
-          ) : activeItem === "ppe" ? (
-            <PPERegister />
-          ) : activeItem === "risk-assessments" ? (
-            <RiskAssessmentRegisterEnhanced />
-          ) : activeItem === "medicals" ? (
-            <MedicalSurveillanceEnhanced />
-          ) : activeItem === "analytics" ? (
-            <ReportsAnalytics />
-          ) : activeItem === "system-audit-log" ? (
-            <SystemAuditLog />
-          ) : activeItem === "system-settings" ? (
-            <SystemSettings />
-          ) : children ? (
-            children
-          ) : (
-            <div className="h-full flex items-center justify-center">
-              <div className="text-center">
-                <h2 className="text-2xl mb-2" style={{ color: "var(--grey-700)" }}>
-                  {activeItem.charAt(0).toUpperCase() + activeItem.slice(1).replace("-", " ")}
-                </h2>
-                <p style={{ color: "var(--grey-500)" }}>
-                  This section is under development
-                </p>
-              </div>
-            </div>
-          )}
-        </main>
+  {activeItem === "dashboard" ? (
+    <Dashboard />
+  ) : activeItem === "company-sites" ? (
+    <CompanySites />
+  ) : activeItem === "workforce" ? (
+    <Workforce />
+  ) : activeItem === "appointments" ? (
+    <Appointments />
+  ) : activeItem === "training" ? (
+    <TrainingMatrix />
+  ) : activeItem === "document-library" ? (
+    <DocumentLibrary />
+  ) : activeItem === "global-training-matrix" ? (
+    <GlobalTrainingMatrix />
+  ) : activeItem === "ppe" ? (
+    <PPERegister />
+  ) : activeItem === "risk-assessments" ? (
+    <RiskAssessmentRegisterEnhanced />
+  ) : activeItem === "risk-assessment-new" ? (
+    <NewRiskAssessment />
+  ) : activeItem === "medicals" ? (
+    <MedicalSurveillanceEnhanced />
+  ) : activeItem === "analytics" ? (
+    <ReportsAnalytics />
+  ) : activeItem === "system-audit-log" ? (
+    <SystemAuditLog />
+  ) : activeItem === "system-settings" ? (
+    <SystemSettings />
+  ) : (
+    <div className="h-full flex items-center justify-center">
+      <div className="text-center">
+        <h2 className="text-2xl mb-2" style={{ color: "var(--grey-700)" }}>
+          {activeItem.charAt(0).toUpperCase() + activeItem.slice(1).replace("-", " ")}
+        </h2>
+        <p style={{ color: "var(--grey-500)" }}>
+          This section is under development
+        </p>
+      </div>
+    </div>
+  )}
+</main>
+
       </div>
     </div>
   );

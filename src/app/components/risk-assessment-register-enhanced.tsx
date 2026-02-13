@@ -56,21 +56,18 @@ export function RiskAssessmentRegisterEnhanced() {
   const { colors } = useTheme();
   const { dismissAlert } = useAlerts();
 
-  /* ---------- STATE ---------- */
   const [assessments, setAssessments] =
     useState<RiskAssessment[]>(initialAssessments);
 
-  const [showNewRAWizard, setShowNewRAWizard] = useState(false);
+  const [creatingRA, setCreatingRA] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   const [selectedAssessment, setSelectedAssessment] =
     useState<RiskAssessment | null>(null);
 
-  /* ---------- DERIVED ---------- */
   const expiredCount = assessments.filter(
     (a) => a.status === "expired"
   ).length;
 
-  /* ---------- HANDLERS ---------- */
   const handleDeleteClick = (assessment: RiskAssessment) => {
     setSelectedAssessment(assessment);
     setModalOpen(true);
@@ -98,22 +95,64 @@ export function RiskAssessmentRegisterEnhanced() {
     }
   };
 
-  /* ================= RENDER ================= */
+  /* ================= IF CREATING RA → SHOW PAGE ================= */
+
+  if (creatingRA) {
+    return (
+      <div
+        className="h-full w-full p-6 overflow-y-auto"
+        style={{ backgroundColor: colors.background }}
+      >
+        <div className="max-w-[1400px] mx-auto">
+          <NewRiskAssessment
+            onCancel={() => setCreatingRA(false)}
+            onSave={(newRA) => {
+              setAssessments((prev) => [
+                {
+                  id: `RA-${(prev.length + 1)
+                    .toString()
+                    .padStart(3, "0")}`,
+                  assessmentName: newRA.hazard,
+                  referenceNo: `RA-NEW-${prev.length + 1}`,
+                  linkedSite: "TBD",
+                  linkedDept: "TBD",
+                  revision: "v1.0",
+                  reviewDate: newRA.assessmentDate,
+                  expiryDate: newRA.assessmentDate,
+                  status: "draft",
+                  assignedEmployees:
+                    newRA.assignedEmployees.length,
+                  signedEmployees: 0,
+                  signOffRate: 0,
+                  category: "task-based",
+                },
+                ...prev,
+              ]);
+
+              setCreatingRA(false);
+            }}
+          />
+        </div>
+      </div>
+    );
+  }
+
+  /* ================= REGISTER PAGE ================= */
 
   return (
     <div
-      className="h-full overflow-y-auto p-6"
+      className="h-full w-full p-6 overflow-y-auto"
       style={{ backgroundColor: colors.background }}
     >
       <div className="max-w-[1600px] mx-auto">
-        {/* -------- PAGE HEADER -------- */}
+        {/* HEADER */}
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-2xl font-bold text-gray-900">
             Risk Assessment Register
           </h1>
 
           <button
-            onClick={() => setShowNewRAWizard(true)}
+            onClick={() => setCreatingRA(true)}
             className="px-4 py-2 rounded-lg flex items-center gap-2 text-white bg-blue-600 hover:bg-blue-700"
           >
             <Plus className="size-4" />
@@ -121,7 +160,7 @@ export function RiskAssessmentRegisterEnhanced() {
           </button>
         </div>
 
-        {/* -------- EXPIRED ALERT -------- */}
+        {/* ALERT */}
         {expiredCount > 0 && (
           <AlertBanner
             id="risk-assessment-expired-alert"
@@ -141,10 +180,10 @@ export function RiskAssessmentRegisterEnhanced() {
           />
         )}
 
-        {/* -------- TABLE -------- */}
+        {/* TABLE */}
         <div className="bg-white rounded-lg shadow overflow-hidden text-gray-900">
           <table className="w-full text-sm text-gray-900">
-            <thead className="bg-gray-100 text-gray-900">
+            <thead className="bg-gray-100">
               <tr>
                 <th className="px-4 py-3 text-left">Assessment</th>
                 <th className="px-4 py-3 text-left">Reference</th>
@@ -194,49 +233,7 @@ export function RiskAssessmentRegisterEnhanced() {
         </div>
       </div>
 
-      {/* -------- NEW RA WIZARD MODAL -------- */}
-      {showNewRAWizard && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-lg w-full max-w-2xl p-6 relative">
-            <button
-              className="absolute top-4 right-4 text-gray-500 hover:text-gray-800"
-              onClick={() => setShowNewRAWizard(false)}
-            >
-              ✕
-            </button>
-
-            <NewRiskAssessment
-              onSave={(newRA) => {
-                setAssessments((prev) => [
-                  {
-                    id: `RA-${(prev.length + 1)
-                      .toString()
-                      .padStart(3, "0")}`,
-                    assessmentName: newRA.hazard,
-                    referenceNo: `RA-NEW-${prev.length + 1}`,
-                    linkedSite: "TBD",
-                    linkedDept: "TBD",
-                    revision: "v1.0",
-                    reviewDate: newRA.assessmentDate,
-                    expiryDate: newRA.assessmentDate,
-                    status: "draft",
-                    assignedEmployees:
-                      newRA.assignedEmployees.length,
-                    signedEmployees: 0,
-                    signOffRate: 0,
-                    category: "task-based",
-                  },
-                  ...prev,
-                ]);
-
-                setShowNewRAWizard(false);
-              }}
-            />
-          </div>
-        </div>
-      )}
-
-      {/* -------- CONFIRM ARCHIVE MODAL -------- */}
+      {/* CONFIRM MODAL */}
       <ConfirmDeactivationModal
         isOpen={modalOpen}
         onClose={() => setModalOpen(false)}

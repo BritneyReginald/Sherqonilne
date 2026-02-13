@@ -1,7 +1,8 @@
 import { useState } from "react";
 import {
+  calculateRiskScore,
   calculateRiskRating,
-  requiresAfterControls,
+  RiskRating,
 } from "@/app/utils/risk-utils";
 
 import { RiskMethodology } from "./risk-methodology";
@@ -11,50 +12,74 @@ import { RiskAssessmentDetails } from "./risk-assessment-details";
 import { RiskAssessmentTable } from "./risk-assessment-table";
 
 /* ---------------- TYPES ---------------- */
-interface BeforeControlsData {
+
+export interface HazardItem {
+  id: string;
   hazard: string;
-  consequence: string;
   severity: number | null;
   probability: number | null;
-  controls: string;
-  score: number;
-  rating: string;
+  controls: string[];
 }
 
-interface AfterControlsData {
+export interface BeforeControlsData {
+  hazards: HazardItem[];
+}
+
+export interface AfterControlsHazard {
+  id: string;
+  hazard: string;
   severity: number | null;
   probability: number | null;
-  score: number;
-  rating: string;
 }
 
-interface DetailsData {
+export interface AfterControlsData {
+  hazards: AfterControlsHazard[];
+}
+
+export interface DetailsData {
   taskDescription: string;
   assessors: string[];
   assessmentDate: string;
 }
 
+/* ---------------- NEW PROPS (SAFE & OPTIONAL) ---------------- */
+
+interface NewRiskAssessmentProps {
+  onCancel?: () => void;
+  onSave?: (data: {
+    hazard: string;
+    assessmentDate: string;
+    assignedEmployees: string[];
+  }) => void;
+}
+
 /* ---------------- COMPONENT ---------------- */
-export function NewRiskAssessment() {
+
+export function NewRiskAssessment({
+  onCancel,
+  onSave,
+}: NewRiskAssessmentProps) {
   const [step, setStep] = useState<1 | 2 | 3 | 4 | 5>(1);
   const [needsAfterControls, setNeedsAfterControls] = useState(false);
 
+  /* ---------------- STATES (UNCHANGED) ---------------- */
+
   const [beforeControls, setBeforeControls] = useState<BeforeControlsData>({
-    hazard: "",
-    consequence: "",
-    severity: null,
-    probability: null,
-    controls: "",
-    score: 0,
-    rating: "",
+    hazards: [
+      {
+        id: crypto.randomUUID(),
+        hazard: "",
+        severity: null,
+        probability: null,
+        controls: [""],
+      },
+    ],
   });
 
-  const [afterControls, setAfterControls] = useState<AfterControlsData>({
-    severity: null,
-    probability: null,
-    score: 0,
-    rating: "",
-  });
+  const [afterControls, setAfterControls] =
+    useState<AfterControlsData>({
+      hazards: [],
+    });
 
   const [details, setDetails] = useState<DetailsData>({
     taskDescription: "",
@@ -62,50 +87,67 @@ export function NewRiskAssessment() {
     assessmentDate: new Date().toISOString().slice(0, 10),
   });
 
-  /* ---------------- FLOW CONTROL ---------------- */
-  const handleBeforeControlsNext = () => {
-    const rating = calculateRiskRating(beforeControls.score);
-    const reassess = requiresAfterControls(rating);
+  /* ---------------- HANDLERS (UNCHANGED LOGIC) ---------------- */
 
-    setNeedsAfterControls(reassess);
-    setBeforeControls((prev) => ({ ...prev, rating }));
+  const handleBeforeControlsComplete = (data: BeforeControlsData) => {
+    setBeforeControls(data);
 
-    setStep(reassess ? 3 : 4);
+    const anyHighRisk = data.hazards.some((h) => {
+      const score = calculateRiskScore(h.severity, h.probability);
+      const rating = score ? calculateRiskRating(score) : "";
+      return rating === "Critical" || rating === "High Risk";
+    });
+
+    if (anyHighRisk) {
+      setNeedsAfterControls(true);
+      setStep(3);
+    } else {
+      setNeedsAfterControls(false);
+      setStep(4);
+    }
   };
 
   /* ---------------- RENDER ---------------- */
+
   return (
-    <div className="h-screen overflow-y-auto px-6 py-4 bg-gray-50">
-      {/* ---------------- PAGE 1 ---------------- */}
-      {step === 1 && (
-        <div className="max-w-6xl mx-auto">
-          <RiskMethodology onNext={() => setStep(2)} />
-        </div>
+    <>
+      {/* Step 1: Methodology */}
+      {step === 1 && <RiskMethodology onNext={() => setStep(2)} />}
+
+      {/* Step 2: Before Controls */}
+      {step === 2 && (
+        <RiskAssessmentBeforeControls
+          data={beforeControls}
+          setData={setBeforeControls}
+          onComplete={(data) => {
+            setBeforeControls(data);
+
+            const highRiskHazards = data.hazards.filter((h) => {
+              const score = calculateRiskScore(h.severity, h.probability);
+              const rating = score ? calculateRiskRating(score) : "";
+              return rating === "Critical" || rating === "High Risk";
+            });
+
+            if (highRiskHazards.length > 0) {
+              setAfterControls({
+                hazards: highRiskHazards.map((h) => ({
+                  ...h,
+                  severity: h.severity,
+                  probability: h.probability,
+                })),
+              });
+
+              setNeedsAfterControls(true);
+              setStep(3);
+            } else {
+              setNeedsAfterControls(false);
+              setStep(4);
+            }
+          }}
+        />
       )}
 
-      {/* ---------------- PAGE 2 ---------------- */}
-      {/* ---------------- PAGE 2: BEFORE CONTROLS ---------------- */}
-{step === 2 && (
-  <RiskAssessmentBeforeControls
-    data={beforeControls}
-    setData={setBeforeControls}
-    onComplete={(data) => {
-      // data contains current severity, probability, score, rating
-      setBeforeControls(data);
-
-      if (data.rating === "Critical" || data.rating === "High Risk") {
-        setNeedsAfterControls(true);
-        setStep(3); // go to After Controls
-      } else {
-        setNeedsAfterControls(false);
-        setStep(4); // skip After Controls
-      }
-    }}
-  />
-)}
-
-
-      {/* ---------------- PAGE 3 ---------------- */}
+      {/* Step 3: After Controls */}
       {step === 3 && (
         <RiskAssessmentAfterControls
           data={afterControls}
@@ -115,7 +157,7 @@ export function NewRiskAssessment() {
         />
       )}
 
-      {/* ---------------- PAGE 4 ---------------- */}
+      {/* Step 4: Details */}
       {step === 4 && (
         <RiskAssessmentDetails
           onBack={() => setStep(needsAfterControls ? 3 : 2)}
@@ -126,16 +168,26 @@ export function NewRiskAssessment() {
         />
       )}
 
-      {/* ---------------- PAGE 5 ---------------- */}
+      {/* Step 5: Summary Table */}
       {step === 5 && (
-        <div className="max-w-7xl mx-auto p-6 bg-white rounded-lg shadow-md">
-          <RiskAssessmentTable
-            beforeControls={beforeControls}
-            afterControls={needsAfterControls ? afterControls : null}
-            details={details}
-          />
-        </div>
+        <RiskAssessmentTable
+          beforeControls={beforeControls}
+          afterControls={needsAfterControls ? afterControls : null}
+          details={details}
+          onBack={() => setStep(4)}
+          onGenerate={() => {
+            if (!onSave) return;
+
+            onSave({
+              hazard:
+                beforeControls.hazards[0]?.hazard ||
+                details.taskDescription,
+              assessmentDate: details.assessmentDate,
+              assignedEmployees: details.assessors.filter(Boolean),
+            });
+          }}
+        />
       )}
-    </div>
+    </>
   );
 }
