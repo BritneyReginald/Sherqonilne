@@ -1,4 +1,3 @@
-import { useEffect } from "react";
 import { PageLayout } from "../components/page-layout";
 import {
   calculateRiskScore,
@@ -13,6 +12,7 @@ import { Plus, Trash2 } from "lucide-react";
 type HazardItem = {
   id: string;
   hazard: string;
+  risks?: string[]; // ✅ optional (important)
   severity: number | null;
   probability: number | null;
   controls: string[];
@@ -44,6 +44,7 @@ export function RiskAssessmentBeforeControls({
         {
           id: crypto.randomUUID(),
           hazard: "",
+          risks: [""], // initialize
           severity: null,
           probability: null,
           controls: [""],
@@ -65,6 +66,55 @@ export function RiskAssessmentBeforeControls({
       ),
     }));
   };
+
+  /* ---------------- RISK HELPERS ---------------- */
+
+  const addRisk = (hazardId: string) => {
+    setData((prev) => ({
+      hazards: prev.hazards.map((h) =>
+        h.id === hazardId
+          ? {
+              ...h,
+              risks: [...(h.risks ?? [""]), ""],
+            }
+          : h
+      ),
+    }));
+  };
+
+  const updateRisk = (
+    hazardId: string,
+    index: number,
+    value: string
+  ) => {
+    setData((prev) => ({
+      hazards: prev.hazards.map((h) =>
+        h.id === hazardId
+          ? {
+              ...h,
+              risks: (h.risks ?? [""]).map((r, i) =>
+                i === index ? value : r
+              ),
+            }
+          : h
+      ),
+    }));
+  };
+
+  const removeRisk = (hazardId: string, index: number) => {
+    setData((prev) => ({
+      hazards: prev.hazards.map((h) =>
+        h.id === hazardId
+          ? {
+              ...h,
+              risks: (h.risks ?? [""]).filter((_, i) => i !== index),
+            }
+          : h
+      ),
+    }));
+  };
+
+  /* ---------------- CONTROL HELPERS ---------------- */
 
   const addControl = (hazardId: string) => {
     setData((prev) => ({
@@ -113,10 +163,10 @@ export function RiskAssessmentBeforeControls({
   return (
     <PageLayout
       title="Risk Assessment – Before Controls"
-      description="Identify hazards, calculate initial risk scores, and record existing control measures."
+      description="Identify hazards, associated risks, calculate initial risk scores, and record existing control measures."
     >
       <div className="space-y-8">
-        {data.hazards.map((hazardItem, index) => {
+        {(data.hazards ?? []).map((hazardItem, index) => {
           const score = calculateRiskScore(
             hazardItem.severity,
             hazardItem.probability
@@ -125,6 +175,8 @@ export function RiskAssessmentBeforeControls({
           const rating: RiskRating | "" = score
             ? calculateRiskRating(score)
             : "";
+
+          const risks = hazardItem.risks ?? [""]; // ✅ SAFE fallback
 
           return (
             <div
@@ -161,6 +213,48 @@ export function RiskAssessmentBeforeControls({
                   className="w-full border rounded p-2 text-gray-900"
                   rows={2}
                 />
+              </div>
+
+              {/* Risks Section */}
+              <div className="space-y-3">
+                <label className="font-semibold block text-gray-900">
+                  Associated Risks
+                </label>
+
+                {risks.map((risk, i) => (
+                  <div key={i} className="flex gap-2 items-start">
+                    <textarea
+                      value={risk}
+                      onChange={(e) =>
+                        updateRisk(
+                          hazardItem.id,
+                          i,
+                          e.target.value
+                        )
+                      }
+                      className="flex-1 border rounded p-2 text-gray-900"
+                      rows={2}
+                    />
+                    {risks.length > 1 && (
+                      <button
+                        onClick={() =>
+                          removeRisk(hazardItem.id, i)
+                        }
+                        className="text-red-600 mt-2"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    )}
+                  </div>
+                ))}
+
+                <button
+                  onClick={() => addRisk(hazardItem.id)}
+                  className="flex items-center gap-2 text-blue-600"
+                >
+                  <Plus size={16} />
+                  Add Another Risk
+                </button>
               </div>
 
               {/* Severity */}
@@ -248,10 +342,7 @@ export function RiskAssessmentBeforeControls({
                 </label>
 
                 {hazardItem.controls.map((control, i) => (
-                  <div
-                    key={i}
-                    className="flex gap-2 items-start text-gray-900"
-                  >
+                  <div key={i} className="flex gap-2 items-start text-gray-900">
                     <textarea
                       value={control}
                       onChange={(e) =>
@@ -289,7 +380,6 @@ export function RiskAssessmentBeforeControls({
           );
         })}
 
-        {/* Add Hazard */}
         <button
           onClick={addHazard}
           className="flex items-center gap-2 text-blue-600 font-semibold"
@@ -298,7 +388,6 @@ export function RiskAssessmentBeforeControls({
           Add Another Hazard
         </button>
 
-        {/* Continue */}
         <button
           onClick={() => onComplete(data)}
           className="px-6 py-3 bg-blue-600 text-white rounded hover:bg-blue-700"
