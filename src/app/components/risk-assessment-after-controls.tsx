@@ -1,10 +1,16 @@
 import { PageLayout } from "../components/page-layout";
-import { calculateRiskScore, calculateRiskRating, getRiskRatingColor, RiskRating } from "@/app/utils/risk-utils";
+import {
+  calculateRiskScore,
+  calculateRiskRating,
+  getRiskRatingColor,
+  RiskRating,
+} from "@/app/utils/risk-utils";
 
 /* ---------------- TYPES ---------------- */
 interface HazardItem {
   id: string;
   hazard: string;
+  risks?: string[]; // ✅ optional for backward compatibility
   controls: string[];
   severity: number | null;
   probability: number | null;
@@ -22,11 +28,17 @@ interface Props {
 }
 
 /* ---------------- COMPONENT ---------------- */
-export function RiskAssessmentAfterControls({ data, setData, onBack, onNext }: Props) {
-
+export function RiskAssessmentAfterControls({
+  data,
+  setData,
+  onBack,
+  onNext,
+}: Props) {
   const updateHazard = (id: string, updated: Partial<HazardItem>) => {
     setData((prev) => ({
-      hazards: prev.hazards.map((h) => h.id === id ? { ...h, ...updated } : h),
+      hazards: prev.hazards.map((h) =>
+        h.id === id ? { ...h, ...updated } : h
+      ),
     }));
   };
 
@@ -36,38 +48,87 @@ export function RiskAssessmentAfterControls({ data, setData, onBack, onNext }: P
       description="Re-assess hazards that were high risk or critical, considering the control measures in place."
     >
       <div className="space-y-8">
-        {data.hazards.map((hazardItem, index) => {
-          const score = calculateRiskScore(hazardItem.severity, hazardItem.probability);
-          const rating: RiskRating | "" = score ? calculateRiskRating(score) : "";
+        {(data.hazards ?? []).map((hazardItem, index) => {
+          const score = calculateRiskScore(
+            hazardItem.severity,
+            hazardItem.probability
+          );
+
+          const rating: RiskRating | "" = score
+            ? calculateRiskRating(score)
+            : "";
+
+          const risks = hazardItem.risks ?? []; // ✅ safe fallback
 
           return (
-            <div key={hazardItem.id} className="bg-white rounded-xl shadow p-6 space-y-6">
-              <h2 className="text-lg font-semibold text-gray-900">Hazard {index + 1}</h2>
+            <div
+              key={hazardItem.id}
+              className="bg-white rounded-xl shadow p-6 space-y-6"
+            >
+              <h2 className="text-lg font-semibold text-gray-900">
+                Hazard {index + 1}
+              </h2>
 
               {/* Hazard Description */}
               <div>
-                <label className="font-semibold block mb-1 text-gray-900">Hazard / Aspect</label>
-                <div className="p-2 bg-gray-100 rounded text-gray-900">{hazardItem.hazard}</div>
+                <label className="font-semibold block mb-1 text-gray-900">
+                  Hazard / Aspect
+                </label>
+                <div className="p-2 bg-gray-100 rounded text-gray-900">
+                  {hazardItem.hazard}
+                </div>
               </div>
+
+              {/* Risks (READ ONLY) */}
+              {risks.length > 0 && (
+                <div>
+                  <label className="font-semibold block mb-1 text-gray-900">
+                    Associated Risks
+                  </label>
+                  <div className="space-y-2">
+                    {risks.map((risk, i) => (
+                      <div
+                        key={i}
+                        className="p-2 bg-gray-100 rounded text-gray-900"
+                      >
+                        {risk}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {/* Existing Controls */}
               <div>
-                <label className="font-semibold block mb-1 text-gray-900">Existing Control Measures</label>
+                <label className="font-semibold block mb-1 text-gray-900">
+                  Existing Control Measures
+                </label>
                 <div className="space-y-2">
                   {hazardItem.controls.map((control, i) => (
-                    <div key={i} className="p-2 bg-gray-100 rounded text-gray-900">{control}</div>
+                    <div
+                      key={i}
+                      className="p-2 bg-gray-100 rounded text-gray-900"
+                    >
+                      {control}
+                    </div>
                   ))}
                 </div>
               </div>
 
               {/* Severity */}
               <div>
-                <label className="font-semibold block mb-1 text-gray-900">Consequence (Severity)</label>
+                <label className="font-semibold block mb-1 text-gray-900">
+                  Consequence (Severity)
+                </label>
                 <select
                   value={hazardItem.severity ?? ""}
-                  onChange={(e) => updateHazard(hazardItem.id, {
-                    severity: e.target.value ? Number(e.target.value) : null,
-                  })}
+                  onChange={(e) =>
+                    updateHazard(hazardItem.id, {
+                      severity: e.target.value
+                        ? Number(e.target.value)
+                        : null,
+                    })
+                  }
                   className="w-full border rounded p-2 text-gray-900"
                 >
                   <option value="">Select severity</option>
@@ -81,12 +142,18 @@ export function RiskAssessmentAfterControls({ data, setData, onBack, onNext }: P
 
               {/* Probability */}
               <div>
-                <label className="font-semibold block mb-1 text-gray-900">Exposure (Probability)</label>
+                <label className="font-semibold block mb-1 text-gray-900">
+                  Exposure (Probability)
+                </label>
                 <select
                   value={hazardItem.probability ?? ""}
-                  onChange={(e) => updateHazard(hazardItem.id, {
-                    probability: e.target.value ? Number(e.target.value) : null,
-                  })}
+                  onChange={(e) =>
+                    updateHazard(hazardItem.id, {
+                      probability: e.target.value
+                        ? Number(e.target.value)
+                        : null,
+                    })
+                  }
                   className="w-full border rounded p-2 text-gray-900"
                 >
                   <option value="">Select probability</option>
@@ -100,7 +167,9 @@ export function RiskAssessmentAfterControls({ data, setData, onBack, onNext }: P
 
               {/* Score */}
               <div>
-                <label className="font-semibold block mb-1 text-gray-900">Risk Score</label>
+                <label className="font-semibold block mb-1 text-gray-900">
+                  Risk Score
+                </label>
                 <input
                   readOnly
                   value={score || ""}
@@ -110,10 +179,14 @@ export function RiskAssessmentAfterControls({ data, setData, onBack, onNext }: P
 
               {/* Rating */}
               <div>
-                <label className="font-semibold block mb-1 text-gray-900">Risk Rating</label>
+                <label className="font-semibold block mb-1 text-gray-900">
+                  Risk Rating
+                </label>
                 <div
                   className={`p-3 rounded font-semibold text-center ${
-                    rating ? getRiskRatingColor(rating) : "bg-gray-200 text-gray-700"
+                    rating
+                      ? getRiskRatingColor(rating)
+                      : "bg-gray-200 text-gray-700"
                   }`}
                 >
                   {rating || "Not calculated"}
