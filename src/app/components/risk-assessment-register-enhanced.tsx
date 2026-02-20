@@ -1,18 +1,15 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Plus,
   Trash2,
-  AlertTriangle,
-  CheckCircle2,
-  XCircle,
+  FileText,
+  Pencil,
+  Printer,
 } from "lucide-react";
 import { useTheme } from "@/app/contexts/theme-context";
-import { AlertBanner } from "@/app/components/alert-banner";
 import { useAlerts } from "@/app/contexts/alert-context";
 import { ConfirmDeactivationModal } from "@/app/components/confirm-deactivation-modal";
-import { NewRiskAssessment } from "@/app/components/new-risk-assessment";
-
-/* ================= TYPES ================= */
+import { AfterControlsData, BeforeControlsData, DetailsData, NewRiskAssessment } from "@/app/components/new-risk-assessment";
 
 interface RiskAssessment {
   id: string;
@@ -28,200 +25,263 @@ interface RiskAssessment {
   assignedEmployees: number;
   signedEmployees: number;
   category: "baseline" | "task-based" | "issue-based";
+  pdfBlob?: string;
+  rawData?: {
+  beforeControls: BeforeControlsData;
+  afterControls: AfterControlsData | null;
+  details: DetailsData;
+};
+
 }
 
-/* ================= MOCK DATA ================= */
-
-const initialAssessments: RiskAssessment[] = [
-  {
-    id: "RA-001",
-    assessmentName: "Hot Work & Welding - Workshop A",
-    referenceNo: "RA-HW-004",
-    linkedSite: "JHB South",
-    linkedDept: "Maintenance",
-    revision: "v2.1",
-    reviewDate: "2026-06-12",
-    expiryDate: "2026-12-31",
-    status: "expired",
-    assignedEmployees: 28,
-    signedEmployees: 24,
-    signOffRate: 86,
-    category: "task-based",
-  },
-];
-
-/* ================= COMPONENT ================= */
-
 export function RiskAssessmentRegisterEnhanced() {
+  
   const { colors } = useTheme();
   const { dismissAlert } = useAlerts();
+  
 
-  const [assessments, setAssessments] =
-    useState<RiskAssessment[]>(initialAssessments);
-
+  const [assessments, setAssessments] = useState<RiskAssessment[]>([]);
   const [creatingRA, setCreatingRA] = useState(false);
+  const [editingRA, setEditingRA] = useState<RiskAssessment | null>(null);
+
   const [modalOpen, setModalOpen] = useState(false);
   const [selectedAssessment, setSelectedAssessment] =
     useState<RiskAssessment | null>(null);
 
-  const expiredCount = assessments.filter(
-    (a) => a.status === "expired"
-  ).length;
+  useEffect(() => {
+    const stored = JSON.parse(
+      localStorage.getItem("riskRegister") || "[]"
+    );
+    setAssessments(stored);
+  }, []);
 
-  const handleDeleteClick = (assessment: RiskAssessment) => {
-    setSelectedAssessment(assessment);
-    setModalOpen(true);
+  const saveToStorage = (data: RiskAssessment[]) => {
+    localStorage.setItem("riskRegister", JSON.stringify(data));
   };
 
-  const handleConfirmArchive = () => {
-    if (selectedAssessment) {
-      setAssessments((prev) =>
-        prev.filter((a) => a.id !== selectedAssessment.id)
-      );
-    }
-    setModalOpen(false);
-  };
+  /* ===============================
+     CREATE / EDIT VIEW
+  =============================== */
 
-  const getStatusIcon = (status: RiskAssessment["status"]) => {
-    switch (status) {
-      case "approved":
-        return <CheckCircle2 className="size-4 text-green-600" />;
-      case "expired":
-        return <XCircle className="size-4 text-red-600" />;
-      case "under-review":
-        return <AlertTriangle className="size-4 text-yellow-600" />;
-      case "draft":
-        return <XCircle className="size-4 text-gray-400" />;
-    }
-  };
-
-  /* ================= IF CREATING RA → SHOW PAGE ================= */
-
-  if (creatingRA) {
+  if (creatingRA || editingRA) {
     return (
-      <div
-        className="h-full w-full p-6 overflow-y-auto"
-        style={{ backgroundColor: colors.background }}
-      >
-        <div className="max-w-[1400px] mx-auto">
-          <NewRiskAssessment
-            onCancel={() => setCreatingRA(false)}
-            onSave={(newRA) => {
-              setAssessments((prev) => [
-                {
-                  id: `RA-${(prev.length + 1)
-                    .toString()
-                    .padStart(3, "0")}`,
-                  assessmentName: newRA.hazard,
-                  referenceNo: `RA-NEW-${prev.length + 1}`,
-                  linkedSite: "TBD",
-                  linkedDept: "TBD",
-                  revision: "v1.0",
-                  reviewDate: newRA.assessmentDate,
-                  expiryDate: newRA.assessmentDate,
-                  status: "draft",
-                  assignedEmployees:
-                    newRA.assignedEmployees.length,
-                  signedEmployees: 0,
-                  signOffRate: 0,
-                  category: "task-based",
-                },
-                ...prev,
-              ]);
+      <div className="h-full w-full p-6 overflow-y-auto">
+        <NewRiskAssessment
+          existingData={editingRA?.rawData}
+          onCancel={() => {
+            setCreatingRA(false);
+            setEditingRA(null);
+          }}
+          onSave={(newRA) => {
+  if (editingRA) {
+    // ✅ UPDATE EXISTING
+    const updated = assessments.map((a) =>
+      a.id === editingRA.id
+        ? {
+            ...a,
+            assessmentName:
+              newRA.details.taskDescription,
+            reviewDate:
+              newRA.details.assessmentDate,
+            expiryDate:
+              newRA.details.assessmentDate,
+            assignedEmployees:
+              newRA.details.assessors.filter(Boolean)
+                .length,
+            pdfBlob: newRA.pdfBlob,
+            rawData: {
+              beforeControls:
+                newRA.beforeControls,
+              afterControls:
+                newRA.afterControls,
+              details: newRA.details,
+            },
+          }
+        : a
+    );
 
-              setCreatingRA(false);
-            }}
-          />
-        </div>
+    setAssessments(updated);
+    saveToStorage(updated);
+  } else {
+    // ✅ CREATE NEW
+    const newAssessment: RiskAssessment = {
+      id: `RA-${(assessments.length + 1)
+        .toString()
+        .padStart(3, "0")}`,
+      assessmentName:
+        newRA.details.taskDescription,
+      referenceNo: `RA-NEW-${
+        assessments.length + 1
+      }`,
+      linkedSite: "TBD",
+      linkedDept: "TBD",
+      revision: "v1.0",
+      reviewDate:
+        newRA.details.assessmentDate,
+      expiryDate:
+        newRA.details.assessmentDate,
+      status: "draft",
+      assignedEmployees:
+        newRA.details.assessors.filter(Boolean)
+          .length,
+      signedEmployees: 0,
+      signOffRate: 0,
+      category: "task-based",
+      pdfBlob: newRA.pdfBlob,
+      rawData: {
+        beforeControls:
+          newRA.beforeControls,
+        afterControls:
+          newRA.afterControls,
+        details: newRA.details,
+      },
+    };
+
+    const updated = [newAssessment, ...assessments];
+    setAssessments(updated);
+    saveToStorage(updated);
+  }
+
+  setCreatingRA(false);
+  setEditingRA(null);
+}}
+
+        />
       </div>
     );
   }
 
-  /* ================= REGISTER PAGE ================= */
+  /* ===============================
+     MAIN REGISTER VIEW
+  =============================== */
 
   return (
-    <div
-      className="h-full w-full p-6 overflow-y-auto"
-      style={{ backgroundColor: colors.background }}
-    >
+    <div className="h-full w-full p-6 overflow-y-auto text-gray-900">
       <div className="max-w-[1600px] mx-auto">
-        {/* HEADER */}
-        <div className="flex items-center justify-between mb-6">
-          <h1 className="text-2xl font-bold text-gray-900">
+        <div className="flex justify-between mb-6">
+          <h1 className="text-2xl font-bold text-white">
             Risk Assessment Register
           </h1>
 
           <button
             onClick={() => setCreatingRA(true)}
-            className="px-4 py-2 rounded-lg flex items-center gap-2 text-white bg-blue-600 hover:bg-blue-700"
+            className="px-4 py-2 bg-blue-600 text-white rounded"
           >
-            <Plus className="size-4" />
+            <Plus className="size-4 inline mr-2" />
             New Risk Assessment
           </button>
         </div>
 
-        {/* ALERT */}
-        {expiredCount > 0 && (
-          <AlertBanner
-            id="risk-assessment-expired-alert"
-            type="critical"
-            icon={<AlertTriangle className="size-5" />}
-            title={`${expiredCount} risk assessment${
-              expiredCount !== 1 ? "s" : ""
-            } expired`}
-            description="These assessments require urgent review and re-approval"
-            onDismiss={() =>
-              dismissAlert(
-                "risk-assessment-expired-alert",
-                `${expiredCount} risk assessments expired`,
-                "critical"
-              )
-            }
-          />
-        )}
-
-        {/* TABLE */}
-        <div className="bg-white rounded-lg shadow overflow-hidden text-gray-900">
-          <table className="w-full text-sm text-gray-900">
+        <div className="bg-white rounded-lg shadow overflow-hidden">
+          <table className="w-full text-sm">
             <thead className="bg-gray-100">
               <tr>
                 <th className="px-4 py-3 text-left">Assessment</th>
                 <th className="px-4 py-3 text-left">Reference</th>
-                <th className="px-4 py-3 text-left">Status</th>
-                <th className="px-4 py-3 text-right">Actions</th>
+                <th className="px-4 py-3 text-left">Actions</th>
               </tr>
             </thead>
             <tbody>
-              {assessments.length === 0 && (
-                <tr>
-                  <td
-                    colSpan={4}
-                    className="px-4 py-6 text-center text-gray-500"
-                  >
-                    No risk assessments found
-                  </td>
-                </tr>
-              )}
-
               {assessments.map((assessment) => (
-                <tr
-                  key={assessment.id}
-                  className="border-t hover:bg-gray-50"
-                >
+                <tr key={assessment.id} className="border-t">
                   <td className="px-4 py-3">
                     {assessment.assessmentName}
                   </td>
                   <td className="px-4 py-3">
                     {assessment.referenceNo}
                   </td>
-                  <td className="px-4 py-3 flex items-center gap-2">
-                    {getStatusIcon(assessment.status)}
-                    {assessment.status}
-                  </td>
-                  <td className="px-4 py-3 text-right">
+                  <td className="px-4 py-3 flex gap-4">
+
+                    {/* VIEW PDF */}
+                    {assessment.pdfBlob && (
+  <button
+    onClick={() => {
+      const byteString = atob(
+        assessment.pdfBlob.split(",")[1]
+      );
+
+      const mimeString =
+        assessment.pdfBlob.split(",")[0].split(":")[1].split(";")[0];
+
+      const ab = new ArrayBuffer(byteString.length);
+      const ia = new Uint8Array(ab);
+
+      for (let i = 0; i < byteString.length; i++) {
+        ia[i] = byteString.charCodeAt(i);
+      }
+
+      const blob = new Blob([ab], { type: mimeString });
+      const url = URL.createObjectURL(blob);
+
+      window.open(url, "_blank");
+    }}
+    className="text-blue-600"
+  >
+    <FileText className="size-4" />
+  </button>
+)}
+
+
+                    {/* PRINT */}
+                    {assessment.pdfBlob && (
+                      <button
+                        onClick={() => {
+  if (!assessment.pdfBlob) return;
+
+  // Convert base64 back to Blob
+  const byteString = atob(
+    assessment.pdfBlob.split(",")[1]
+  );
+
+  const mimeString =
+    assessment.pdfBlob.split(",")[0].split(":")[1].split(";")[0];
+
+  const ab = new ArrayBuffer(byteString.length);
+  const ia = new Uint8Array(ab);
+
+  for (let i = 0; i < byteString.length; i++) {
+    ia[i] = byteString.charCodeAt(i);
+  }
+
+  const blob = new Blob([ab], { type: mimeString });
+  const url = URL.createObjectURL(blob);
+
+  const printWindow = window.open(url);
+
+  if (printWindow) {
+    printWindow.onload = () => {
+      printWindow.print();
+    };
+  }
+}}
+
+                        className="text-green-600"
+                        title="Print"
+                      >
+                        <Printer className="size-4" />
+                      </button>
+                    )}
+
+                    {/* EDIT */}
                     <button
-                      onClick={() => handleDeleteClick(assessment)}
-                      className="text-red-600 hover:text-red-800"
+  onClick={() => {
+    setEditingRA(assessment);
+    setCreatingRA(true);
+  }}
+  className="text-green-600"
+>
+  Edit
+</button>
+
+
+                    {/* DELETE */}
+                    <button
+                      onClick={() => {
+                        setSelectedAssessment(assessment);
+                        setModalOpen(true);
+                      }}
+                      className="text-red-600"
+                      title="Delete"
                     >
                       <Trash2 className="size-4" />
                     </button>
@@ -233,12 +293,21 @@ export function RiskAssessmentRegisterEnhanced() {
         </div>
       </div>
 
-      {/* CONFIRM MODAL */}
       <ConfirmDeactivationModal
         isOpen={modalOpen}
         onClose={() => setModalOpen(false)}
-        onConfirm={handleConfirmArchive}
-        itemName={selectedAssessment?.assessmentName}
+        onConfirm={() => {
+          if (selectedAssessment) {
+            const updated = assessments.filter(
+              (a) => a.id !== selectedAssessment.id
+            );
+
+            setAssessments(updated);
+            saveToStorage(updated);
+          }
+
+          setModalOpen(false);
+        }}
       />
     </div>
   );
