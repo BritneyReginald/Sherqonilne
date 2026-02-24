@@ -200,36 +200,57 @@ const buildPDF = () => {
 
 
 // ================= METHODOLOGY PAGE =================
-pdf.addPage();
+// pdf.addPage();
+// ================= CONTINUE AFTER TABLE =================
+
+// Get where the table ended
+let currentY = (pdf as any).lastAutoTable.finalY || 50;
+// const pageHeight = pdf.internal.pageSize.getHeight();
+const bottomMargin = 20;
+
+// If not enough space left for methodology header + content
+if (currentY + 40 > pageHeight - bottomMargin) {
+  pdf.addPage();
+  currentY = 20;
+} else {
+  currentY += 15;
+}
+
+// ================= METHODOLOGY =================
 
 pdf.setFontSize(18);
-pdf.text("Risk Assessment Methodology", 14, 15);
+pdf.text("Risk Assessment Methodology", 14, currentY);
+currentY += 8;
 
 pdf.setFontSize(11);
 pdf.text(
   "This methodology is used to evaluate workplace hazards by determining the level of risk before and after control measures are applied.",
   14,
-  22,
+  currentY,
   { maxWidth: pageWidth - 28 }
 );
+currentY += 15;
 
-// ===== Formula Box =====
+// ===== Formula =====
 pdf.setFontSize(12);
-pdf.text("Risk Calculation Formula", 14, 35);
+pdf.text("Risk Calculation Formula", 14, currentY);
+currentY += 7;
 
 pdf.setFontSize(11);
 pdf.text(
   "Risk Score (C) = Severity (A) × Probability (B)",
   14,
-  42
+  currentY
 );
+currentY += 12;
 
 // ===== Severity Table =====
 pdf.setFontSize(13);
-pdf.text("A. Consequence (Severity)", 14, 55);
+pdf.text("A. Consequence (Severity)", 14, currentY);
+currentY += 5;
 
 autoTable(pdf, {
-  startY: 60,
+  startY: currentY,
   head: [["Weight", "Impact"]],
   body: [
     [1, "Noticeable"],
@@ -243,12 +264,21 @@ autoTable(pdf, {
   theme: "grid",
 });
 
+currentY = (pdf as any).lastAutoTable.finalY + 10;
+
+// If probability table won't fit, move to new page
+if (currentY + 50 > pageHeight - bottomMargin) {
+  pdf.addPage();
+  currentY = 20;
+}
+
 // ===== Probability Table =====
 pdf.setFontSize(13);
-pdf.text("B. Exposure (Probability)", 14, pdf.lastAutoTable.finalY + 15);
+pdf.text("B. Exposure (Probability)", 14, currentY);
+currentY += 5;
 
 autoTable(pdf, {
-  startY: pdf.lastAutoTable.finalY + 20,
+  startY: currentY,
   head: [["Weight", "Impact", "Effect"]],
   body: [
     [1, "Conceivable", "Has never happened but is possible (e.g 1 in 1000)"],
@@ -262,12 +292,20 @@ autoTable(pdf, {
   theme: "grid",
 });
 
+currentY = (pdf as any).lastAutoTable.finalY + 10;
+
+if (currentY + 40 > pageHeight - bottomMargin) {
+  pdf.addPage();
+  currentY = 20;
+}
+
 // ===== Risk Rating Table =====
 pdf.setFontSize(13);
-pdf.text("Risk Rating Categories", 14, pdf.lastAutoTable.finalY + 15);
+pdf.text("Risk Rating Categories", 14, currentY);
+currentY += 5;
 
 autoTable(pdf, {
-  startY: pdf.lastAutoTable.finalY + 20,
+  startY: currentY,
   head: [["Risk Category", "Risk Rating"]],
   body: [
     ["Critical", "25"],
@@ -279,39 +317,42 @@ autoTable(pdf, {
   styles: { fontSize: 10 },
   headStyles: { fillColor: [40, 40, 40], textColor: 255 },
   theme: "grid",
+
   didParseCell: function (data) {
-  if (data.section === "body" && data.column.index === 1) {
-    const ratingValue = data.cell.raw;
+    // Only apply styling to body cells
+    if (data.section === "body") {
 
-    switch (ratingValue) {
-      case "25":
-        data.cell.styles.fillColor = [220, 38, 38]; // Critical - Red
-        data.cell.styles.textColor = 255;
-        break;
+      // Only apply color to Risk Rating column (column index 1)
+      if (data.column.index === 1) {
 
-      case "15 – 24":
-        data.cell.styles.fillColor = [249, 115, 22]; // High - Orange
-        data.cell.styles.textColor = 255;
-        break;
+        const category = data.row.raw[0];
 
-      case "12 – 14":
-        data.cell.styles.fillColor = [250, 204, 21]; // Substantial - Yellow
-        data.cell.styles.textColor = 0;
-        break;
+        if (category === "Critical") {
+          data.cell.styles.fillColor = [229, 57, 53];
+          data.cell.styles.textColor = 255;
+        }
 
-      case "4 – 11":
-        data.cell.styles.fillColor = [59, 130, 246]; // Possible - Blue
-        data.cell.styles.textColor = 255;
-        break;
+        if (category === "High Risk") {
+          data.cell.styles.fillColor = [255, 143, 0];
+          data.cell.styles.textColor = 255;
+        }
 
-      case "1 – 3":
-        data.cell.styles.fillColor = [34, 197, 94]; // Low - Green
-        data.cell.styles.textColor = 255;
-        break;
+        if (category === "Substantial Risk") {
+          data.cell.styles.fillColor = [255, 143, 0];
+        }
+
+        if (category === "Possible Risk") {
+          data.cell.styles.fillColor = [253, 216, 53];
+        }
+
+        if (category === "Low Risk") {
+          data.cell.styles.fillColor = [56, 142, 60];
+          data.cell.styles.textColor = 255;
+        }
+
+      }
     }
-  }
-}
-
+  },
 });
 
 // ================= GLOBAL FOOTER =================
@@ -329,26 +370,7 @@ for (let i = 1; i <= totalPages; i++) {
     pageHeight - 5
   );
 
-  // Signature block ONLY on first page
-  if (i === 1) {
-    const footerY = pageHeight - 15;
-
-    pdf.text(
-      "Prepared by: __________________________",
-      14,
-      footerY
-    );
-    pdf.text(
-      "Signature: __________________________",
-      110,
-      footerY
-    );
-    pdf.text(
-      "Date: ____________________",
-      210,
-      footerY
-    );
-  }
+  
 }
 
 

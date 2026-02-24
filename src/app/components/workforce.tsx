@@ -3,16 +3,8 @@ import { Search, Filter, Download, UserPlus, CheckCircle2, AlertTriangle, XCircl
 import { EmployeeProfile } from "@/app/components/employee-profile";
 import { useTheme } from "@/app/contexts/theme-context";
 
-interface Employee {
-  id: string;
-  employeeId: string;
-  fullName: string;
-  jobTitle: string;
-  siteLocation: string;
-  complianceStatus: "compliant" | "review" | "action";
-}
 
-const employees: Employee[] = [
+const initialEmployees = [
   {
     id: "1",
     employeeId: "EMP001",
@@ -133,7 +125,38 @@ const employees: Employee[] = [
     siteLocation: "Johannesburg Main",
     complianceStatus: "review",
   },
-];
+]
+interface Employee {
+  id: string;
+  employeeId: string;
+  fullName: string;
+  jobTitle: string;
+  siteLocation: string;
+  complianceStatus: "compliant" | "review" | "action";
+
+  // Profile details
+  email?: string;
+  phone?: string;
+  mobile?: string;
+  dateOfBirth?: string;
+  idNumber?: string;
+  gender?: string;
+  nationality?: string;
+  address?: string;
+  emergencyContact?: string;
+  emergencyPhone?: string;
+  relationship?: string;
+  department?: string;
+  reportingManager?: string;
+  employmentType?: string;
+  startDate?: string;
+  contractEndDate?: string | null;
+  salaryGrade?: string;
+  workSchedule?: string;
+}
+
+
+
 
 const sites = [
   "All Sites",
@@ -156,6 +179,8 @@ export function Workforce() {
   const [selectedStatus, setSelectedStatus] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<string | null>(null);
+  const [isAddingEmployee, setIsAddingEmployee] = useState(false);
+  const [employees, setEmployees] = useState<Employee[]>(initialEmployees);
 
   const filteredEmployees = employees.filter((employee) => {
     const matchesSite =
@@ -172,14 +197,32 @@ export function Workforce() {
   });
 
   // Show employee profile if one is selected
-  if (selectedEmployeeId) {
-    return (
-      <EmployeeProfile
-        employeeId={selectedEmployeeId}
-        onBack={() => setSelectedEmployeeId(null)}
-      />
-    );
-  }
+  if (isAddingEmployee) {
+  return (
+    <AddEmployeeForm
+      onCancel={() => setIsAddingEmployee(false)}
+      onSave={(newEmployee) => {
+  setEmployees((prev) => [...prev, newEmployee]);
+  setIsAddingEmployee(false);
+}}
+    />
+  );
+}
+
+if (selectedEmployeeId) {
+  const selectedEmployee = employees.find(
+    (emp) => emp.employeeId === selectedEmployeeId
+  );
+
+  if (!selectedEmployee) return null;
+
+  return (
+    <EmployeeProfile
+      employee={selectedEmployee}
+      onBack={() => setSelectedEmployeeId(null)}
+    />
+  );
+}
 
   return (
     <div className="h-full overflow-y-auto" style={{ backgroundColor: colors.background }}>
@@ -196,6 +239,7 @@ export function Workforce() {
               </p>
             </div>
             <button
+            onClick={() => setIsAddingEmployee(true)}
               className="px-5 py-2.5 rounded-lg font-medium text-white transition-opacity flex items-center gap-2 hover:opacity-90"
               style={{ backgroundColor: "#3B82F6" }}
             >
@@ -446,6 +490,100 @@ export function Workforce() {
 
 interface ComplianceBadgeProps {
   status: "compliant" | "review" | "action";
+}
+
+interface AddEmployeeFormProps {
+  onCancel: () => void;
+  onSave: (employee: Employee) => void;
+}
+
+function AddEmployeeForm({ onCancel, onSave }: AddEmployeeFormProps) {
+  const [formData, setFormData] = useState<Employee>({
+    id: crypto.randomUUID(),
+    employeeId: "",
+    fullName: "",
+    jobTitle: "",
+    siteLocation: "",
+    complianceStatus: "compliant",
+    
+  });
+
+  const handleChange = (field: keyof Employee, value: string) => {
+    setFormData((prev) => ({
+      ...prev,
+      [field]: value,
+    }));
+  };
+
+  return (
+    <div className="p-8">
+      <h2 className="text-2xl mb-6">Add New Employee</h2>
+
+      <div className="space-y-4 max-w-md">
+        <input
+          placeholder="Employee ID"
+          value={formData.employeeId}
+          onChange={(e) => handleChange("employeeId", e.target.value)}
+          className="w-full border p-2 rounded"
+        />
+
+        <input
+          placeholder="Full Name"
+          value={formData.fullName}
+          onChange={(e) => handleChange("fullName", e.target.value)}
+          className="w-full border p-2 rounded"
+        />
+
+        <input
+          placeholder="Job Title"
+          value={formData.jobTitle}
+          onChange={(e) => handleChange("jobTitle", e.target.value)}
+          className="w-full border p-2 rounded"
+        />
+
+        <select
+          value={formData.siteLocation}
+          onChange={(e) => handleChange("siteLocation", e.target.value)}
+          className="w-full border p-2 rounded"
+        >
+          <option value="">Select Site</option>
+          {sites.slice(1).map((site) => (
+            <option key={site} value={site}>
+              {site}
+            </option>
+          ))}
+        </select>
+
+        <select
+          value={formData.complianceStatus}
+          onChange={(e) =>
+            handleChange("complianceStatus", e.target.value as any)
+          }
+          className="w-full border p-2 rounded"
+        >
+          <option value="compliant">Compliant</option>
+          <option value="review">Review Needed</option>
+          <option value="action">Action Required</option>
+        </select>
+
+        <div className="flex gap-4 mt-6">
+          <button
+            onClick={() => onSave(formData)}
+            className="bg-blue-600 text-white px-4 py-2 rounded"
+          >
+            Save
+          </button>
+
+          <button
+            onClick={onCancel}
+            className="bg-gray-300 px-4 py-2 rounded"
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function ComplianceBadge({ status }: ComplianceBadgeProps) {
