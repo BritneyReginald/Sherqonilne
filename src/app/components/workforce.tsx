@@ -135,13 +135,13 @@ interface Employee {
   complianceStatus: "compliant" | "review" | "action";
 
   // Profile details
-  email?: string;
-  phone?: string;
-  mobile?: string;
-  dateOfBirth?: string;
-  idNumber?: string;
-  gender?: string;
-  nationality?: string;
+  email: string;
+  phone: string;
+  mobile: string;
+  dateOfBirth: string;
+  idNumber: string;
+  gender: string;
+  nationality: string;
   address?: string;
   emergencyContact?: string;
   emergencyPhone?: string;
@@ -154,8 +154,6 @@ interface Employee {
   salaryGrade?: string;
   workSchedule?: string;
 }
-
-
 
 
 const sites = [
@@ -505,6 +503,25 @@ function AddEmployeeForm({ onCancel, onSave }: AddEmployeeFormProps) {
     jobTitle: "",
     siteLocation: "",
     complianceStatus: "compliant",
+
+  email: "",
+  phone: "",
+  mobile: "",
+  dateOfBirth: "",
+  idNumber: "",
+  gender: "",
+  nationality: "",
+  address: "",
+  emergencyContact: "",
+  emergencyPhone: "",
+  relationship: "",
+  department: "",
+  reportingManager: "",
+  employmentType: "",
+  startDate: "",
+  contractEndDate: null,
+  salaryGrade: "",
+  workSchedule: "",
     
   });
 
@@ -520,6 +537,23 @@ function AddEmployeeForm({ onCancel, onSave }: AddEmployeeFormProps) {
       <h2 className="text-2xl mb-6">Add New Employee</h2>
 
       <div className="space-y-4 max-w-md">
+
+        <select
+          value={formData.complianceStatus}
+          onChange={(e) =>
+            handleChange("complianceStatus", e.target.value as any)
+          }
+          className="w-full border p-2 rounded"
+        >
+          <option value="compliant">Compliant</option>
+          <option value="review">Review Needed</option>
+          <option value="action">Action Required</option>
+        </select>
+        
+        {/* Personal Information
+        employee id, full name, date of birth, id number, gender, nationality
+        */}
+
         <input
           placeholder="Employee ID"
           value={formData.employeeId}
@@ -535,6 +569,70 @@ function AddEmployeeForm({ onCancel, onSave }: AddEmployeeFormProps) {
         />
 
         <input
+          placeholder="Date Of Birth"
+          value={formData.dateOfBirth}
+          onChange={(e) => handleChange("dateOfBirth", e.target.value)}
+          className="w-full border p-2 rounded"
+        />
+
+        <input
+          placeholder="ID Number"
+          value={formData.idNumber}
+          onChange={(e) => handleChange("idNumber", e.target.value)}
+          className="w-full border p-2 rounded"
+        />
+
+        <input
+          placeholder="Gender"
+          value={formData.gender}
+          onChange={(e) => handleChange("gender", e.target.value)}
+          className="w-full border p-2 rounded"
+        />
+
+        <input
+          placeholder="Nationality"
+          value={formData.nationality}
+          onChange={(e) => handleChange("nationality", e.target.value)}
+          className="w-full border p-2 rounded"
+        />
+
+        
+
+
+        {/* Contact details */}
+        {/* email,office phone, mobile phone, address */}
+
+        <input
+          placeholder="Email"
+          value={formData.email}
+          onChange={(e) => handleChange("email", e.target.value)}
+          className="w-full border p-2 rounded"
+        />
+
+        <input
+          placeholder="Office Phone numbers"
+          value={formData.phone}
+          onChange={(e) => handleChange("phone", e.target.value)}
+          className="w-full border p-2 rounded"
+        />
+
+        <input
+          placeholder="Mobile numbers"
+          value={formData.mobile}
+          onChange={(e) => handleChange("mobile", e.target.value)}
+          className="w-full border p-2 rounded"
+        />
+
+
+        {/* Emergency contacts
+        contact name, relationship, phone number
+         */}
+
+
+         {/* Emplployment details
+         Job Tite, department, site location, reporting manager, employment type
+          */}
+          <input
           placeholder="Job Title"
           value={formData.jobTitle}
           onChange={(e) => handleChange("jobTitle", e.target.value)}
@@ -554,17 +652,17 @@ function AddEmployeeForm({ onCancel, onSave }: AddEmployeeFormProps) {
           ))}
         </select>
 
-        <select
-          value={formData.complianceStatus}
-          onChange={(e) =>
-            handleChange("complianceStatus", e.target.value as any)
-          }
-          className="w-full border p-2 rounded"
-        >
-          <option value="compliant">Compliant</option>
-          <option value="review">Review Needed</option>
-          <option value="action">Action Required</option>
-        </select>
+
+          {/* Employment timeline
+          start date, contract end date, length of service
+           */}
+
+
+           {/* compensation and schedule
+            salary grade, work schedule
+            */}
+
+        
 
         <div className="flex gap-4 mt-6">
           <button
