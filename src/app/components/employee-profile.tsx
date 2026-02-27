@@ -9,10 +9,13 @@ import {
   Edit,
   Download,
   CheckCircle2,
+  Users,
+  Shield,
+  Network,
 } from "lucide-react";
 
 interface EmployeeProfileProps {
-  employee: any;
+  employeeId: string;
   onBack: () => void;
 }
 
@@ -34,64 +37,74 @@ const tabs = [
 ];
 
 // Mock employee data - in a real app this would come from an API
-// const employeeData = {
-//   EMP001: {
-//     employeeId: "EMP001",
-//     fullName: "Sarah Johnson",
-//     jobTitle: "Site Safety Officer",
-//     status: "Active",
-//     email: "sarah.johnson@sherq.com",
-//     phone: "+27 11 555 0123",
-//     mobile: "+27 82 555 0123",
-//     dateOfBirth: "1985-04-15",
-//     idNumber: "8504155678089",
-//     gender: "Female",
-//     nationality: "South African",
-//     address: "45 Sandton Drive, Sandton, Johannesburg, 2196",
-//     emergencyContact: "John Johnson",
-//     emergencyPhone: "+27 83 555 0124",
-//     relationship: "Spouse",
-//     siteLocation: "Johannesburg Main",
-//     department: "Health & Safety",
-//     reportingManager: "Michael Chen",
-//     employmentType: "Permanent",
-//     startDate: "2018-03-01",
-//     contractEndDate: null,
-//     salaryGrade: "Grade 5",
-//     workSchedule: "Monday - Friday, 08:00 - 17:00",
-//   },
-//   EMP002: {
-//     employeeId: "EMP002",
-//     fullName: "Michael Chen",
-//     jobTitle: "Construction Supervisor",
-//     status: "Active",
-//     email: "michael.chen@sherq.com",
-//     phone: "+27 21 555 0456",
-//     mobile: "+27 84 555 0456",
-//     dateOfBirth: "1982-09-22",
-//     idNumber: "8209225789090",
-//     gender: "Male",
-//     nationality: "South African",
-//     address: "12 Ocean View Road, Cape Town, 8001",
-//     emergencyContact: "Lisa Chen",
-//     emergencyPhone: "+27 83 555 0457",
-//     relationship: "Spouse",
-//     siteLocation: "Cape Town Depot",
-//     department: "Construction",
-//     reportingManager: "David van der Merwe",
-//     employmentType: "Permanent",
-//     startDate: "2015-06-15",
-//     contractEndDate: null,
-//     salaryGrade: "Grade 7",
-//     workSchedule: "Monday - Friday, 07:00 - 16:00",
-//   },
-// };
+const employeeData = {
+  EMP001: {
+    employeeId: "EMP001",
+    fullName: "Sarah Johnson",
+    jobTitle: "Site Safety Officer",
+    status: "Active",
+    email: "sarah.johnson@sherq.com",
+    phone: "+27 11 555 0123",
+    mobile: "+27 82 555 0123",
+    dateOfBirth: "1985-04-15",
+    idNumber: "8504155678089",
+    gender: "Female",
+    nationality: "South African",
+    address: "45 Sandton Drive, Sandton, Johannesburg, 2196",
+    emergencyContact: "John Johnson",
+    emergencyPhone: "+27 83 555 0124",
+    relationship: "Spouse",
+    siteLocation: "Johannesburg Main",
+    department: "Health & Safety",
+    reportingManager: "Michael Chen",
+    reportingManagerId: "EMP002",
+    reportingManagerJobTitle: "Construction Supervisor",
+    reportingManagerLegalAppointment: "OHS Act Section 16.1 - Construction Work",
+    division: "Operations",
+    organisationalLevel: "Operational",
+    employmentType: "Permanent",
+    startDate: "2018-03-01",
+    contractEndDate: null,
+    salaryGrade: "Grade 5",
+    workSchedule: "Monday - Friday, 08:00 - 17:00",
+  },
+  EMP002: {
+    employeeId: "EMP002",
+    fullName: "Michael Chen",
+    jobTitle: "Construction Supervisor",
+    status: "Active",
+    email: "michael.chen@sherq.com",
+    phone: "+27 21 555 0456",
+    mobile: "+27 84 555 0456",
+    dateOfBirth: "1982-09-22",
+    idNumber: "8209225789090",
+    gender: "Male",
+    nationality: "South African",
+    address: "12 Ocean View Road, Cape Town, 8001",
+    emergencyContact: "Lisa Chen",
+    emergencyPhone: "+27 83 555 0457",
+    relationship: "Spouse",
+    siteLocation: "Cape Town Depot",
+    department: "Construction",
+    reportingManager: "David van der Merwe",
+    reportingManagerId: "EMP003",
+    reportingManagerJobTitle: "General Manager - Operations",
+    reportingManagerLegalAppointment: "OHS Act Section 16.1 - Construction Work (Principal)",
+    division: "Operations",
+    organisationalLevel: "Management",
+    employmentType: "Permanent",
+    startDate: "2015-06-15",
+    contractEndDate: null,
+    salaryGrade: "Grade 7",
+    workSchedule: "Monday - Friday, 07:00 - 16:00",
+  },
+};
 
-export function EmployeeProfile({ employee, onBack }: EmployeeProfileProps) {
+export function EmployeeProfile({ employeeId, onBack }: EmployeeProfileProps) {
   const [activeTab, setActiveTab] = useState<TabType>("personal");
   
   // Get employee data or use default
-  
+  const employee = employeeData[employeeId as keyof typeof employeeData] || employeeData.EMP001;
 
   return (
     <div className="h-full flex flex-col bg-background">
@@ -297,6 +310,88 @@ function PersonalDetailsTab({ employee }: { employee: any }) {
             <InfoField label="Office Phone" value={employee.phone} />
             <InfoField label="Mobile Phone" value={employee.mobile} />
             <InfoField label="Address" value={employee.address} multiline />
+          </div>
+        </div>
+
+        {/* Reporting Structure - NEW SECTION */}
+        <div
+          className="rounded-lg border p-6"
+          style={{
+            backgroundColor: "white",
+            borderColor: "var(--grey-200)",
+          }}
+        >
+          <div className="flex items-center gap-2 mb-6">
+            <Network className="size-5" style={{ color: "var(--brand-blue)" }} />
+            <h2 className="text-xl" style={{ color: "var(--grey-900)" }}>
+              Reporting Structure
+            </h2>
+          </div>
+          <div className="space-y-4">
+            <div>
+              <p className="text-sm mb-1" style={{ color: "var(--grey-600)" }}>
+                Line Manager / Supervisor
+              </p>
+              <div className="flex items-center gap-2">
+                <div
+                  className="size-8 rounded-full flex items-center justify-center text-white text-xs font-semibold"
+                  style={{ backgroundColor: "var(--brand-blue)" }}
+                >
+                  {employee.reportingManager
+                    .split(" ")
+                    .map((n: string) => n[0])
+                    .join("")}
+                </div>
+                <div>
+                  <p className="font-medium" style={{ color: "var(--grey-900)" }}>
+                    {employee.reportingManager}
+                  </p>
+                  <p className="text-xs" style={{ color: "var(--grey-500)" }}>
+                    {employee.reportingManagerId}
+                  </p>
+                </div>
+              </div>
+            </div>
+            <InfoField
+              label="Supervisor Job Title"
+              value={employee.reportingManagerJobTitle}
+            />
+            <div>
+              <p className="text-sm mb-1" style={{ color: "var(--grey-600)" }}>
+                Supervisor Legal Appointment
+              </p>
+              <div className="flex items-center gap-2">
+                <Shield className="size-4" style={{ color: "var(--compliance-success)" }} />
+                <p style={{ color: "var(--grey-900)" }}>
+                  {employee.reportingManagerLegalAppointment}
+                </p>
+              </div>
+            </div>
+            <InfoField label="Department / Division" value={`${employee.department} / ${employee.division}`} />
+            <div>
+              <p className="text-sm mb-1" style={{ color: "var(--grey-600)" }}>
+                Organisational Level
+              </p>
+              <span
+                className="inline-block px-3 py-1 rounded-lg text-sm font-medium"
+                style={{
+                  backgroundColor:
+                    employee.organisationalLevel === "Executive"
+                      ? "rgba(147, 51, 234, 0.1)"
+                      : employee.organisationalLevel === "Management"
+                      ? "rgba(59, 130, 246, 0.1)"
+                      : "rgba(16, 185, 129, 0.1)",
+                  color:
+                    employee.organisationalLevel === "Executive"
+                      ? "#9333EA"
+                      : employee.organisationalLevel === "Management"
+                      ? "var(--brand-blue)"
+                      : "var(--compliance-success)",
+                }}
+              >
+                {employee.organisationalLevel}
+              </span>
+            </div>
           </div>
         </div>
 

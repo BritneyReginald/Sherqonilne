@@ -2,50 +2,50 @@
 
 :root {
   --font-size: 16px;
-
+  
   /* SHERQ Online Brand Colors - Updated to Dark Slate Blue Theme */
-  --brand-blue: #3b82f6; /* Bright Blue for primary actions */
-  --brand-blue-light: #60a5fa;
-  --brand-blue-dark: #2563eb;
-
+  --brand-blue: #3B82F6; /* Bright Blue for primary actions */
+  --brand-blue-light: #60A5FA;
+  --brand-blue-dark: #2563EB;
+  
   /* Dark Slate Background Colors */
-  --slate-darker: #1e293b; /* Darkest - for header/nav */
+  --slate-darker: #1E293B; /* Darkest - for header/nav */
   --slate-dark: #334155; /* Dark - for content areas */
   --slate-medium: #475569; /* Medium - for borders/dividers */
-  --slate-light: #64748b; /* Light - for muted text */
-
+  --slate-light: #64748B; /* Light - for muted text */
+  
   /* Traffic Light Compliance Colors - Keep the same for consistency */
-  --compliance-success: #10b981; /* Emerald Green - Compliant/Valid */
-  --compliance-success-light: #34d399;
+  --compliance-success: #10B981; /* Emerald Green - Compliant/Valid */
+  --compliance-success-light: #34D399;
   --compliance-success-dark: #059669;
   --compliance-success-foreground: #ffffff;
-
-  --compliance-warning: #f59e0b; /* Amber - Expiring Soon/Warning */
-  --compliance-warning-light: #fbbf24;
-  --compliance-warning-dark: #d97706;
+  
+  --compliance-warning: #F59E0B; /* Amber - Expiring Soon/Warning */
+  --compliance-warning-light: #FBBF24;
+  --compliance-warning-dark: #D97706;
   --compliance-warning-foreground: #ffffff;
-
-  --compliance-danger: #ef4444; /* Bright Red - Non-Compliant/Expired */
-  --compliance-danger-light: #f87171;
-  --compliance-danger-dark: #dc2626;
+  
+  --compliance-danger: #EF4444; /* Bright Red - Non-Compliant/Expired */
+  --compliance-danger-light: #F87171;
+  --compliance-danger-dark: #DC2626;
   --compliance-danger-foreground: #ffffff;
-
+  
   /* Neutral Greys - Updated for dark theme */
-  --grey-50: #f8fafc;
-  --grey-100: #f1f5f9;
-  --grey-200: #e2e8f0;
-  --grey-300: #cbd5e1;
-  --grey-400: #94a3b8;
-  --grey-500: #64748b;
+  --grey-50: #F8FAFC;
+  --grey-100: #F1F5F9;
+  --grey-200: #E2E8F0;
+  --grey-300: #CBD5E1;
+  --grey-400: #94A3B8;
+  --grey-500: #64748B;
   --grey-600: #475569;
   --grey-700: #334155;
-  --grey-800: #1e293b;
-  --grey-900: #0f172a;
-
+  --grey-800: #1E293B;
+  --grey-900: #0F172A;
+  
   /* Core Design Tokens - Updated for dark slate theme */
   --background: var(--slate-dark); /* Dark slate background */
   --foreground: var(--grey-50); /* Light text */
-  --card: #ffffff; /* White cards on dark background */
+  --card: #FFFFFF; /* White cards on dark background */
   --card-foreground: var(--grey-900);
   --popover: #ffffff;
   --popover-foreground: var(--grey-900);
@@ -74,7 +74,7 @@
   --chart-4: oklch(0.828 0.189 84.429);
   --chart-5: oklch(0.769 0.188 70.08);
   --radius: 0.5rem;
-  --sidebar: #ffffff; /* White sidebar */
+  --sidebar: #FFFFFF; /* White sidebar */
   --sidebar-foreground: var(--grey-900);
   --sidebar-primary: var(--brand-blue);
   --sidebar-primary-foreground: #ffffff;
@@ -82,7 +82,7 @@
   --sidebar-accent-foreground: var(--grey-900);
   --sidebar-border: var(--grey-200);
   --sidebar-ring: var(--brand-blue);
-
+  
   /* Header/Navigation specific */
   --header-background: var(--slate-darker);
   --header-foreground: var(--grey-50);
@@ -147,28 +147,28 @@
   --color-input-background: var(--input-background);
   --color-switch-background: var(--switch-background);
   --color-ring: var(--ring);
-
+  
   /* SHERQ Brand Colors */
   --color-brand-blue: var(--brand-blue);
   --color-brand-blue-light: var(--brand-blue-light);
   --color-brand-blue-dark: var(--brand-blue-dark);
-
+  
   /* Compliance Colors */
   --color-compliance-success: var(--compliance-success);
   --color-compliance-success-light: var(--compliance-success-light);
   --color-compliance-success-dark: var(--compliance-success-dark);
   --color-compliance-success-foreground: var(--compliance-success-foreground);
-
+  
   --color-compliance-warning: var(--compliance-warning);
   --color-compliance-warning-light: var(--compliance-warning-light);
   --color-compliance-warning-dark: var(--compliance-warning-dark);
   --color-compliance-warning-foreground: var(--compliance-warning-foreground);
-
+  
   --color-compliance-danger: var(--compliance-danger);
   --color-compliance-danger-light: var(--compliance-danger-light);
   --color-compliance-danger-dark: var(--compliance-danger-dark);
   --color-compliance-danger-foreground: var(--compliance-danger-foreground);
-
+  
   /* Neutral Greys */
   --color-grey-50: var(--grey-50);
   --color-grey-100: var(--grey-100);
@@ -180,7 +180,7 @@
   --color-grey-700: var(--grey-700);
   --color-grey-800: var(--grey-800);
   --color-grey-900: var(--grey-900);
-
+  
   --color-chart-1: var(--chart-1);
   --color-chart-2: var(--chart-2);
   --color-chart-3: var(--chart-3);
