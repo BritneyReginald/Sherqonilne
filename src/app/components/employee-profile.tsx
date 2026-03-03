@@ -14,6 +14,7 @@ import {
   Network,
 } from "lucide-react";
 import { TrainingMatrix } from "./training-matrix";
+import { LegalAppointments } from "./legal-appointments";
 
 interface EmployeeProfileProps {
   employeeId: string;
@@ -260,11 +261,12 @@ export function EmployeeProfile({ employeeId, onBack }: EmployeeProfileProps) {
         </div>
       </div>
 
+<div>Tabs count: {tabs.length}</div>
       {/* Tab Content */}
       <div className="flex-1 overflow-auto p-8">
         {activeTab === "personal" && <PersonalDetailsTab employee={employee} />}
         {activeTab === "appointments" && (
-          <PlaceholderTab title="Legal Appointments" />
+          <LegalAppointments employeeId={employee.employeeId} />
         )}
         {activeTab === "training" && (
           <TrainingMatrix employeeId={employee.employeeId} />

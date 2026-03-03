@@ -270,7 +270,7 @@ export function TrainingMatrix({ employeeId }: TrainingMatrixProps) {
           </div>
         </div>
       )}
-
+..
         {/* Training Records Table */}
         <div className="px-8 pb-8">
           <div

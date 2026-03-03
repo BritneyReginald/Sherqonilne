@@ -1,6 +1,24 @@
-import { useState } from "react";
-import { FileText, CheckCircle, XCircle, Clock, Plus, Upload, Download, Eye, RefreshCw, Filter, X, User, Calendar, Shield, FileCheck, Network } from "lucide-react";
+import { useEffect, useState } from "react";
+import {
+  FileText,
+  CheckCircle,
+  XCircle,
+  Clock,
+  Plus,
+  Upload,
+  Download,
+  Eye,
+  RefreshCw,
+  Filter,
+  X,
+  User,
+  Calendar,
+  Shield,
+  FileCheck,
+  Network,
+} from "lucide-react";
 import { useTheme } from "@/app/contexts/theme-context";
+import { useLegalAppointments } from "@/app/contexts/legal-appointments-context";
 
 interface LegalAppointment {
   id: string;
@@ -21,176 +39,203 @@ interface LegalAppointment {
   hierarchyLevel: number;
 }
 
-const mockAppointments: LegalAppointment[] = [
-  {
-    id: "1",
-    employeeName: "Thabo Molefe",
-    jobTitle: "Safety Officer",
-    appointmentType: "Section 16.2 - Safety Officer",
-    legalSection: "OHS Act Section 16.2",
-    startDate: new Date("2024-01-15"),
-    endDate: new Date("2027-01-14"),
-    status: "Active",
-    documentUploaded: true,
-    employeeId: "EMP-2451",
-    department: "Health & Safety",
-    signatureStatus: "Signed",
-    reportsTo: "John Doe",
-    reportsToId: "EMP-1234",
-    delegatedAuthorityScope: "Health & Safety",
-    hierarchyLevel: 2,
-  },
-  {
-    id: "2",
-    employeeName: "Zanele Dlamini",
-    jobTitle: "SHE Representative",
-    appointmentType: "Section 17 - SHE Rep",
-    legalSection: "OHS Act Section 17",
-    startDate: new Date("2025-06-01"),
-    endDate: new Date("2027-05-31"),
-    status: "Active",
-    documentUploaded: true,
-    employeeId: "EMP-2398",
-    department: "Operations",
-    signatureStatus: "Signed",
-    reportsTo: "Jane Smith",
-    reportsToId: "EMP-5678",
-    delegatedAuthorityScope: "Operations",
-    hierarchyLevel: 3,
-  },
-  {
-    id: "3",
-    employeeName: "David van der Merwe",
-    jobTitle: "First Aider",
-    appointmentType: "First Aid Officer",
-    legalSection: "OHS Act Regulation 3",
-    startDate: new Date("2023-03-10"),
-    endDate: new Date("2026-01-20"),
-    status: "Expired",
-    documentUploaded: false,
-    employeeId: "EMP-2501",
-    department: "Production",
-    signatureStatus: "Pending",
-    reportsTo: "Alice Johnson",
-    reportsToId: "EMP-9012",
-    delegatedAuthorityScope: "Production",
-    hierarchyLevel: 4,
-  },
-  {
-    id: "4",
-    employeeName: "Nandi Khumalo",
-    jobTitle: "Fire Marshal",
-    appointmentType: "Fire Safety Officer",
-    legalSection: "OHS Act Regulation 4",
-    startDate: new Date("2025-09-01"),
-    endDate: new Date("2027-08-31"),
-    status: "Active",
-    documentUploaded: true,
-    employeeId: "EMP-2467",
-    department: "Facilities",
-    signatureStatus: "Signed",
-    reportsTo: "Bob Brown",
-    reportsToId: "EMP-3456",
-    delegatedAuthorityScope: "Facilities",
-    hierarchyLevel: 2,
-  },
-  {
-    id: "5",
-    employeeName: "Peter Naidoo",
-    jobTitle: "Construction Manager",
-    appointmentType: "Section 16.1 - Construction Work",
-    legalSection: "OHS Act Section 16.1",
-    startDate: new Date("2026-02-15"),
-    endDate: new Date("2028-02-14"),
-    status: "Pending",
-    documentUploaded: false,
-    employeeId: "EMP-2489",
-    department: "Engineering",
-    signatureStatus: "Pending",
-    reportsTo: "Charlie Davis",
-    reportsToId: "EMP-7890",
-    delegatedAuthorityScope: "Engineering",
-    hierarchyLevel: 3,
-  },
-  {
-    id: "6",
-    employeeName: "Lerato Mokoena",
-    jobTitle: "Environmental Officer",
-    appointmentType: "Environmental Management",
-    legalSection: "NEMA Section 24G",
-    startDate: new Date("2024-11-01"),
-    endDate: new Date("2026-10-31"),
-    status: "Active",
-    documentUploaded: true,
-    employeeId: "EMP-2512",
-    department: "Environmental",
-    signatureStatus: "Signed",
-    reportsTo: "Diana White",
-    reportsToId: "EMP-2345",
-    delegatedAuthorityScope: "Environmental",
-    hierarchyLevel: 2,
-  },
-  {
-    id: "7",
-    employeeName: "Johan Botha",
-    jobTitle: "Safety Officer",
-    appointmentType: "Section 16.2 - Safety Officer",
-    legalSection: "OHS Act Section 16.2",
-    startDate: new Date("2023-05-01"),
-    endDate: new Date("2026-04-30"),
-    status: "Active",
-    documentUploaded: true,
-    employeeId: "EMP-2334",
-    department: "Health & Safety",
-    signatureStatus: "Signed",
-    reportsTo: "Ethan Black",
-    reportsToId: "EMP-6789",
-    delegatedAuthorityScope: "Health & Safety",
-    hierarchyLevel: 3,
-  },
-  {
-    id: "8",
-    employeeName: "Sipho Mthembu",
-    jobTitle: "Occupational Hygienist",
-    appointmentType: "Occupational Hygiene",
-    legalSection: "OHS Act Section 13",
-    startDate: new Date("2025-01-10"),
-    endDate: new Date("2027-01-09"),
-    status: "Active",
-    documentUploaded: true,
-    employeeId: "EMP-2445",
-    department: "Health & Safety",
-    signatureStatus: "Signed",
-    reportsTo: "Fiona Green",
-    reportsToId: "EMP-1011",
-    delegatedAuthorityScope: "Health & Safety",
-    hierarchyLevel: 4,
-  },
-];
+// const mockAppointments: LegalAppointment[] = [
+//   {
+//     id: "1",
+//     employeeName: "Sarah Johnson",
+//     jobTitle: "Safety Officer",
+//     appointmentType: "Section 16.2 - Safety Officer",
+//     legalSection: "OHS Act Section 16.2",
+//     startDate: new Date("2024-01-15"),
+//     endDate: new Date("2027-01-14"),
+//     status: "Active",
+//     documentUploaded: true,
+//     employeeId: "EMP001",
+//     department: "Health & Safety",
+//     signatureStatus: "Signed",
+//     reportsTo: "John Doe",
+//     reportsToId: "EMP-1234",
+//     delegatedAuthorityScope: "Health & Safety",
+//     hierarchyLevel: 2,
+//   },
+//   {
+//     id: "2",
+//     employeeName: "Zanele Dlamini",
+//     jobTitle: "SHE Representative",
+//     appointmentType: "Section 17 - SHE Rep",
+//     legalSection: "OHS Act Section 17",
+//     startDate: new Date("2025-06-01"),
+//     endDate: new Date("2027-05-31"),
+//     status: "Active",
+//     documentUploaded: true,
+//     employeeId: "EMP002",
+//     department: "Operations",
+//     signatureStatus: "Signed",
+//     reportsTo: "Jane Smith",
+//     reportsToId: "EMP-5678",
+//     delegatedAuthorityScope: "Operations",
+//     hierarchyLevel: 3,
+//   },
+//   {
+//     id: "3",
+//     employeeName: "David van der Merwe",
+//     jobTitle: "First Aider",
+//     appointmentType: "First Aid Officer",
+//     legalSection: "OHS Act Regulation 3",
+//     startDate: new Date("2023-03-10"),
+//     endDate: new Date("2026-01-20"),
+//     status: "Expired",
+//     documentUploaded: false,
+//     employeeId: "EMP003",
+//     department: "Production",
+//     signatureStatus: "Pending",
+//     reportsTo: "Alice Johnson",
+//     reportsToId: "EMP-9012",
+//     delegatedAuthorityScope: "Production",
+//     hierarchyLevel: 4,
+//   },
+//   {
+//     id: "4",
+//     employeeName: "Nandi Khumalo",
+//     jobTitle: "Fire Marshal",
+//     appointmentType: "Fire Safety Officer",
+//     legalSection: "OHS Act Regulation 4",
+//     startDate: new Date("2025-09-01"),
+//     endDate: new Date("2027-08-31"),
+//     status: "Active",
+//     documentUploaded: true,
+//     employeeId: "EMP004",
+//     department: "Facilities",
+//     signatureStatus: "Signed",
+//     reportsTo: "Bob Brown",
+//     reportsToId: "EMP-3456",
+//     delegatedAuthorityScope: "Facilities",
+//     hierarchyLevel: 2,
+//   },
+//   {
+//     id: "5",
+//     employeeName: "Peter Naidoo",
+//     jobTitle: "Construction Manager",
+//     appointmentType: "Section 16.1 - Construction Work",
+//     legalSection: "OHS Act Section 16.1",
+//     startDate: new Date("2026-02-15"),
+//     endDate: new Date("2028-02-14"),
+//     status: "Pending",
+//     documentUploaded: false,
+//     employeeId: "EMP005",
+//     department: "Engineering",
+//     signatureStatus: "Pending",
+//     reportsTo: "Charlie Davis",
+//     reportsToId: "EMP-7890",
+//     delegatedAuthorityScope: "Engineering",
+//     hierarchyLevel: 3,
+//   },
+//   {
+//     id: "6",
+//     employeeName: "Lerato Mokoena",
+//     jobTitle: "Environmental Officer",
+//     appointmentType: "Environmental Management",
+//     legalSection: "NEMA Section 24G",
+//     startDate: new Date("2024-11-01"),
+//     endDate: new Date("2026-10-31"),
+//     status: "Active",
+//     documentUploaded: true,
+//     employeeId: "EMP006",
+//     department: "Environmental",
+//     signatureStatus: "Signed",
+//     reportsTo: "Diana White",
+//     reportsToId: "EMP-2345",
+//     delegatedAuthorityScope: "Environmental",
+//     hierarchyLevel: 2,
+//   },
+//   {
+//     id: "7",
+//     employeeName: "Johan Botha",
+//     jobTitle: "Safety Officer",
+//     appointmentType: "Section 16.2 - Safety Officer",
+//     legalSection: "OHS Act Section 16.2",
+//     startDate: new Date("2023-05-01"),
+//     endDate: new Date("2026-04-30"),
+//     status: "Active",
+//     documentUploaded: true,
+//     employeeId: "EMP-2334",
+//     department: "Health & Safety",
+//     signatureStatus: "Signed",
+//     reportsTo: "Ethan Black",
+//     reportsToId: "EMP007",
+//     delegatedAuthorityScope: "Health & Safety",
+//     hierarchyLevel: 3,
+//   },
+//   {
+//     id: "8",
+//     employeeName: "Sipho Mthembu",
+//     jobTitle: "Occupational Hygienist",
+//     appointmentType: "Occupational Hygiene",
+//     legalSection: "OHS Act Section 13",
+//     startDate: new Date("2025-01-10"),
+//     endDate: new Date("2027-01-09"),
+//     status: "Active",
+//     documentUploaded: true,
+//     employeeId: "EMP-2445",
+//     department: "Health & Safety",
+//     signatureStatus: "Signed",
+//     reportsTo: "Fiona Green",
+//     reportsToId: "EMP008",
+//     delegatedAuthorityScope: "Health & Safety",
+//     hierarchyLevel: 4,
+//   },
+// ];
 
 interface LegalAppointmentsProps {
+  employeeId?: string;
   sidebarOpen?: boolean;
 }
 
-export function LegalAppointments({ sidebarOpen = true }: LegalAppointmentsProps) {
-  const { colors } = useTheme();
-  const [selectedAppointment, setSelectedAppointment] = useState<LegalAppointment | null>(mockAppointments[0]);
+export function LegalAppointments({
+  employeeId,
+  sidebarOpen = true,
+}: LegalAppointmentsProps) {
+  const isEmployeeView = !!employeeId;
+  const { appointments } = useLegalAppointments();
+
   const [filterType, setFilterType] = useState("all");
   const [filterStatus, setFilterStatus] = useState("all");
   const [showDetailPanel, setShowDetailPanel] = useState(true);
 
-  // Filter appointments
-  const filteredAppointments = mockAppointments.filter((appt) => {
-    const matchesType = filterType === "all" || appt.appointmentType.includes(filterType);
-    const matchesStatus = filterStatus === "all" || appt.status === filterStatus;
-    return matchesType && matchesStatus;
-  });
+  const filteredAppointments = appointments
+    .filter((appt) => (employeeId ? appt.employeeId === employeeId : true))
+    .filter((appt) => {
+      const matchesType =
+        filterType === "all" || appt.appointmentType.includes(filterType);
 
-  // Calculate stats
-  const totalAppointments = mockAppointments.length;
-  const activeAppointments = mockAppointments.filter((a) => a.status === "Active").length;
-  const expiredAppointments = mockAppointments.filter((a) => a.status === "Expired").length;
-  const pendingSignatures = mockAppointments.filter((a) => a.signatureStatus === "Pending").length;
+      const matchesStatus =
+        filterStatus === "all" || appt.status === filterStatus;
+
+      return matchesType && matchesStatus;
+    });
+
+  const totalAppointments = filteredAppointments.length;
+  const activeAppointments = filteredAppointments.filter(
+    (a) => a.status === "Active",
+  ).length;
+
+  const expiredAppointments = filteredAppointments.filter(
+    (a) => a.status === "Expired",
+  ).length;
+
+  const pendingSignatures = filteredAppointments.filter(
+    (a) => a.signatureStatus === "Pending",
+  ).length;
+
+  const [selectedAppointment, setSelectedAppointment] = useState(
+    filteredAppointments[0] || null,
+  );
+  useEffect(() => {
+  setSelectedAppointment(filteredAppointments[0] || null);
+}, [employeeId, filterType, filterStatus, appointments]);
+  const { colors } = useTheme();
+
+  
 
   const getStatusStyle = (status: LegalAppointment["status"]) => {
     switch (status) {
@@ -212,31 +257,41 @@ export function LegalAppointments({ sidebarOpen = true }: LegalAppointmentsProps
     }
   };
 
-  const formatDate = (date: Date) => {
-    return date.toLocaleDateString("en-ZA", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-    });
-  };
+  const formatDate = (date: Date | string) => {
+  const d = new Date(date);
+  return d.toLocaleDateString("en-ZA", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+};
 
-  const calculateDaysRemaining = (endDate: Date) => {
-    const today = new Date();
-    const diff = endDate.getTime() - today.getTime();
+  const calculateDaysRemaining = (endDate: Date | string) => {
+  const today = new Date();
+  const d = new Date(endDate);
+  const diff = d.getTime() - today.getTime();
     const days = Math.ceil(diff / (1000 * 60 * 60 * 24));
     return days;
   };
 
   return (
     <div className="min-h-full" style={{ backgroundColor: colors.background }}>
+      
       <div className="p-6">
+        {!isEmployeeView && (
+  <>
         {/* Header */}
         <div className="mb-6">
-          <h1 className="text-3xl font-bold mb-2" style={{ color: colors.primaryText }}>
+          
+          <h1
+            className="text-3xl font-bold mb-2"
+            style={{ color: colors.primaryText }}
+          >
             Legal Appointments
           </h1>
           <p className="text-sm" style={{ color: colors.subText }}>
-            Manage OHS Act appointments, legal designations, and compliance documentation
+            Manage OHS Act appointments, legal designations, and compliance
+            documentation
           </p>
         </div>
 
@@ -258,7 +313,10 @@ export function LegalAppointments({ sidebarOpen = true }: LegalAppointmentsProps
                 <p className="text-sm mb-1" style={{ color: colors.subText }}>
                   Total Appointments
                 </p>
-                <p className="text-3xl font-bold" style={{ color: colors.primaryText }}>
+                <p
+                  className="text-3xl font-bold"
+                  style={{ color: colors.primaryText }}
+                >
                   {totalAppointments}
                 </p>
               </div>
@@ -375,7 +433,10 @@ export function LegalAppointments({ sidebarOpen = true }: LegalAppointmentsProps
             <div className="flex flex-wrap items-center gap-3">
               <div className="flex items-center gap-2">
                 <Filter className="size-4" style={{ color: colors.subText }} />
-                <span className="text-sm font-medium" style={{ color: colors.primaryText }}>
+                <span
+                  className="text-sm font-medium"
+                  style={{ color: colors.primaryText }}
+                >
                   Filters:
                 </span>
               </div>
@@ -445,10 +506,12 @@ export function LegalAppointments({ sidebarOpen = true }: LegalAppointmentsProps
                   color: "#3B82F6",
                 }}
                 onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor = "rgba(59, 130, 246, 0.2)";
+                  e.currentTarget.style.backgroundColor =
+                    "rgba(59, 130, 246, 0.2)";
                 }}
                 onMouseLeave={(e) => {
-                  e.currentTarget.style.backgroundColor = "rgba(59, 130, 246, 0.1)";
+                  e.currentTarget.style.backgroundColor =
+                    "rgba(59, 130, 246, 0.1)";
                 }}
               >
                 <Upload className="size-4" />
@@ -462,10 +525,12 @@ export function LegalAppointments({ sidebarOpen = true }: LegalAppointmentsProps
                   color: "#3B82F6",
                 }}
                 onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor = "rgba(59, 130, 246, 0.2)";
+                  e.currentTarget.style.backgroundColor =
+                    "rgba(59, 130, 246, 0.2)";
                 }}
                 onMouseLeave={(e) => {
-                  e.currentTarget.style.backgroundColor = "rgba(59, 130, 246, 0.1)";
+                  e.currentTarget.style.backgroundColor =
+                    "rgba(59, 130, 246, 0.1)";
                 }}
               >
                 <Download className="size-4" />
@@ -491,6 +556,8 @@ export function LegalAppointments({ sidebarOpen = true }: LegalAppointmentsProps
             </div>
           </div>
         </div>
+        </>
+        )}
 
         {/* Main Content Area: Table + Detail Panel */}
         <div className="grid grid-cols-12 gap-6">
@@ -580,10 +647,10 @@ export function LegalAppointments({ sidebarOpen = true }: LegalAppointmentsProps
                         backgroundColor: isSelected
                           ? "rgba(59, 130, 246, 0.15)"
                           : isEven
-                          ? colors.surface
-                          : colors.background === "#0F172A"
-                          ? "rgba(15, 23, 42, 0.4)"
-                          : "rgba(0, 0, 0, 0.02)",
+                            ? colors.surface
+                            : colors.background === "#0F172A"
+                              ? "rgba(15, 23, 42, 0.4)"
+                              : "rgba(0, 0, 0, 0.02)",
                       }}
                       onClick={() => {
                         setSelectedAppointment(appointment);
@@ -591,7 +658,8 @@ export function LegalAppointments({ sidebarOpen = true }: LegalAppointmentsProps
                       }}
                       onMouseEnter={(e) => {
                         if (!isSelected) {
-                          e.currentTarget.style.backgroundColor = "rgba(59, 130, 246, 0.08)";
+                          e.currentTarget.style.backgroundColor =
+                            "rgba(59, 130, 246, 0.08)";
                         }
                       }}
                       onMouseLeave={(e) => {
@@ -599,8 +667,8 @@ export function LegalAppointments({ sidebarOpen = true }: LegalAppointmentsProps
                           e.currentTarget.style.backgroundColor = isEven
                             ? colors.surface
                             : colors.background === "#0F172A"
-                            ? "rgba(15, 23, 42, 0.4)"
-                            : "rgba(0, 0, 0, 0.02)";
+                              ? "rgba(15, 23, 42, 0.4)"
+                              : "rgba(0, 0, 0, 0.02)";
                         }
                       }}
                     >
@@ -612,7 +680,10 @@ export function LegalAppointments({ sidebarOpen = true }: LegalAppointmentsProps
                             backgroundColor: "rgba(59, 130, 246, 0.15)",
                           }}
                         >
-                          <User className="size-4" style={{ color: "#3B82F6" }} />
+                          <User
+                            className="size-4"
+                            style={{ color: "#3B82F6" }}
+                          />
                         </div>
                         <div className="min-w-0">
                           <p
@@ -621,7 +692,10 @@ export function LegalAppointments({ sidebarOpen = true }: LegalAppointmentsProps
                           >
                             {appointment.employeeName}
                           </p>
-                          <p className="text-xs truncate" style={{ color: colors.subText }}>
+                          <p
+                            className="text-xs truncate"
+                            style={{ color: colors.subText }}
+                          >
                             {appointment.jobTitle}
                           </p>
                         </div>
@@ -636,7 +710,10 @@ export function LegalAppointments({ sidebarOpen = true }: LegalAppointmentsProps
                           >
                             {appointment.appointmentType}
                           </p>
-                          <p className="text-xs truncate" style={{ color: colors.subText }}>
+                          <p
+                            className="text-xs truncate"
+                            style={{ color: colors.subText }}
+                          >
                             {appointment.legalSection}
                           </p>
                         </div>
@@ -644,7 +721,10 @@ export function LegalAppointments({ sidebarOpen = true }: LegalAppointmentsProps
 
                       {/* End Date */}
                       <div className="col-span-1 flex items-center">
-                        <p className="text-sm" style={{ color: colors.primaryText }}>
+                        <p
+                          className="text-sm"
+                          style={{ color: colors.primaryText }}
+                        >
                           {formatDate(appointment.endDate)}
                         </p>
                       </div>
@@ -662,9 +742,15 @@ export function LegalAppointments({ sidebarOpen = true }: LegalAppointmentsProps
                       {/* Document */}
                       <div className="col-span-1 flex items-center">
                         {appointment.documentUploaded ? (
-                          <CheckCircle className="size-5" style={{ color: "#10B981" }} />
+                          <CheckCircle
+                            className="size-5"
+                            style={{ color: "#10B981" }}
+                          />
                         ) : (
-                          <XCircle className="size-5" style={{ color: "#EF4444" }} />
+                          <XCircle
+                            className="size-5"
+                            style={{ color: "#EF4444" }}
+                          />
                         )}
                       </div>
 
@@ -682,7 +768,10 @@ export function LegalAppointments({ sidebarOpen = true }: LegalAppointmentsProps
                           }}
                           title="View Details"
                         >
-                          <Eye className="size-4" style={{ color: "#3B82F6" }} />
+                          <Eye
+                            className="size-4"
+                            style={{ color: "#3B82F6" }}
+                          />
                         </button>
                       </div>
                     </div>
@@ -724,7 +813,8 @@ export function LegalAppointments({ sidebarOpen = true }: LegalAppointmentsProps
                         {selectedAppointment.employeeName}
                       </h3>
                       <p className="text-sm" style={{ color: colors.subText }}>
-                        {selectedAppointment.employeeId} • {selectedAppointment.jobTitle}
+                        {selectedAppointment.employeeId} •{" "}
+                        {selectedAppointment.jobTitle}
                       </p>
                     </div>
                   </div>
@@ -742,21 +832,33 @@ export function LegalAppointments({ sidebarOpen = true }: LegalAppointmentsProps
                 {/* Appointment Details */}
                 <div className="space-y-4 mb-6">
                   <div>
-                    <p className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: colors.subText }}>
+                    <p
+                      className="text-xs font-semibold uppercase tracking-wider mb-1"
+                      style={{ color: colors.subText }}
+                    >
                       Appointment Type
                     </p>
-                    <p className="text-sm font-medium" style={{ color: colors.primaryText }}>
+                    <p
+                      className="text-sm font-medium"
+                      style={{ color: colors.primaryText }}
+                    >
                       {selectedAppointment.appointmentType}
                     </p>
                   </div>
 
                   <div>
-                    <p className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: colors.subText }}>
+                    <p
+                      className="text-xs font-semibold uppercase tracking-wider mb-1"
+                      style={{ color: colors.subText }}
+                    >
                       Legal Section
                     </p>
                     <div className="flex items-center gap-2">
                       <Shield className="size-4" style={{ color: "#3B82F6" }} />
-                      <p className="text-sm font-medium" style={{ color: colors.primaryText }}>
+                      <p
+                        className="text-sm font-medium"
+                        style={{ color: colors.primaryText }}
+                      >
                         {selectedAppointment.legalSection}
                       </p>
                     </div>
@@ -765,7 +867,10 @@ export function LegalAppointments({ sidebarOpen = true }: LegalAppointmentsProps
                   {/* Reporting Relationship */}
                   {selectedAppointment.reportsTo && (
                     <div>
-                      <p className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: colors.subText }}>
+                      <p
+                        className="text-xs font-semibold uppercase tracking-wider mb-1"
+                        style={{ color: colors.subText }}
+                      >
                         Reports To
                       </p>
                       <div className="flex items-center gap-2">
@@ -779,10 +884,16 @@ export function LegalAppointments({ sidebarOpen = true }: LegalAppointmentsProps
                             .join("")}
                         </div>
                         <div>
-                          <p className="text-sm font-medium" style={{ color: colors.primaryText }}>
+                          <p
+                            className="text-sm font-medium"
+                            style={{ color: colors.primaryText }}
+                          >
                             {selectedAppointment.reportsTo}
                           </p>
-                          <p className="text-xs" style={{ color: colors.subText }}>
+                          <p
+                            className="text-xs"
+                            style={{ color: colors.subText }}
+                          >
                             {selectedAppointment.reportsToId}
                           </p>
                         </div>
@@ -792,17 +903,26 @@ export function LegalAppointments({ sidebarOpen = true }: LegalAppointmentsProps
 
                   {/* Delegated Authority Scope */}
                   <div>
-                    <p className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: colors.subText }}>
+                    <p
+                      className="text-xs font-semibold uppercase tracking-wider mb-1"
+                      style={{ color: colors.subText }}
+                    >
                       Delegated Authority Scope
                     </p>
-                    <p className="text-sm" style={{ color: colors.primaryText }}>
+                    <p
+                      className="text-sm"
+                      style={{ color: colors.primaryText }}
+                    >
                       {selectedAppointment.delegatedAuthorityScope}
                     </p>
                   </div>
 
                   {/* Appointment Hierarchy Level */}
                   <div>
-                    <p className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: colors.subText }}>
+                    <p
+                      className="text-xs font-semibold uppercase tracking-wider mb-1"
+                      style={{ color: colors.subText }}
+                    >
                       Appointment Hierarchy Level
                     </p>
                     <div className="flex items-center gap-2">
@@ -815,37 +935,58 @@ export function LegalAppointments({ sidebarOpen = true }: LegalAppointmentsProps
                       >
                         Level {selectedAppointment.hierarchyLevel}
                       </span>
-                      <span className="text-xs" style={{ color: colors.subText }}>
+                      <span
+                        className="text-xs"
+                        style={{ color: colors.subText }}
+                      >
                         {selectedAppointment.hierarchyLevel === 1
                           ? "Principal Appointment"
                           : selectedAppointment.hierarchyLevel === 2
-                          ? "Senior Authority"
-                          : selectedAppointment.hierarchyLevel === 3
-                          ? "Mid-level Authority"
-                          : "Operational Level"}
+                            ? "Senior Authority"
+                            : selectedAppointment.hierarchyLevel === 3
+                              ? "Mid-level Authority"
+                              : "Operational Level"}
                       </span>
                     </div>
                   </div>
 
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <p className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: colors.subText }}>
+                      <p
+                        className="text-xs font-semibold uppercase tracking-wider mb-1"
+                        style={{ color: colors.subText }}
+                      >
                         Start Date
                       </p>
                       <div className="flex items-center gap-2">
-                        <Calendar className="size-4" style={{ color: colors.subText }} />
-                        <p className="text-sm" style={{ color: colors.primaryText }}>
+                        <Calendar
+                          className="size-4"
+                          style={{ color: colors.subText }}
+                        />
+                        <p
+                          className="text-sm"
+                          style={{ color: colors.primaryText }}
+                        >
                           {formatDate(selectedAppointment.startDate)}
                         </p>
                       </div>
                     </div>
                     <div>
-                      <p className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: colors.subText }}>
+                      <p
+                        className="text-xs font-semibold uppercase tracking-wider mb-1"
+                        style={{ color: colors.subText }}
+                      >
                         End Date
                       </p>
                       <div className="flex items-center gap-2">
-                        <Calendar className="size-4" style={{ color: colors.subText }} />
-                        <p className="text-sm" style={{ color: colors.primaryText }}>
+                        <Calendar
+                          className="size-4"
+                          style={{ color: colors.subText }}
+                        />
+                        <p
+                          className="text-sm"
+                          style={{ color: colors.primaryText }}
+                        >
                           {formatDate(selectedAppointment.endDate)}
                         </p>
                       </div>
@@ -853,16 +994,31 @@ export function LegalAppointments({ sidebarOpen = true }: LegalAppointmentsProps
                   </div>
 
                   <div>
-                    <p className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: colors.subText }}>
+                    <p
+                      className="text-xs font-semibold uppercase tracking-wider mb-1"
+                      style={{ color: colors.subText }}
+                    >
                       Days Remaining
                     </p>
-                    <p className="text-sm font-medium" style={{ color: calculateDaysRemaining(selectedAppointment.endDate) < 90 ? "#F59E0B" : "#10B981" }}>
+                    <p
+                      className="text-sm font-medium"
+                      style={{
+                        color:
+                          calculateDaysRemaining(selectedAppointment.endDate) <
+                          90
+                            ? "#F59E0B"
+                            : "#10B981",
+                      }}
+                    >
                       {calculateDaysRemaining(selectedAppointment.endDate)} days
                     </p>
                   </div>
 
                   <div>
-                    <p className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: colors.subText }}>
+                    <p
+                      className="text-xs font-semibold uppercase tracking-wider mb-1"
+                      style={{ color: colors.subText }}
+                    >
                       Status
                     </p>
                     <span
@@ -874,10 +1030,16 @@ export function LegalAppointments({ sidebarOpen = true }: LegalAppointmentsProps
                   </div>
 
                   <div>
-                    <p className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: colors.subText }}>
+                    <p
+                      className="text-xs font-semibold uppercase tracking-wider mb-1"
+                      style={{ color: colors.subText }}
+                    >
                       Department
                     </p>
-                    <p className="text-sm" style={{ color: colors.primaryText }}>
+                    <p
+                      className="text-sm"
+                      style={{ color: colors.primaryText }}
+                    >
                       {selectedAppointment.department}
                     </p>
                   </div>
@@ -894,33 +1056,61 @@ export function LegalAppointments({ sidebarOpen = true }: LegalAppointmentsProps
                   }}
                 >
                   <div className="flex items-center justify-between mb-3">
-                    <p className="text-sm font-semibold" style={{ color: colors.primaryText }}>
+                    <p
+                      className="text-sm font-semibold"
+                      style={{ color: colors.primaryText }}
+                    >
                       Appointment Letter
                     </p>
                     {selectedAppointment.documentUploaded ? (
                       <div className="flex items-center gap-2">
-                        <CheckCircle className="size-4" style={{ color: "#10B981" }} />
-                        <span className="text-xs font-medium" style={{ color: "#10B981" }}>
+                        <CheckCircle
+                          className="size-4"
+                          style={{ color: "#10B981" }}
+                        />
+                        <span
+                          className="text-xs font-medium"
+                          style={{ color: "#10B981" }}
+                        >
                           Uploaded
                         </span>
                       </div>
                     ) : (
                       <div className="flex items-center gap-2">
-                        <XCircle className="size-4" style={{ color: "#EF4444" }} />
-                        <span className="text-xs font-medium" style={{ color: "#EF4444" }}>
+                        <XCircle
+                          className="size-4"
+                          style={{ color: "#EF4444" }}
+                        />
+                        <span
+                          className="text-xs font-medium"
+                          style={{ color: "#EF4444" }}
+                        >
                           Missing
                         </span>
                       </div>
                     )}
                   </div>
                   {selectedAppointment.documentUploaded ? (
-                    <div className="flex items-center gap-3 p-3 rounded-lg" style={{ backgroundColor: colors.surface }}>
-                      <FileCheck className="size-8" style={{ color: "#3B82F6" }} />
+                    <div
+                      className="flex items-center gap-3 p-3 rounded-lg"
+                      style={{ backgroundColor: colors.surface }}
+                    >
+                      <FileCheck
+                        className="size-8"
+                        style={{ color: "#3B82F6" }}
+                      />
                       <div className="flex-1">
-                        <p className="text-sm font-medium" style={{ color: colors.primaryText }}>
-                          Appointment_Letter_{selectedAppointment.employeeId}.pdf
+                        <p
+                          className="text-sm font-medium"
+                          style={{ color: colors.primaryText }}
+                        >
+                          Appointment_Letter_{selectedAppointment.employeeId}
+                          .pdf
                         </p>
-                        <p className="text-xs" style={{ color: colors.subText }}>
+                        <p
+                          className="text-xs"
+                          style={{ color: colors.subText }}
+                        >
                           Uploaded: {formatDate(selectedAppointment.startDate)}
                         </p>
                       </div>
@@ -928,7 +1118,10 @@ export function LegalAppointments({ sidebarOpen = true }: LegalAppointmentsProps
                         className="p-2 rounded-lg transition-colors"
                         style={{ backgroundColor: "rgba(59, 130, 246, 0.1)" }}
                       >
-                        <Download className="size-4" style={{ color: "#3B82F6" }} />
+                        <Download
+                          className="size-4"
+                          style={{ color: "#3B82F6" }}
+                        />
                       </button>
                     </div>
                   ) : (
@@ -940,7 +1133,8 @@ export function LegalAppointments({ sidebarOpen = true }: LegalAppointmentsProps
                       }}
                       onMouseEnter={(e) => {
                         e.currentTarget.style.borderColor = "#3B82F6";
-                        e.currentTarget.style.backgroundColor = "rgba(59, 130, 246, 0.05)";
+                        e.currentTarget.style.backgroundColor =
+                          "rgba(59, 130, 246, 0.05)";
                       }}
                       onMouseLeave={(e) => {
                         e.currentTarget.style.borderColor = "#64748B";
@@ -974,7 +1168,10 @@ export function LegalAppointments({ sidebarOpen = true }: LegalAppointmentsProps
                       }}
                     />
                     <div>
-                      <p className="text-sm font-semibold" style={{ color: colors.primaryText }}>
+                      <p
+                        className="text-sm font-semibold"
+                        style={{ color: colors.primaryText }}
+                      >
                         Signature Status
                       </p>
                       <p className="text-xs" style={{ color: colors.subText }}>
@@ -995,10 +1192,12 @@ export function LegalAppointments({ sidebarOpen = true }: LegalAppointmentsProps
                       color: "#3B82F6",
                     }}
                     onMouseEnter={(e) => {
-                      e.currentTarget.style.backgroundColor = "rgba(59, 130, 246, 0.2)";
+                      e.currentTarget.style.backgroundColor =
+                        "rgba(59, 130, 246, 0.2)";
                     }}
                     onMouseLeave={(e) => {
-                      e.currentTarget.style.backgroundColor = "rgba(59, 130, 246, 0.1)";
+                      e.currentTarget.style.backgroundColor =
+                        "rgba(59, 130, 246, 0.1)";
                     }}
                   >
                     <RefreshCw className="size-4" />
