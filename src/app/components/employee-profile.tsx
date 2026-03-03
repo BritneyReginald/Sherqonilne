@@ -13,6 +13,7 @@ import {
   Shield,
   Network,
 } from "lucide-react";
+import { TrainingMatrix } from "./training-matrix";
 
 interface EmployeeProfileProps {
   employeeId: string;
@@ -59,7 +60,8 @@ const employeeData = {
     reportingManager: "Michael Chen",
     reportingManagerId: "EMP002",
     reportingManagerJobTitle: "Construction Supervisor",
-    reportingManagerLegalAppointment: "OHS Act Section 16.1 - Construction Work",
+    reportingManagerLegalAppointment:
+      "OHS Act Section 16.1 - Construction Work",
     division: "Operations",
     organisationalLevel: "Operational",
     employmentType: "Permanent",
@@ -89,7 +91,8 @@ const employeeData = {
     reportingManager: "David van der Merwe",
     reportingManagerId: "EMP003",
     reportingManagerJobTitle: "General Manager - Operations",
-    reportingManagerLegalAppointment: "OHS Act Section 16.1 - Construction Work (Principal)",
+    reportingManagerLegalAppointment:
+      "OHS Act Section 16.1 - Construction Work (Principal)",
     division: "Operations",
     organisationalLevel: "Management",
     employmentType: "Permanent",
@@ -102,14 +105,19 @@ const employeeData = {
 
 export function EmployeeProfile({ employeeId, onBack }: EmployeeProfileProps) {
   const [activeTab, setActiveTab] = useState<TabType>("personal");
-  
+
   // Get employee data or use default
-  const employee = employeeData[employeeId as keyof typeof employeeData] || employeeData.EMP001;
+  const employee =
+    employeeData[employeeId as keyof typeof employeeData] ||
+    employeeData.EMP001;
 
   return (
     <div className="h-full flex flex-col bg-background">
       {/* Back Button */}
-      <div className="px-8 py-4 border-b" style={{ borderColor: "var(--grey-200)" }}>
+      <div
+        className="px-8 py-4 border-b"
+        style={{ borderColor: "var(--grey-200)" }}
+      >
         <button
           onClick={onBack}
           className="flex items-center gap-2 text-sm hover:underline"
@@ -158,7 +166,10 @@ export function EmployeeProfile({ employeeId, onBack }: EmployeeProfileProps) {
               <p className="text-lg mb-3" style={{ color: "var(--grey-600)" }}>
                 {employee.jobTitle}
               </p>
-              <div className="flex items-center gap-6 text-sm" style={{ color: "var(--grey-600)" }}>
+              <div
+                className="flex items-center gap-6 text-sm"
+                style={{ color: "var(--grey-600)" }}
+              >
                 <div className="flex items-center gap-2">
                   <Mail className="size-4" />
                   {employee.email}
@@ -252,11 +263,19 @@ export function EmployeeProfile({ employeeId, onBack }: EmployeeProfileProps) {
       {/* Tab Content */}
       <div className="flex-1 overflow-auto p-8">
         {activeTab === "personal" && <PersonalDetailsTab employee={employee} />}
-        {activeTab === "appointments" && <PlaceholderTab title="Legal Appointments" />}
-        {activeTab === "training" && <PlaceholderTab title="Training Matrix" />}
-        {activeTab === "medical" && <PlaceholderTab title="Medical Surveillance" />}
+        {activeTab === "appointments" && (
+          <PlaceholderTab title="Legal Appointments" />
+        )}
+        {activeTab === "training" && (
+          <TrainingMatrix employeeId={employee.employeeId} />
+        )}
+        {activeTab === "medical" && (
+          <PlaceholderTab title="Medical Surveillance" />
+        )}
         {activeTab === "ppe" && <PlaceholderTab title="PPE Issued" />}
-        {activeTab === "documents" && <PlaceholderTab title="Scanned Documents" />}
+        {activeTab === "documents" && (
+          <PlaceholderTab title="Scanned Documents" />
+        )}
       </div>
     </div>
   );
@@ -282,11 +301,14 @@ function PersonalDetailsTab({ employee }: { employee: any }) {
             <InfoField label="Full Name" value={employee.fullName} />
             <InfoField
               label="Date of Birth"
-              value={new Date(employee.dateOfBirth).toLocaleDateString("en-ZA", {
-                year: "numeric",
-                month: "long",
-                day: "numeric",
-              })}
+              value={new Date(employee.dateOfBirth).toLocaleDateString(
+                "en-ZA",
+                {
+                  year: "numeric",
+                  month: "long",
+                  day: "numeric",
+                },
+              )}
             />
             <InfoField label="ID Number" value={employee.idNumber} />
             <InfoField label="Gender" value={employee.gender} />
@@ -322,7 +344,10 @@ function PersonalDetailsTab({ employee }: { employee: any }) {
           }}
         >
           <div className="flex items-center gap-2 mb-6">
-            <Network className="size-5" style={{ color: "var(--brand-blue)" }} />
+            <Network
+              className="size-5"
+              style={{ color: "var(--brand-blue)" }}
+            />
             <h2 className="text-xl" style={{ color: "var(--grey-900)" }}>
               Reporting Structure
             </h2>
@@ -343,7 +368,10 @@ function PersonalDetailsTab({ employee }: { employee: any }) {
                     .join("")}
                 </div>
                 <div>
-                  <p className="font-medium" style={{ color: "var(--grey-900)" }}>
+                  <p
+                    className="font-medium"
+                    style={{ color: "var(--grey-900)" }}
+                  >
                     {employee.reportingManager}
                   </p>
                   <p className="text-xs" style={{ color: "var(--grey-500)" }}>
@@ -361,13 +389,19 @@ function PersonalDetailsTab({ employee }: { employee: any }) {
                 Supervisor Legal Appointment
               </p>
               <div className="flex items-center gap-2">
-                <Shield className="size-4" style={{ color: "var(--compliance-success)" }} />
+                <Shield
+                  className="size-4"
+                  style={{ color: "var(--compliance-success)" }}
+                />
                 <p style={{ color: "var(--grey-900)" }}>
                   {employee.reportingManagerLegalAppointment}
                 </p>
               </div>
             </div>
-            <InfoField label="Department / Division" value={`${employee.department} / ${employee.division}`} />
+            <InfoField
+              label="Department / Division"
+              value={`${employee.department} / ${employee.division}`}
+            />
             <div>
               <p className="text-sm mb-1" style={{ color: "var(--grey-600)" }}>
                 Organisational Level
@@ -379,14 +413,14 @@ function PersonalDetailsTab({ employee }: { employee: any }) {
                     employee.organisationalLevel === "Executive"
                       ? "rgba(147, 51, 234, 0.1)"
                       : employee.organisationalLevel === "Management"
-                      ? "rgba(59, 130, 246, 0.1)"
-                      : "rgba(16, 185, 129, 0.1)",
+                        ? "rgba(59, 130, 246, 0.1)"
+                        : "rgba(16, 185, 129, 0.1)",
                   color:
                     employee.organisationalLevel === "Executive"
                       ? "#9333EA"
                       : employee.organisationalLevel === "Management"
-                      ? "var(--brand-blue)"
-                      : "var(--compliance-success)",
+                        ? "var(--brand-blue)"
+                        : "var(--compliance-success)",
                 }}
               >
                 {employee.organisationalLevel}
@@ -428,8 +462,14 @@ function PersonalDetailsTab({ employee }: { employee: any }) {
             <InfoField label="Job Title" value={employee.jobTitle} />
             <InfoField label="Department" value={employee.department} />
             <InfoField label="Site Location" value={employee.siteLocation} />
-            <InfoField label="Reporting Manager" value={employee.reportingManager} />
-            <InfoField label="Employment Type" value={employee.employmentType} />
+            <InfoField
+              label="Reporting Manager"
+              value={employee.reportingManager}
+            />
+            <InfoField
+              label="Employment Type"
+              value={employee.employmentType}
+            />
           </div>
         </div>
 
@@ -477,7 +517,11 @@ function PersonalDetailsTab({ employee }: { employee: any }) {
           </h2>
           <div className="space-y-4">
             <InfoField label="Salary Grade" value={employee.salaryGrade} />
-            <InfoField label="Work Schedule" value={employee.workSchedule} multiline />
+            <InfoField
+              label="Work Schedule"
+              value={employee.workSchedule}
+              multiline
+            />
           </div>
         </div>
       </div>
@@ -499,10 +543,7 @@ function InfoField({
       <p className="text-sm mb-1" style={{ color: "var(--grey-600)" }}>
         {label}
       </p>
-      <p
-        className={multiline ? "" : ""}
-        style={{ color: "var(--grey-900)" }}
-      >
+      <p className={multiline ? "" : ""} style={{ color: "var(--grey-900)" }}>
         {value}
       </p>
     </div>
@@ -539,11 +580,11 @@ function calculateServiceLength(startDate: string): string {
   const now = new Date();
   const years = now.getFullYear() - start.getFullYear();
   const months = now.getMonth() - start.getMonth();
-  
+
   let totalMonths = years * 12 + months;
   const yearsPart = Math.floor(totalMonths / 12);
   const monthsPart = totalMonths % 12;
-  
+
   if (yearsPart === 0) {
     return `${monthsPart} month${monthsPart !== 1 ? "s" : ""}`;
   } else if (monthsPart === 0) {

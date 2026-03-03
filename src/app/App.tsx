@@ -3,13 +3,16 @@ import { Toaster } from "sonner";
 import { ThemeProvider } from "@/app/contexts/theme-context";
 import { AlertProvider } from "@/app/contexts/alert-context";
 import { SiteFilterProvider } from "@/app/contexts/site-filter-context";
+import { TrainingProvider } from "@/app/contexts/training-context";
 
 export default function App() {
   return (
     <ThemeProvider>
       <AlertProvider>
         <SiteFilterProvider>
+          <TrainingProvider>
           <AppShell />
+          </TrainingProvider>
           <Toaster 
             position="bottom-center"
             toastOptions={{
