@@ -15,6 +15,8 @@ import {
 } from "lucide-react";
 import { TrainingMatrix } from "./training-matrix";
 import { LegalAppointments } from "./legal-appointments";
+import { MedicalSurveillanceEnhanced } from "./medical-surveillance-enhanced";
+import { PPERegister } from "./ppe-register";
 
 interface EmployeeProfileProps {
   employeeId: string;
@@ -261,7 +263,7 @@ export function EmployeeProfile({ employeeId, onBack }: EmployeeProfileProps) {
         </div>
       </div>
 
-<div>Tabs count: {tabs.length}</div>
+      <div>Tabs count: {tabs.length}</div>
       {/* Tab Content */}
       <div className="flex-1 overflow-auto p-8">
         {activeTab === "personal" && <PersonalDetailsTab employee={employee} />}
@@ -272,9 +274,11 @@ export function EmployeeProfile({ employeeId, onBack }: EmployeeProfileProps) {
           <TrainingMatrix employeeId={employee.employeeId} />
         )}
         {activeTab === "medical" && (
-          <PlaceholderTab title="Medical Surveillance" />
+          <MedicalSurveillanceEnhanced employeeId={employee.employeeId} />
         )}
-        {activeTab === "ppe" && <PlaceholderTab title="PPE Issued" />}
+        {activeTab === "ppe" && (
+  <PPERegister employeeId={employee.employeeId} />
+)}
         {activeTab === "documents" && (
           <PlaceholderTab title="Scanned Documents" />
         )}

@@ -8,6 +8,7 @@ import { useAlerts } from "@/app/contexts/alert-context";
 interface PPETransaction {
   id: string;
   employeeName: string;
+  employeeId: string;
   jobTitle: string;
   ppeType: string;
   ppeBrand: string;
@@ -24,6 +25,7 @@ const ppeTransactions: PPETransaction[] = [
   {
     id: "PPE-24-089",
     employeeName: "Sarah Jenkins",
+    employeeId: "EMP001",
     jobTitle: "Welder",
     ppeType: "Safety Boots",
     ppeBrand: "Bova Maverick",
@@ -38,6 +40,7 @@ const ppeTransactions: PPETransaction[] = [
   {
     id: "PPE-24-088",
     employeeName: "Michael Chen",
+    employeeId: "EMP002",
     jobTitle: "Construction Supervisor",
     ppeType: "Hard Hat",
     ppeBrand: "3M SecureFit",
@@ -52,6 +55,7 @@ const ppeTransactions: PPETransaction[] = [
   {
     id: "PPE-24-087",
     employeeName: "John Smith",
+    employeeId: "EMP003",
     jobTitle: "Electrician",
     ppeType: "Safety Goggles",
     ppeBrand: "Honeywell Uvex",
@@ -65,6 +69,7 @@ const ppeTransactions: PPETransaction[] = [
   {
     id: "PPE-24-086",
     employeeName: "Emma Thompson",
+    employeeId: "EMP004",
     jobTitle: "Environmental Officer",
     ppeType: "High-Vis Vest",
     ppeBrand: "ProChoice Safety Gear",
@@ -79,6 +84,7 @@ const ppeTransactions: PPETransaction[] = [
   {
     id: "PPE-24-085",
     employeeName: "David van der Merwe",
+    employeeId: "EMP005",
     jobTitle: "Operations Manager",
     ppeType: "Safety Boots",
     ppeBrand: "Caterpillar Holton",
@@ -93,6 +99,7 @@ const ppeTransactions: PPETransaction[] = [
   {
     id: "PPE-24-084",
     employeeName: "Lisa Botha",
+    employeeId: "EMP006",
     jobTitle: "Rigger / Scaffolder",
     ppeType: "Safety Harness",
     ppeBrand: "Miller Titan",
@@ -107,6 +114,7 @@ const ppeTransactions: PPETransaction[] = [
   {
     id: "PPE-24-083",
     employeeName: "James Ndlovu",
+    employeeId: "EMP007",
     jobTitle: "Plant Operator",
     ppeType: "Ear Plugs",
     ppeBrand: "3M E-A-R Classic",
@@ -120,6 +128,7 @@ const ppeTransactions: PPETransaction[] = [
   {
     id: "PPE-24-082",
     employeeName: "Peter van Zyl",
+    employeeId: "EMP008",
     jobTitle: "Mechanical Technician",
     ppeType: "Leather Gloves",
     ppeBrand: "Tillman TrueFit",
@@ -134,6 +143,7 @@ const ppeTransactions: PPETransaction[] = [
   {
     id: "PPE-24-081",
     employeeName: "Thandi Mkhize",
+    employeeId: "EMP009",
     jobTitle: "Quality Inspector",
     ppeType: "Safety Boots",
     ppeBrand: "Bova Classics",
@@ -148,6 +158,7 @@ const ppeTransactions: PPETransaction[] = [
   {
     id: "PPE-24-080",
     employeeName: "Robert Malan",
+    employeeId: "EMP010",
     jobTitle: "Safety Representative",
     ppeType: "Dust Mask FFP2",
     ppeBrand: "Respirex",
@@ -180,7 +191,11 @@ const sites = [
   "Pretoria Branch",
 ];
 
-export function PPERegister() {
+export function PPERegister({
+  employeeId,
+}: {
+  employeeId?: string;
+}) {
   const { dismissAlert } = useAlerts();
   const [showIssueModal, setShowIssueModal] = useState(false);
   const [showCatalogue, setShowCatalogue] = useState(false);
@@ -206,9 +221,23 @@ export function PPERegister() {
     dismissAlert(id, `PPE Alert: ${pendingSignOffs} items awaiting employee sign-off`, "critical");
   };
 
+  const filteredTransactions = ppeTransactions.filter((transaction) => {
+  const matchesEmployee = employeeId
+    ? transaction.employeeId === employeeId
+    : true;
+
+  const matchesCategory =
+    selectedCategory === "All PPE Types" ||
+    transaction.ppeCategory === selectedCategory;
+
+  return matchesEmployee && matchesCategory;
+});
+
   return (
     <div className="h-full overflow-y-auto" style={{ backgroundColor: "#0F172A" }}>
       <div className="max-w-[1600px] mx-auto">
+        {!employeeId && (
+  <>
         {/* Top Notification Bar - Full Width White */}
         {pendingSignOffs > 0 && (
           <AlertBanner
@@ -376,7 +405,7 @@ export function PPERegister() {
             </div>
           </div>
         </div>
-
+</>)}
         {/* PPE Transaction Log Table */}
         <div className="px-8 pb-8">
           <div
@@ -438,7 +467,7 @@ export function PPERegister() {
                   </tr>
                 </thead>
                 <tbody>
-                  {ppeTransactions.map((transaction, index) => {
+                  {filteredTransactions.map((transaction, index) => {
                     const replacementDate = new Date(transaction.replacementDue);
                     const today = new Date();
                     const isOverdue = replacementDate < today;
