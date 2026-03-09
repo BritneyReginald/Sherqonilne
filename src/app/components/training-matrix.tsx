@@ -14,6 +14,7 @@ import { useAlerts } from "@/app/contexts/alert-context";
 import { useTheme } from "@/app/contexts/theme-context";
 import { useTraining } from "@/app/contexts/training-context";
 import type { TrainingRecord } from "@/app/contexts/training-context";
+import { employees } from "@/app/components/data/employees";
 interface TrainingMatrixProps {
   employeeId?: string;
 }
@@ -43,6 +44,11 @@ function getTrainingStatus(
   return "valid";
 }
 
+function getEmployeeName(employeeId: string) {
+  const employee = employees.find((emp) => emp.employeeId === employeeId);
+  return employee ? employee.fullName : employeeId;
+}
+
 export function TrainingMatrix({ employeeId }: TrainingMatrixProps) {
   const isEmployeeView = !!employeeId;
   const { dismissAlert } = useAlerts();
@@ -53,6 +59,18 @@ export function TrainingMatrix({ employeeId }: TrainingMatrixProps) {
     ? records.filter((r) => r.employeeId === employeeId)
     : records;
   const [modalOpen, setModalOpen] = useState(false);
+  const [addModalOpen, setAddModalOpen] = useState(false);
+
+  const [formData, setFormData] = useState({
+    employeeId: employeeId || "",
+    trainingType: "",
+    trainingName: "",
+    certificateName: "",
+    provider: "",
+    completionDate: "",
+    expiryDate: "",
+    certificateFile: null as File | null,
+  });
   const [selectedRecord, setSelectedRecord] = useState<TrainingRecord | null>(
     null,
   );
@@ -84,6 +102,50 @@ export function TrainingMatrix({ employeeId }: TrainingMatrixProps) {
     );
   };
 
+  const { addRecord } = useTraining();
+
+  const handleAddTraining = () => {
+    if (
+      !formData.employeeId ||
+      !formData.trainingName ||
+      !formData.certificateName ||
+      !formData.provider ||
+      !formData.completionDate ||
+      !formData.expiryDate
+    ) {
+      alert("Please fill in all required fields");
+      return;
+    }
+    const newRecord: TrainingRecord = {
+      id: crypto.randomUUID(),
+      employeeId: formData.employeeId,
+      certificateName: formData.certificateName,
+      provider: formData.provider,
+      completionDate: formData.completionDate,
+      expiryDate: formData.expiryDate,
+      trainingCategory: "Safety",
+      isLegallyRequired: false,
+      trainingType: formData.trainingType,
+      trainingName: formData.trainingName,
+      certificateFile: formData.certificateFile,
+    };
+
+    addRecord(newRecord);
+
+    setAddModalOpen(false);
+
+    setFormData({
+      employeeId: employeeId || "",
+      certificateName: "",
+      provider: "",
+      completionDate: "",
+      expiryDate: "",
+      trainingType: "",
+      trainingName: "",
+      certificateFile: null,
+    });
+  };
+
   return (
     <div
       className="h-full overflow-y-auto"
@@ -101,176 +163,176 @@ export function TrainingMatrix({ employeeId }: TrainingMatrixProps) {
             onDismiss={handleDismissAlert}
           />
         )}
-
         {/* Header Section */}
-      {!isEmployeeView &&(
-        <div className="px-8 pt-6 pb-8">
-          <div className="flex items-start justify-between mb-8">
-            <div>
-              <h1 className="text-3xl mb-2" style={{ color: "#F8FAFC" }}>
-                Training Matrix & Competency Tracking
-              </h1>
-              <div className="flex items-center gap-2 mt-1">
-                <ShieldCheck
-                  className="size-4"
+        {!isEmployeeView && (
+          <div className="px-8 pt-6 pb-8">
+            <div className="flex items-start justify-between mb-8">
+              <div>
+                <h1 className="text-3xl mb-2" style={{ color: "#F8FAFC" }}>
+                  Training Matrix & Competency Tracking
+                </h1>
+                <div className="flex items-center gap-2 mt-1">
+                  <ShieldCheck
+                    className="size-4"
+                    style={{ color: "var(--compliance-success)" }}
+                  />
+                  <p className="text-sm" style={{ color: "#94A3B8" }}>
+                    POPI Act Compliant: Restricted Access
+                  </p>
+                </div>
+              </div>
+
+              <button
+                onClick={() => setAddModalOpen(true)}
+                className="px-5 py-2.5 rounded-lg font-medium text-white transition-opacity flex items-center gap-2 hover:opacity-90"
+                style={{ backgroundColor: "#3B82F6" }}
+              >
+                <Plus className="size-4" />
+                Add Training Record
+              </button>
+            </div>
+
+            {/* Filter Section */}
+            <div className="flex items-center gap-3 mb-6">
+              <Filter className="size-5" style={{ color: "#94A3B8" }} />
+              <select
+                value={selectedSite}
+                onChange={(e) => setSelectedSite(e.target.value)}
+                className="px-4 py-2.5 rounded-lg text-sm appearance-none cursor-pointer"
+                style={{
+                  backgroundColor: "#1E293B",
+                  color: "#F8FAFC",
+                  border: "none",
+                }}
+              >
+                {sites.map((site) => (
+                  <option key={site} value={site}>
+                    {site}
+                  </option>
+                ))}
+              </select>
+              <select
+                value={selectedStatus}
+                onChange={(e) => setSelectedStatus(e.target.value)}
+                className="px-4 py-2.5 rounded-lg text-sm appearance-none cursor-pointer"
+                style={{
+                  backgroundColor: "#1E293B",
+                  color: "#F8FAFC",
+                  border: "none",
+                }}
+              >
+                {statuses.map((status) => (
+                  <option key={status} value={status}>
+                    {status}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Statistics Cards */}
+            <div className="grid grid-cols-5 gap-4">
+              <div
+                className="px-6 py-4 rounded-lg"
+                style={{
+                  backgroundColor: "#1E293B",
+                }}
+              >
+                <p className="text-sm mb-2" style={{ color: "#94A3B8" }}>
+                  Total Records
+                </p>
+                <p className="text-3xl font-bold" style={{ color: "#F8FAFC" }}>
+                  {records.length}
+                </p>
+              </div>
+              <div
+                className="px-6 py-4 rounded-lg"
+                style={{
+                  backgroundColor: "#1E293B",
+                }}
+              >
+                <p className="text-sm mb-2" style={{ color: "#94A3B8" }}>
+                  Valid
+                </p>
+                <p
+                  className="text-3xl font-bold"
                   style={{ color: "var(--compliance-success)" }}
-                />
-                <p className="text-sm" style={{ color: "#94A3B8" }}>
-                  POPI Act Compliant: Restricted Access
+                >
+                  {
+                    records.filter(
+                      (r) => getTrainingStatus(r.expiryDate) === "valid",
+                    ).length
+                  }
+                </p>
+              </div>
+              <div
+                className="px-6 py-4 rounded-lg"
+                style={{
+                  backgroundColor: "#1E293B",
+                }}
+              >
+                <p className="text-sm mb-2" style={{ color: "#94A3B8" }}>
+                  Expiring Soon
+                </p>
+                <p
+                  className="text-3xl font-bold"
+                  style={{ color: "var(--compliance-warning)" }}
+                >
+                  {
+                    records.filter(
+                      (r) => getTrainingStatus(r.expiryDate) === "expiring",
+                    ).length
+                  }
+                </p>
+              </div>
+              <div
+                className="px-6 py-4 rounded-lg"
+                style={{
+                  backgroundColor: "#1E293B",
+                }}
+              >
+                <p className="text-sm mb-2" style={{ color: "#94A3B8" }}>
+                  Expired
+                </p>
+                <p
+                  className="text-3xl font-bold"
+                  style={{ color: "var(--compliance-danger)" }}
+                >
+                  {
+                    records.filter(
+                      (r) => getTrainingStatus(r.expiryDate) === "expired",
+                    ).length
+                  }
+                </p>
+              </div>
+              <div
+                className="px-6 py-4 rounded-lg"
+                style={{
+                  backgroundColor: "#1E293B",
+                }}
+              >
+                <p className="text-sm mb-2" style={{ color: "#94A3B8" }}>
+                  Compliance Rate
+                </p>
+                <p
+                  className="text-3xl font-bold"
+                  style={{ color: "var(--compliance-success)" }}
+                >
+                  {records.length === 0
+                    ? 0
+                    : Math.round(
+                        (records.filter(
+                          (r) => getTrainingStatus(r.expiryDate) === "valid",
+                        ).length /
+                          records.length) *
+                          100,
+                      )}
+                  %
                 </p>
               </div>
             </div>
-            
-            <button
-              className="px-5 py-2.5 rounded-lg font-medium text-white transition-opacity flex items-center gap-2 hover:opacity-90"
-              style={{ backgroundColor: "#3B82F6" }}
-            >
-              <Plus className="size-4" />
-              Add Training Record
-            </button>
           </div>
-
-          {/* Filter Section */}
-          <div className="flex items-center gap-3 mb-6">
-            <Filter className="size-5" style={{ color: "#94A3B8" }} />
-            <select
-              value={selectedSite}
-              onChange={(e) => setSelectedSite(e.target.value)}
-              className="px-4 py-2.5 rounded-lg text-sm appearance-none cursor-pointer"
-              style={{
-                backgroundColor: "#1E293B",
-                color: "#F8FAFC",
-                border: "none",
-              }}
-            >
-              {sites.map((site) => (
-                <option key={site} value={site}>
-                  {site}
-                </option>
-              ))}
-            </select>
-            <select
-              value={selectedStatus}
-              onChange={(e) => setSelectedStatus(e.target.value)}
-              className="px-4 py-2.5 rounded-lg text-sm appearance-none cursor-pointer"
-              style={{
-                backgroundColor: "#1E293B",
-                color: "#F8FAFC",
-                border: "none",
-              }}
-            >
-              {statuses.map((status) => (
-                <option key={status} value={status}>
-                  {status}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Statistics Cards */}
-          <div className="grid grid-cols-5 gap-4">
-            <div
-              className="px-6 py-4 rounded-lg"
-              style={{
-                backgroundColor: "#1E293B",
-              }}
-            >
-              <p className="text-sm mb-2" style={{ color: "#94A3B8" }}>
-                Total Records
-              </p>
-              <p className="text-3xl font-bold" style={{ color: "#F8FAFC" }}>
-                {records.length}
-              </p>
-            </div>
-            <div
-              className="px-6 py-4 rounded-lg"
-              style={{
-                backgroundColor: "#1E293B",
-              }}
-            >
-              <p className="text-sm mb-2" style={{ color: "#94A3B8" }}>
-                Valid
-              </p>
-              <p
-                className="text-3xl font-bold"
-                style={{ color: "var(--compliance-success)" }}
-              >
-                {
-                  records.filter(
-                    (r) => getTrainingStatus(r.expiryDate) === "valid",
-                  ).length
-                }
-              </p>
-            </div>
-            <div
-              className="px-6 py-4 rounded-lg"
-              style={{
-                backgroundColor: "#1E293B",
-              }}
-            >
-              <p className="text-sm mb-2" style={{ color: "#94A3B8" }}>
-                Expiring Soon
-              </p>
-              <p
-                className="text-3xl font-bold"
-                style={{ color: "var(--compliance-warning)" }}
-              >
-                {
-                  records.filter(
-                    (r) => getTrainingStatus(r.expiryDate) === "expiring",
-                  ).length
-                }
-              </p>
-            </div>
-            <div
-              className="px-6 py-4 rounded-lg"
-              style={{
-                backgroundColor: "#1E293B",
-              }}
-            >
-              <p className="text-sm mb-2" style={{ color: "#94A3B8" }}>
-                Expired
-              </p>
-              <p
-                className="text-3xl font-bold"
-                style={{ color: "var(--compliance-danger)" }}
-              >
-                {
-                  records.filter(
-                    (r) => getTrainingStatus(r.expiryDate) === "expired",
-                  ).length
-                }
-              </p>
-            </div>
-            <div
-              className="px-6 py-4 rounded-lg"
-              style={{
-                backgroundColor: "#1E293B",
-              }}
-            >
-              <p className="text-sm mb-2" style={{ color: "#94A3B8" }}>
-                Compliance Rate
-              </p>
-              <p
-                className="text-3xl font-bold"
-                style={{ color: "var(--compliance-success)" }}
-              >
-                {records.length === 0
-                  ? 0
-                  : Math.round(
-                      (records.filter(
-                        (r) => getTrainingStatus(r.expiryDate) === "valid",
-                      ).length /
-                        records.length) *
-                        100,
-                    )}
-                %
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
-..
+        )}
+        
         {/* Training Records Table */}
         <div className="px-8 pb-8">
           <div
@@ -288,12 +350,12 @@ export function TrainingMatrix({ employeeId }: TrainingMatrixProps) {
                     }}
                   >
                     {!isEmployeeView && (
-                    <th
-                      className="px-6 py-4 text-left text-sm font-medium"
-                      style={{ color: "#94A3B8" }}
-                    >
-                      Employee
-                    </th>
+                      <th
+                        className="px-6 py-4 text-left text-sm font-medium"
+                        style={{ color: "#94A3B8" }}
+                      >
+                        Employee
+                      </th>
                     )}
                     <th
                       className="px-6 py-4 text-left text-sm font-medium"
@@ -329,6 +391,12 @@ export function TrainingMatrix({ employeeId }: TrainingMatrixProps) {
                       className="px-6 py-4 text-left text-sm font-medium"
                       style={{ color: "#94A3B8" }}
                     >
+                      Certificate
+                    </th>
+                    <th
+                      className="px-6 py-4 text-left text-sm font-medium"
+                      style={{ color: "#94A3B8" }}
+                    >
                       Actions
                     </th>
                   </tr>
@@ -344,13 +412,19 @@ export function TrainingMatrix({ employeeId }: TrainingMatrixProps) {
                       }}
                     >
                       {!isEmployeeView && (
-                      <td
-                        className="px-6 py-4 text-sm font-medium"
-                        style={{ color: "#F8FAFC" }}
-                      >
-                        {record.employeeId}
-                      </td>
+                        <td
+                          className="px-6 py-4 text-sm font-medium"
+                          style={{ color: "#F8FAFC" }}
+                        >
+                          <div>
+                            <p>{getEmployeeName(record.employeeId)}</p>
+                            <p className="text-xs text-gray-400">
+                              {record.employeeId}
+                            </p>
+                          </div>
+                        </td>
                       )}
+
                       <td
                         className="px-6 py-4 text-sm"
                         style={{ color: "#F8FAFC" }}
@@ -406,6 +480,13 @@ export function TrainingMatrix({ employeeId }: TrainingMatrixProps) {
                           status={getTrainingStatus(record.expiryDate)}
                         />
                       </td>
+                      <td className="px-6 py-4 text-sm">
+                        {record.certificateFile ? (
+                          <span className="text-blue-400">Uploaded</span>
+                        ) : (
+                          <span className="text-gray-400">None</span>
+                        )}
+                      </td>
                       <td className="px-6 py-4">
                         <button
                           onClick={() => handleDeleteClick(record)}
@@ -428,7 +509,142 @@ export function TrainingMatrix({ employeeId }: TrainingMatrixProps) {
             </div>
           </div>
         </div>
+        {addModalOpen && (
+          <div className="px-8 pb-8">
+            <div className="max-w-[1200px] mx-auto">
+              <button
+                onClick={() => setAddModalOpen(false)}
+                className="mb-6 text-blue-400"
+              >
+                ← Back to Training Matrix
+              </button>
+              <h1 className="text-2xl mb-6">Add Training Record</h1>
 
+              <select
+                value={formData.employeeId}
+                onChange={(e) =>
+                  setFormData({ ...formData, employeeId: e.target.value })
+                }
+                className="w-full mb-3 p-2 rounded bg-slate-700 text-white"
+              >
+                <option value="">Select Employee</option>
+
+                {employees.map((employee) => (
+                  <option key={employee.id} value={employee.employeeId}>
+                    {employee.fullName}
+                  </option>
+                ))}
+              </select>
+
+              <select
+                value={formData.trainingType}
+                onChange={(e) =>
+                  setFormData({ ...formData, trainingType: e.target.value })
+                }
+                className="w-full mb-3 p-2 rounded bg-slate-700 text-white"
+              >
+                <option value="">Training Type</option>
+                <option value="internal">Internal</option>
+                <option value="external">External</option>
+              </select>
+
+              <input
+                type="text"
+                placeholder="Certificate Name"
+                value={formData.certificateName}
+                onChange={(e) =>
+                  setFormData({ ...formData, certificateName: e.target.value })
+                }
+                className="w-full mb-3 p-2 rounded bg-slate-700 text-white"
+              />
+
+              <input
+                type="text"
+                placeholder="Training Name"
+                value={formData.trainingName}
+                onChange={(e) =>
+                  setFormData({ ...formData, trainingName: e.target.value })
+                }
+                className="w-full mb-3 p-2 rounded bg-slate-700 text-white"
+              />
+
+              <input
+                type="text"
+                placeholder="Training Provider"
+                value={formData.provider}
+                onChange={(e) =>
+                  setFormData({ ...formData, provider: e.target.value })
+                }
+                className="w-full mb-3 p-2 rounded bg-slate-700 text-white"
+              />
+
+              <input
+                type="date"
+                value={formData.completionDate}
+                onChange={(e) =>
+                  setFormData({ ...formData, completionDate: e.target.value })
+                }
+                className="w-full mb-3 p-2 rounded bg-slate-700 text-white"
+              />
+
+              <input
+                type="date"
+                value={formData.expiryDate}
+                onChange={(e) =>
+                  setFormData({ ...formData, expiryDate: e.target.value })
+                }
+                className="w-full mb-4 p-2 rounded bg-slate-700 text-white"
+              />
+
+              <div className="mb-4">
+                <label className="block text-sm text-gray-300 mb-2">
+                  Upload Certificate
+                </label>
+
+                <label className="flex flex-col items-center justify-center border-2 border-dashed border-slate-600 rounded-lg p-6 cursor-pointer hover:border-blue-400 transition">
+                  <span className="text-gray-300">
+                    Click to upload certificate
+                  </span>
+                  <span className="text-xs text-gray-400">PDF, JPG or PNG</span>
+
+                  <input
+                    type="file"
+                    accept=".pdf,.jpg,.png"
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        certificateFile: e.target.files?.[0],
+                      })
+                    }
+                    className="hidden"
+                  />
+                </label>
+
+                {formData.certificateFile && (
+                  <p className="text-green-400 text-sm mt-2">
+                    Selected: {formData.certificateFile.name}
+                  </p>
+                )}
+              </div>
+
+              <div className="flex justify-end gap-2">
+                <button
+                  onClick={() => setAddModalOpen(false)}
+                  className="px-4 py-2 bg-gray-600 rounded text-white"
+                >
+                  Cancel
+                </button>
+
+                <button
+                  onClick={handleAddTraining}
+                  className="px-4 py-2 bg-blue-600 rounded text-white"
+                >
+                  Save
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
         {/* Confirmation Modal */}
         <ConfirmDeactivationModal
           isOpen={modalOpen}

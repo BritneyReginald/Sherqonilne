@@ -7,10 +7,13 @@ export interface TrainingRecord {
   provider: string;
   completionDate: string;
   expiryDate: string;
-  certificateNumber?: string;
-  accreditationBody?: string;
-  trainingCategory: "Safety" | "Health" | "Environmental" | "Quality";
+  trainingCategory: string;
   isLegallyRequired: boolean;
+
+  trainingType?: "internal" | "external";
+  trainingName?: string;
+
+  certificateFile?: File | null;
 }
 
 interface TrainingContextType {
