@@ -146,6 +146,150 @@ export function TrainingMatrix({ employeeId }: TrainingMatrixProps) {
     });
   };
 
+  if (addModalOpen) {
+    return (
+      <div className="h-full overflow-y-auto px-8 py-6">
+        <div className="max-w-[1200px] mx-auto">
+          <button
+            onClick={() => setAddModalOpen(false)}
+            className="mb-6 text-blue-400"
+          >
+            ← Back to Training Matrix
+          </button>
+
+          <h1 className="text-3xl mb-8 text-white">Add Training Record</h1>
+
+          <select
+            value={formData.employeeId}
+            onChange={(e) =>
+              setFormData({ ...formData, employeeId: e.target.value })
+            }
+            className="w-full mb-3 p-2 rounded bg-slate-700 text-white"
+          >
+            <option value="">Select Employee</option>
+
+            {employees.map((employee) => (
+              <option key={employee.id} value={employee.employeeId}>
+                {employee.fullName}
+              </option>
+            ))}
+          </select>
+
+          <select
+            value={formData.trainingType}
+            onChange={(e) =>
+              setFormData({ ...formData, trainingType: e.target.value })
+            }
+            className="w-full mb-3 p-2 rounded bg-slate-700 text-white"
+          >
+            <option value="">Training Type</option>
+            <option value="internal">Internal</option>
+            <option value="external">External</option>
+          </select>
+
+          <input
+            type="text"
+            placeholder="Certificate Name"
+            value={formData.certificateName}
+            onChange={(e) =>
+              setFormData({ ...formData, certificateName: e.target.value })
+            }
+            className="w-full mb-3 p-2 rounded bg-slate-700 text-white"
+          />
+
+          <input
+            type="text"
+            placeholder="Training Name"
+            value={formData.trainingName}
+            onChange={(e) =>
+              setFormData({ ...formData, trainingName: e.target.value })
+            }
+            className="w-full mb-3 p-2 rounded bg-slate-700 text-white"
+          />
+
+          <input
+            type="text"
+            placeholder="Training Provider"
+            value={formData.provider}
+            onChange={(e) =>
+              setFormData({ ...formData, provider: e.target.value })
+            }
+            className="w-full mb-3 p-2 rounded bg-slate-700 text-white"
+          />
+
+          <input
+            type="date"
+            value={formData.completionDate}
+            onChange={(e) =>
+              setFormData({ ...formData, completionDate: e.target.value })
+            }
+            className="w-full mb-3 p-2 rounded bg-slate-700 text-white"
+          />
+
+          <input
+            type="date"
+            value={formData.expiryDate}
+            onChange={(e) =>
+              setFormData({ ...formData, expiryDate: e.target.value })
+            }
+            className="w-full mb-4 p-2 rounded bg-slate-700 text-white"
+          />
+
+          <div className="mb-4">
+            <label className="block text-sm text-gray-300 mb-2">
+              Upload Certificate
+            </label>
+
+            <label className="flex flex-col items-center justify-center border-2 border-dashed border-slate-600 rounded-lg p-6 cursor-pointer hover:border-blue-400 transition">
+              <span className="text-gray-300">Click to upload certificate</span>
+              <span className="text-xs text-gray-400">PDF, JPG or PNG</span>
+
+              <input
+                type="file"
+                accept=".pdf,.jpg,.png"
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    certificateFile: e.target.files?.[0] || null,
+                  })
+                }
+                className="hidden"
+              />
+            </label>
+
+            {formData.certificateFile && (
+              <p className="text-green-400 text-sm mt-2">
+                Selected: {formData.certificateFile.name}
+              </p>
+            )}
+          </div>
+
+          <div className="flex justify-end gap-2">
+            <button
+              onClick={() => setAddModalOpen(false)}
+              className="px-4 py-2 bg-gray-600 rounded text-white"
+            >
+              Cancel
+            </button>
+
+            <button
+              onClick={handleAddTraining}
+              className="px-4 py-2 bg-blue-600 rounded text-white"
+            >
+              Save
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  /*
+  ==============================
+  TRAINING MATRIX PAGE
+  ==============================
+  */
+
   return (
     <div
       className="h-full overflow-y-auto"
@@ -332,7 +476,7 @@ export function TrainingMatrix({ employeeId }: TrainingMatrixProps) {
             </div>
           </div>
         )}
-        
+
         {/* Training Records Table */}
         <div className="px-8 pb-8">
           <div
@@ -482,7 +626,17 @@ export function TrainingMatrix({ employeeId }: TrainingMatrixProps) {
                       </td>
                       <td className="px-6 py-4 text-sm">
                         {record.certificateFile ? (
-                          <span className="text-blue-400">Uploaded</span>
+                          <button
+                            onClick={() => {
+                              const fileURL = URL.createObjectURL(
+                                record.certificateFile,
+                              );
+                              window.open(fileURL);
+                            }}
+                            className="px-3 py-1 bg-blue-600 hover:bg-blue-500 rounded text-white text-xs"
+                          >
+                            View Certificate
+                          </button>
                         ) : (
                           <span className="text-gray-400">None</span>
                         )}
