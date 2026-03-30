@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useRef } from "react";
 import {
   ChevronRight,
   ChevronDown,
@@ -196,19 +197,43 @@ export function DocumentLibrary() {
     "jhb-site",
     "sheq-folders",
   ]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [uploadedDocument, setUploadedDocument] = useState<File | null>(null);
   const [activeFolder, setActiveFolder] = useState("risk-assessments");
   const [showActionMenu, setShowActionMenu] = useState<string | null>(null);
-  const [selectedDocument, setSelectedDocument] = useState<Document | null>(null);
+  const [selectedDocument, setSelectedDocument] = useState<Document | null>(
+    null,
+  );
   const [showVersionDrawer, setShowVersionDrawer] = useState(false);
   const [showArchiveModal, setShowArchiveModal] = useState(false);
-  const [documentToArchive, setDocumentToArchive] = useState<Document | null>(null);
+  const [documentToArchive, setDocumentToArchive] = useState<Document | null>(
+    null,
+  );
 
   const toggleFolder = (folderId: string) => {
     setExpandedFolders((prev) =>
       prev.includes(folderId)
         ? prev.filter((id) => id !== folderId)
-        : [...prev, folderId]
+        : [...prev, folderId],
     );
+  };
+
+  const handleUploadClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (files && files[0]) {
+      const file = files[0];
+
+      console.log("Uploaded document:", file);
+
+      setUploadedDocument(file);
+
+      // Later:
+      // send to backend
+    }
   };
 
   return (
@@ -226,7 +251,10 @@ export function DocumentLibrary() {
           className="px-6 py-4 border-b"
           style={{ borderColor: "var(--grey-200)" }}
         >
-          <h2 className="text-lg font-medium" style={{ color: "var(--grey-900)" }}>
+          <h2
+            className="text-lg font-medium"
+            style={{ color: "var(--grey-900)" }}
+          >
             Site Repositories
           </h2>
         </div>
@@ -256,9 +284,15 @@ export function DocumentLibrary() {
           {/* Breadcrumb Navigation */}
           <div className="flex items-center gap-2 mb-4 text-sm">
             <span style={{ color: "var(--grey-500)" }}>Client Company A</span>
-            <ChevronRight className="size-4" style={{ color: "var(--grey-400)" }} />
+            <ChevronRight
+              className="size-4"
+              style={{ color: "var(--grey-400)" }}
+            />
             <span style={{ color: "var(--grey-500)" }}>JHB Site</span>
-            <ChevronRight className="size-4" style={{ color: "var(--grey-400)" }} />
+            <ChevronRight
+              className="size-4"
+              style={{ color: "var(--grey-400)" }}
+            />
             <span style={{ color: "var(--grey-900)" }} className="font-medium">
               Risk Assessments
             </span>
@@ -267,12 +301,21 @@ export function DocumentLibrary() {
           {/* Action Buttons */}
           <div className="flex items-center gap-3">
             <button
+              onClick={handleUploadClick}
               className="px-4 py-2 rounded-lg flex items-center gap-2 font-medium text-white transition-opacity hover:opacity-90"
               style={{ backgroundColor: "var(--brand-blue)" }}
             >
               <Upload className="size-5" />
               Upload Document
             </button>
+
+            <input
+              type="file"
+              ref={fileInputRef}
+              className="hidden"
+              accept=".pdf,.doc,.docx,.xls,.xlsx"
+              onChange={handleFileChange}
+            />
             <button
               className="px-4 py-2 rounded-lg flex items-center gap-2 font-medium transition-colors"
               style={{
@@ -412,7 +455,7 @@ export function DocumentLibrary() {
                                 year: "numeric",
                                 month: "short",
                                 day: "numeric",
-                              }
+                              },
                             )}
                           </div>
                           <div
@@ -426,12 +469,18 @@ export function DocumentLibrary() {
 
                       {/* Expiry Date */}
                       <td className="px-6 py-4">
-                        <span className="text-sm" style={{ color: "var(--grey-700)" }}>
-                          {new Date(doc.expiryDate).toLocaleDateString("en-ZA", {
-                            year: "numeric",
-                            month: "short",
-                            day: "numeric",
-                          })}
+                        <span
+                          className="text-sm"
+                          style={{ color: "var(--grey-700)" }}
+                        >
+                          {new Date(doc.expiryDate).toLocaleDateString(
+                            "en-ZA",
+                            {
+                              year: "numeric",
+                              month: "short",
+                              day: "numeric",
+                            },
+                          )}
                         </span>
                       </td>
 
@@ -447,7 +496,7 @@ export function DocumentLibrary() {
                             onClick={(e) => {
                               e.stopPropagation();
                               setShowActionMenu(
-                                showActionMenu === doc.id ? null : doc.id
+                                showActionMenu === doc.id ? null : doc.id,
                               );
                             }}
                             className="p-2 rounded hover:bg-secondary transition-colors"
@@ -620,12 +669,16 @@ function FolderTree({
             {isExpanded ? (
               <ChevronDown
                 className="size-4"
-                style={{ color: isActive ? "var(--brand-blue)" : "var(--grey-400)" }}
+                style={{
+                  color: isActive ? "var(--brand-blue)" : "var(--grey-400)",
+                }}
               />
             ) : (
               <ChevronRight
                 className="size-4"
-                style={{ color: isActive ? "var(--brand-blue)" : "var(--grey-400)" }}
+                style={{
+                  color: isActive ? "var(--brand-blue)" : "var(--grey-400)",
+                }}
               />
             )}
           </span>
@@ -635,12 +688,16 @@ function FolderTree({
           {isExpanded ? (
             <FolderOpen
               className="size-4"
-              style={{ color: isActive ? "var(--brand-blue)" : "var(--grey-500)" }}
+              style={{
+                color: isActive ? "var(--brand-blue)" : "var(--grey-500)",
+              }}
             />
           ) : (
             <Folder
               className="size-4"
-              style={{ color: isActive ? "var(--brand-blue)" : "var(--grey-500)" }}
+              style={{
+                color: isActive ? "var(--brand-blue)" : "var(--grey-500)",
+              }}
             />
           )}
         </span>
@@ -668,9 +725,15 @@ function FolderTree({
 
 function FileIcon({ fileType }: { fileType: "pdf" | "doc" | "xls" }) {
   const iconConfig = {
-    pdf: { color: "var(--compliance-danger)", bgColor: "var(--compliance-danger)10" },
+    pdf: {
+      color: "var(--compliance-danger)",
+      bgColor: "var(--compliance-danger)10",
+    },
     doc: { color: "var(--brand-blue)", bgColor: "var(--brand-blue)10" },
-    xls: { color: "var(--compliance-success)", bgColor: "var(--compliance-success)10" },
+    xls: {
+      color: "var(--compliance-success)",
+      bgColor: "var(--compliance-success)10",
+    },
   };
 
   const config = iconConfig[fileType];
@@ -730,14 +793,16 @@ function getVersionHistory(docId: string) {
         date: "2024-01-15T10:30:00",
         user: "Sarah Johnson",
         fileSize: "2.4 MB",
-        changes: "Updated risk controls and added new PPE requirements based on Q4 2023 audit findings",
+        changes:
+          "Updated risk controls and added new PPE requirements based on Q4 2023 audit findings",
       },
       {
         revision: "2.0",
         date: "2023-06-10T14:15:00",
         user: "Michael Chen",
         fileSize: "2.1 MB",
-        changes: "Revised hazard identification section and updated emergency response procedures",
+        changes:
+          "Revised hazard identification section and updated emergency response procedures",
       },
       {
         revision: "1.0",
@@ -760,7 +825,8 @@ function getVersionHistory(docId: string) {
         date: "2023-05-18T13:20:00",
         user: "Sarah Johnson",
         fileSize: "1.8 MB",
-        changes: "Complete revision following new SANS regulations for hazardous material storage",
+        changes:
+          "Complete revision following new SANS regulations for hazardous material storage",
       },
       {
         revision: "1.0",

@@ -34,6 +34,7 @@ import { GlobalSearch } from "@/app/components/global-search";
 import { SystemSettings } from "@/app/components/system-settings";
 import { CompanySites } from "@/app/components/company-sites";
 import { Appointments } from "@/app/components/appointments";
+import { LegalAppointments } from "@/app/components/legal-appointments";
 import { useAlerts } from "@/app/contexts/alert-context";
 import { useTheme } from "@/app/contexts/theme-context";
 import { NewRiskAssessment } from "@/app/components/new-risk-assessment";
@@ -41,7 +42,6 @@ import { RiskMethodology } from "@/app/components/risk-methodology";
 import { RiskAssessmentBeforeControls } from "@/app/components/risk-assessment-before-controls";
 import { RiskAssessmentAfterControls } from "@/app/components/risk-assessment-after-controls";
 import { RiskAssessmentSummary } from "@/app/components/risk-assessment-summary";
-
 
 interface NavigationItem {
   id: string;
@@ -75,6 +75,11 @@ const navigationItems: NavigationItem[] = [
         id: "appointments",
         label: "Appointments",
         icon: <ClipboardCheck className="size-4" />,
+      },
+      {
+        id: "legal-appointments",
+        label: "Legal Appointments",
+        icon: <Shield className="size-4" />,
       },
       {
         id: "training",
@@ -151,7 +156,11 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
   const { dismissedAlerts } = useAlerts();
   const { theme, colors, brandPrimaryBg, getNavTextColor } = useTheme();
   const [activeItem, setActiveItem] = useState("dashboard");
-  const [expandedItems, setExpandedItems] = useState<string[]>(["compliance", "reports", "settings"]);
+  const [expandedItems, setExpandedItems] = useState<string[]>([
+    "compliance",
+    "reports",
+    "settings",
+  ]);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [showSearchResults, setShowSearchResults] = useState(false);
@@ -160,14 +169,17 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
 
   const toggleExpanded = (id: string) => {
     setExpandedItems((prev) =>
-      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id],
     );
   };
 
   const navTextColor = getNavTextColor();
 
   return (
-    <div className="flex h-screen" style={{ backgroundColor: "var(--slate-dark)" }}>
+    <div
+      className="flex h-screen"
+      style={{ backgroundColor: "var(--slate-dark)" }}
+    >
       {/* Sidebar */}
       <aside
         className="border-r flex flex-col transition-all duration-300 ease-in-out"
@@ -179,14 +191,29 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
         }}
       >
         {/* Logo */}
-        <div className="h-16 px-6 flex items-center border-b" style={{ borderColor: colors.background === "#0F172A" ? "rgba(255, 255, 255, 0.1)" : "var(--grey-200)", minWidth: "256px" }}>
-          <h1 className="text-xl font-bold" style={{ color: "var(--brand-blue)" }}>
+        <div
+          className="h-16 px-6 flex items-center border-b"
+          style={{
+            borderColor:
+              colors.background === "#0F172A"
+                ? "rgba(255, 255, 255, 0.1)"
+                : "var(--grey-200)",
+            minWidth: "256px",
+          }}
+        >
+          <h1
+            className="text-xl font-bold"
+            style={{ color: "var(--brand-blue)" }}
+          >
             SHERQ Online
           </h1>
         </div>
 
         {/* Navigation Menu */}
-        <nav className="flex-1 overflow-y-auto py-4" style={{ minWidth: "256px" }}>
+        <nav
+          className="flex-1 overflow-y-auto py-4"
+          style={{ minWidth: "256px" }}
+        >
           <ul className="space-y-1 px-3">
             {navigationItems.map((item) => (
               <NavItem
@@ -202,7 +229,16 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
         </nav>
 
         {/* Bottom Navigation */}
-        <div className="border-t px-3 py-4" style={{ borderColor: colors.background === "#0F172A" ? "rgba(255, 255, 255, 0.1)" : "var(--grey-200)", minWidth: "256px" }}>
+        <div
+          className="border-t px-3 py-4"
+          style={{
+            borderColor:
+              colors.background === "#0F172A"
+                ? "rgba(255, 255, 255, 0.1)"
+                : "var(--grey-200)",
+            minWidth: "256px",
+          }}
+        >
           <ul className="space-y-1">
             {bottomNavigationItems.map((item) => (
               <NavItem
@@ -239,7 +275,8 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
                 backgroundColor: "transparent",
               }}
               onMouseEnter={(e) => {
-                e.currentTarget.style.backgroundColor = "rgba(255, 255, 255, 0.1)";
+                e.currentTarget.style.backgroundColor =
+                  "rgba(255, 255, 255, 0.1)";
               }}
               onMouseLeave={(e) => {
                 e.currentTarget.style.backgroundColor = "transparent";
@@ -249,20 +286,36 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
             </button>
 
             {/* Page Title */}
-            <h2 className="text-lg font-semibold" style={{ color: navTextColor }}>
-              {activeItem === "dashboard" ? "Dashboard" : 
-               activeItem === "company-sites" ? "Company & Sites" :
-               activeItem === "workforce" ? "Workforce" :
-               activeItem === "training" ? "Training" :
-               activeItem === "document-library" ? "Document Library" :
-               activeItem === "global-training-matrix" ? "Global Training Matrix" :
-               activeItem === "ppe" ? "PPE Register" :
-               activeItem === "risk-assessments" ? "Risk Assessments" :
-               activeItem === "medicals" ? "Medical Surveillance" :
-               activeItem === "analytics" ? "Reports & Analytics" :
-               activeItem === "system-audit-log" ? "System Audit Log" :
-               activeItem === "system-settings" ? "System Settings" :
-               activeItem.charAt(0).toUpperCase() + activeItem.slice(1).replace("-", " ")}
+            <h2
+              className="text-lg font-semibold"
+              style={{ color: navTextColor }}
+            >
+              {activeItem === "dashboard"
+                ? "Dashboard"
+                : activeItem === "company-sites"
+                  ? "Company & Sites"
+                  : activeItem === "workforce"
+                    ? "Workforce"
+                    : activeItem === "training"
+                      ? "Training"
+                      : activeItem === "document-library"
+                        ? "Document Library"
+                        : activeItem === "global-training-matrix"
+                          ? "Global Training Matrix"
+                          : activeItem === "ppe"
+                            ? "PPE Register"
+                            : activeItem === "risk-assessments"
+                              ? "Risk Assessments"
+                              : activeItem === "medicals"
+                                ? "Medical Surveillance"
+                                : activeItem === "analytics"
+                                  ? "Reports & Analytics"
+                                  : activeItem === "system-audit-log"
+                                    ? "System Audit Log"
+                                    : activeItem === "system-settings"
+                                      ? "System Settings"
+                                      : activeItem.charAt(0).toUpperCase() +
+                                        activeItem.slice(1).replace("-", " ")}
             </h2>
           </div>
 
@@ -272,21 +325,31 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
             <div className="relative">
               <Search
                 className="absolute left-3 top-1/2 -translate-y-1/2 size-4"
-                style={{ color: navTextColor === "#F8FAFC" ? "rgba(248, 250, 252, 0.6)" : "rgba(15, 23, 42, 0.6)" }}
+                style={{
+                  color:
+                    navTextColor === "#F8FAFC"
+                      ? "rgba(248, 250, 252, 0.6)"
+                      : "rgba(15, 23, 42, 0.6)",
+                }}
               />
               <input
                 type="text"
                 placeholder="Search..."
                 className="w-64 h-9 pl-10 pr-4 rounded-lg focus:outline-none focus:ring-2"
                 style={{
-                  backgroundColor: navTextColor === "#F8FAFC" ? "rgba(255, 255, 255, 0.1)" : "rgba(15, 23, 42, 0.1)",
+                  backgroundColor:
+                    navTextColor === "#F8FAFC"
+                      ? "rgba(255, 255, 255, 0.1)"
+                      : "rgba(15, 23, 42, 0.1)",
                   border: "none",
                   color: navTextColor,
                 }}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 onFocus={() => setShowSearchResults(true)}
-                onBlur={() => setTimeout(() => setShowSearchResults(false), 200)}
+                onBlur={() =>
+                  setTimeout(() => setShowSearchResults(false), 200)
+                }
               />
               {showSearchResults && searchQuery && (
                 <div
@@ -296,13 +359,19 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
                     borderColor: "var(--grey-200)",
                   }}
                 >
-                  <div className="px-4 py-3 border-b" style={{ borderColor: "var(--grey-200)" }}>
-                    <p className="text-sm font-medium" style={{ color: "var(--grey-900)" }}>
+                  <div
+                    className="px-4 py-3 border-b"
+                    style={{ borderColor: "var(--grey-200)" }}
+                  >
+                    <p
+                      className="text-sm font-medium"
+                      style={{ color: "var(--grey-900)" }}
+                    >
                       Search Results
                     </p>
                   </div>
-                  <GlobalSearch 
-                    query={searchQuery} 
+                  <GlobalSearch
+                    query={searchQuery}
                     onResultClick={(result) => {
                       console.log("Clicked:", result);
                       setSearchQuery("");
@@ -323,7 +392,8 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
                   backgroundColor: "transparent",
                 }}
                 onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor = "rgba(255, 255, 255, 0.1)";
+                  e.currentTarget.style.backgroundColor =
+                    "rgba(255, 255, 255, 0.1)";
                 }}
                 onMouseLeave={(e) => {
                   e.currentTarget.style.backgroundColor = "transparent";
@@ -354,18 +424,31 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
                     maxHeight: "400px",
                   }}
                 >
-                  <div className="px-4 py-3 border-b" style={{ borderColor: "var(--grey-200)" }}>
-                    <p className="font-medium" style={{ color: "var(--grey-900)" }}>
+                  <div
+                    className="px-4 py-3 border-b"
+                    style={{ borderColor: "var(--grey-200)" }}
+                  >
+                    <p
+                      className="font-medium"
+                      style={{ color: "var(--grey-900)" }}
+                    >
                       Dismissed Alerts
                     </p>
                     <p className="text-xs" style={{ color: "var(--grey-500)" }}>
-                      {dismissedAlerts.length} alert{dismissedAlerts.length !== 1 ? "s" : ""} dismissed
+                      {dismissedAlerts.length} alert
+                      {dismissedAlerts.length !== 1 ? "s" : ""} dismissed
                     </p>
                   </div>
-                  <div className="overflow-y-auto" style={{ maxHeight: "320px" }}>
+                  <div
+                    className="overflow-y-auto"
+                    style={{ maxHeight: "320px" }}
+                  >
                     {dismissedAlerts.length === 0 ? (
                       <div className="px-4 py-8 text-center">
-                        <p className="text-sm" style={{ color: "var(--grey-500)" }}>
+                        <p
+                          className="text-sm"
+                          style={{ color: "var(--grey-500)" }}
+                        >
                           No dismissed alerts
                         </p>
                       </div>
@@ -385,22 +468,31 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
                                     alert.type === "critical"
                                       ? "var(--compliance-danger)"
                                       : alert.type === "warning"
-                                      ? "var(--compliance-warning)"
-                                      : "#3B82F6",
+                                        ? "var(--compliance-warning)"
+                                        : "#3B82F6",
                                 }}
                               />
                               <div className="flex-1 min-w-0">
-                                <p className="text-sm font-medium mb-1" style={{ color: "var(--grey-900)" }}>
+                                <p
+                                  className="text-sm font-medium mb-1"
+                                  style={{ color: "var(--grey-900)" }}
+                                >
                                   {alert.title}
                                 </p>
-                                <p className="text-xs" style={{ color: "var(--grey-500)" }}>
+                                <p
+                                  className="text-xs"
+                                  style={{ color: "var(--grey-500)" }}
+                                >
                                   Dismissed{" "}
-                                  {new Date(alert.dismissedAt).toLocaleString("en-GB", {
-                                    day: "numeric",
-                                    month: "short",
-                                    hour: "2-digit",
-                                    minute: "2-digit",
-                                  })}
+                                  {new Date(alert.dismissedAt).toLocaleString(
+                                    "en-GB",
+                                    {
+                                      day: "numeric",
+                                      month: "short",
+                                      hour: "2-digit",
+                                      minute: "2-digit",
+                                    },
+                                  )}
                                 </p>
                               </div>
                             </div>
@@ -422,7 +514,8 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
                   backgroundColor: "transparent",
                 }}
                 onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor = "rgba(255, 255, 255, 0.1)";
+                  e.currentTarget.style.backgroundColor =
+                    "rgba(255, 255, 255, 0.1)";
                 }}
                 onMouseLeave={(e) => {
                   e.currentTarget.style.backgroundColor = "transparent";
@@ -434,8 +527,13 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
                 >
                   AU
                 </div>
-                <span className="text-sm" style={{ color: navTextColor }}>Admin User</span>
-                <ChevronDown className="size-4" style={{ color: navTextColor }} />
+                <span className="text-sm" style={{ color: navTextColor }}>
+                  Admin User
+                </span>
+                <ChevronDown
+                  className="size-4"
+                  style={{ color: navTextColor }}
+                />
               </button>
 
               {/* Dropdown Menu */}
@@ -447,8 +545,14 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
                     borderColor: "var(--grey-200)",
                   }}
                 >
-                  <div className="px-4 py-3 border-b" style={{ borderColor: "var(--grey-200)" }}>
-                    <p className="font-medium" style={{ color: "var(--grey-900)" }}>
+                  <div
+                    className="px-4 py-3 border-b"
+                    style={{ borderColor: "var(--grey-200)" }}
+                  >
+                    <p
+                      className="font-medium"
+                      style={{ color: "var(--grey-900)" }}
+                    >
                       Admin User
                     </p>
                     <p className="text-sm" style={{ color: "var(--grey-500)" }}>
@@ -468,7 +572,10 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
                     >
                       Account Preferences
                     </button>
-                    <div className="border-t my-2" style={{ borderColor: "var(--grey-200)" }} />
+                    <div
+                      className="border-t my-2"
+                      style={{ borderColor: "var(--grey-200)" }}
+                    />
                     <button
                       className="w-full px-4 py-2 text-left hover:bg-secondary transition-colors"
                       style={{ color: "var(--compliance-danger)" }}
@@ -484,48 +591,53 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
 
         {/* Page Content */}
         <main className="flex-1 overflow-auto bg-background">
-  {activeItem === "dashboard" ? (
-    <Dashboard />
-  ) : activeItem === "company-sites" ? (
-    <CompanySites />
-  ) : activeItem === "workforce" ? (
-    <Workforce />
-  ) : activeItem === "appointments" ? (
-    <Appointments />
-  ) : activeItem === "training" ? (
-    <TrainingMatrix />
-  ) : activeItem === "document-library" ? (
-    <DocumentLibrary />
-  ) : activeItem === "global-training-matrix" ? (
-    <GlobalTrainingMatrix />
-  ) : activeItem === "ppe" ? (
-    <PPERegister />
-  ) : activeItem === "risk-assessments" ? (
-    <RiskAssessmentRegisterEnhanced />
-  ) : activeItem === "risk-assessment-new" ? (
-    <NewRiskAssessment />
-  ) : activeItem === "medicals" ? (
-    <MedicalSurveillanceEnhanced />
-  ) : activeItem === "analytics" ? (
-    <ReportsAnalytics />
-  ) : activeItem === "system-audit-log" ? (
-    <SystemAuditLog />
-  ) : activeItem === "system-settings" ? (
-    <SystemSettings />
-  ) : (
-    <div className="h-full flex items-center justify-center">
-      <div className="text-center">
-        <h2 className="text-2xl mb-2" style={{ color: "var(--grey-700)" }}>
-          {activeItem.charAt(0).toUpperCase() + activeItem.slice(1).replace("-", " ")}
-        </h2>
-        <p style={{ color: "var(--grey-500)" }}>
-          This section is under development
-        </p>
-      </div>
-    </div>
-  )}
-</main>
-
+          {activeItem === "dashboard" ? (
+            <Dashboard />
+          ) : activeItem === "company-sites" ? (
+            <CompanySites />
+          ) : activeItem === "workforce" ? (
+            <Workforce />
+          ) : activeItem === "appointments" ? (
+            <Appointments />
+          ) : activeItem === "legal-appointments" ? (
+            <LegalAppointments />
+          ) : activeItem === "training" ? (
+            <TrainingMatrix />
+          ) : activeItem === "document-library" ? (
+            <DocumentLibrary />
+          ) : activeItem === "global-training-matrix" ? (
+            <GlobalTrainingMatrix />
+          ) : activeItem === "ppe" ? (
+            <PPERegister />
+          ) : activeItem === "risk-assessments" ? (
+            <RiskAssessmentRegisterEnhanced />
+          ) : activeItem === "risk-assessment-new" ? (
+            <NewRiskAssessment />
+          ) : activeItem === "medicals" ? (
+            <MedicalSurveillanceEnhanced />
+          ) : activeItem === "analytics" ? (
+            <ReportsAnalytics />
+          ) : activeItem === "system-audit-log" ? (
+            <SystemAuditLog />
+          ) : activeItem === "system-settings" ? (
+            <SystemSettings />
+          ) : (
+            <div className="h-full flex items-center justify-center">
+              <div className="text-center">
+                <h2
+                  className="text-2xl mb-2"
+                  style={{ color: "var(--grey-700)" }}
+                >
+                  {activeItem.charAt(0).toUpperCase() +
+                    activeItem.slice(1).replace("-", " ")}
+                </h2>
+                <p style={{ color: "var(--grey-500)" }}>
+                  This section is under development
+                </p>
+              </div>
+            </div>
+          )}
+        </main>
       </div>
     </div>
   );
@@ -574,7 +686,10 @@ function NavItem({
         }}
         onMouseEnter={(e) => {
           if (!isActive) {
-            e.currentTarget.style.backgroundColor = colors.background === "#0F172A" ? "rgba(255, 255, 255, 0.05)" : "var(--grey-100)";
+            e.currentTarget.style.backgroundColor =
+              colors.background === "#0F172A"
+                ? "rgba(255, 255, 255, 0.05)"
+                : "var(--grey-100)";
           }
         }}
         onMouseLeave={(e) => {

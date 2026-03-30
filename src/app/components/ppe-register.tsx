@@ -1,6 +1,17 @@
 import { useState } from "react";
-import { Plus, Settings, CheckCircle2, Clock, Package, Filter, ShieldCheck } from "lucide-react";
-import { IssuePPEModal } from "@/app/components/issue-ppe-modal";
+import {
+  Plus,
+  Settings,
+  CheckCircle2,
+  Clock,
+  Package,
+  Filter,
+  ShieldCheck,
+} from "lucide-react";
+import {
+  IssuePPEModal,
+  PPECatalogueItem,
+} from "@/app/components/issue-ppe-modal";
 import { PPECatalogue } from "@/app/components/ppe-catalogue";
 import { AlertBanner } from "@/app/components/alert-banner";
 import { useAlerts } from "@/app/contexts/alert-context";
@@ -20,156 +31,6 @@ interface PPETransaction {
   signOffStatus: "signed" | "pending";
   signOffDate?: string;
 }
-
-const ppeTransactions: PPETransaction[] = [
-  {
-    id: "PPE-24-089",
-    employeeName: "Sarah Jenkins",
-    employeeId: "EMP001",
-    jobTitle: "Welder",
-    ppeType: "Safety Boots",
-    ppeBrand: "Bova Maverick",
-    ppeSize: "Size 8",
-    ppeCategory: "Footwear",
-    issueDate: "2024-01-15",
-    condition: "new",
-    replacementDue: "2024-07-15",
-    signOffStatus: "signed",
-    signOffDate: "2024-01-15T14:30:00",
-  },
-  {
-    id: "PPE-24-088",
-    employeeName: "Michael Chen",
-    employeeId: "EMP002",
-    jobTitle: "Construction Supervisor",
-    ppeType: "Hard Hat",
-    ppeBrand: "3M SecureFit",
-    ppeSize: "Universal",
-    ppeCategory: "Head Protection",
-    issueDate: "2024-01-14",
-    condition: "new",
-    replacementDue: "2025-01-14",
-    signOffStatus: "signed",
-    signOffDate: "2024-01-14T09:15:00",
-  },
-  {
-    id: "PPE-24-087",
-    employeeName: "John Smith",
-    employeeId: "EMP003",
-    jobTitle: "Electrician",
-    ppeType: "Safety Goggles",
-    ppeBrand: "Honeywell Uvex",
-    ppeSize: "One Size",
-    ppeCategory: "Eye Protection",
-    issueDate: "2024-01-12",
-    condition: "re-issued-good",
-    replacementDue: "2024-03-12",
-    signOffStatus: "pending",
-  },
-  {
-    id: "PPE-24-086",
-    employeeName: "Emma Thompson",
-    employeeId: "EMP004",
-    jobTitle: "Environmental Officer",
-    ppeType: "High-Vis Vest",
-    ppeBrand: "ProChoice Safety Gear",
-    ppeSize: "Medium",
-    ppeCategory: "Visibility",
-    issueDate: "2024-01-10",
-    condition: "new",
-    replacementDue: "2024-07-10",
-    signOffStatus: "signed",
-    signOffDate: "2024-01-10T11:20:00",
-  },
-  {
-    id: "PPE-24-085",
-    employeeName: "David van der Merwe",
-    employeeId: "EMP005",
-    jobTitle: "Operations Manager",
-    ppeType: "Safety Boots",
-    ppeBrand: "Caterpillar Holton",
-    ppeSize: "Size 10",
-    ppeCategory: "Footwear",
-    issueDate: "2024-01-08",
-    condition: "new",
-    replacementDue: "2024-07-08",
-    signOffStatus: "signed",
-    signOffDate: "2024-01-08T08:45:00",
-  },
-  {
-    id: "PPE-24-084",
-    employeeName: "Lisa Botha",
-    employeeId: "EMP006",
-    jobTitle: "Rigger / Scaffolder",
-    ppeType: "Safety Harness",
-    ppeBrand: "Miller Titan",
-    ppeSize: "Large",
-    ppeCategory: "Fall Protection",
-    issueDate: "2024-01-05",
-    condition: "new",
-    replacementDue: "2025-01-05",
-    signOffStatus: "signed",
-    signOffDate: "2024-01-05T13:10:00",
-  },
-  {
-    id: "PPE-24-083",
-    employeeName: "James Ndlovu",
-    employeeId: "EMP007",
-    jobTitle: "Plant Operator",
-    ppeType: "Ear Plugs",
-    ppeBrand: "3M E-A-R Classic",
-    ppeSize: "Universal",
-    ppeCategory: "Hearing Protection",
-    issueDate: "2024-01-03",
-    condition: "new",
-    replacementDue: "2024-02-15",
-    signOffStatus: "pending",
-  },
-  {
-    id: "PPE-24-082",
-    employeeName: "Peter van Zyl",
-    employeeId: "EMP008",
-    jobTitle: "Mechanical Technician",
-    ppeType: "Leather Gloves",
-    ppeBrand: "Tillman TrueFit",
-    ppeSize: "Large",
-    ppeCategory: "Hand Protection",
-    issueDate: "2023-12-28",
-    condition: "re-issued-good",
-    replacementDue: "2024-02-10",
-    signOffStatus: "signed",
-    signOffDate: "2023-12-28T10:30:00",
-  },
-  {
-    id: "PPE-24-081",
-    employeeName: "Thandi Mkhize",
-    employeeId: "EMP009",
-    jobTitle: "Quality Inspector",
-    ppeType: "Safety Boots",
-    ppeBrand: "Bova Classics",
-    ppeSize: "Size 6",
-    ppeCategory: "Footwear",
-    issueDate: "2023-12-20",
-    condition: "new",
-    replacementDue: "2024-06-20",
-    signOffStatus: "signed",
-    signOffDate: "2023-12-20T15:00:00",
-  },
-  {
-    id: "PPE-24-080",
-    employeeName: "Robert Malan",
-    employeeId: "EMP010",
-    jobTitle: "Safety Representative",
-    ppeType: "Dust Mask FFP2",
-    ppeBrand: "Respirex",
-    ppeSize: "Medium",
-    ppeCategory: "Respiratory Protection",
-    issueDate: "2023-12-15",
-    condition: "new",
-    replacementDue: "2024-01-30",
-    signOffStatus: "pending",
-  },
-];
 
 const ppeCategories = [
   "All PPE Types",
@@ -191,25 +52,277 @@ const sites = [
   "Pretoria Branch",
 ];
 
-export function PPERegister({
-  employeeId,
-}: {
-  employeeId?: string;
-}) {
+const employees = [
+  { id: "EMP001", name: "Sarah Jenkins", jobTitle: "Welder" },
+  { id: "EMP002", name: "Michael Chen", jobTitle: "Construction Supervisor" },
+  { id: "EMP003", name: "John Smith", jobTitle: "Electrician" },
+  { id: "EMP004", name: "Emma Thompson", jobTitle: "Environmental Officer" },
+  { id: "EMP005", name: "David van der Merwe", jobTitle: "Operations Manager" },
+  { id: "EMP006", name: "Lisa Botha", jobTitle: "Rigger / Scaffolder" },
+  { id: "EMP007", name: "James Ndlovu", jobTitle: "Plant Operator" },
+  { id: "EMP008", name: "Peter van Zyl", jobTitle: "Mechanical Technician" },
+  { id: "EMP009", name: "Thandi Mkhize", jobTitle: "Quality Inspector" },
+  { id: "EMP010", name: "Robert Malan", jobTitle: "Safety Representative" },
+];
+
+const catalogueItems: PPECatalogueItem[] = [
+  {
+    id: "ppe-001",
+    name: "Safety Boots",
+    category: "Footwear",
+    requiresSize: true,
+    sizes: ["6", "7", "8", "9", "10", "11", "12"],
+  },
+  {
+    id: "ppe-002",
+    name: "Hard Hat",
+    category: "Head Protection",
+    requiresSize: false,
+  },
+  {
+    id: "ppe-003",
+    name: "Safety Goggles",
+    category: "Eye Protection",
+    requiresSize: false,
+  },
+  {
+    id: "ppe-004",
+    name: "High-Vis Vest",
+    category: "Visibility",
+    requiresSize: true,
+    sizes: ["S", "M", "L", "XL", "XXL"],
+  },
+  {
+    id: "ppe-005",
+    name: "Safety Harness",
+    category: "Fall Protection",
+    requiresSize: true,
+    sizes: ["S", "M", "L", "XL"],
+  },
+  {
+    id: "ppe-006",
+    name: "Ear Plugs",
+    category: "Hearing Protection",
+    requiresSize: false,
+  },
+  {
+    id: "ppe-007",
+    name: "Leather Gloves",
+    category: "Hand Protection",
+    requiresSize: true,
+    sizes: ["S", "M", "L", "XL"],
+  },
+  {
+    id: "ppe-008",
+    name: "Dust Mask FFP2",
+    category: "Respiratory Protection",
+    requiresSize: true,
+    sizes: ["S", "M", "L"],
+  },
+];
+
+export function PPERegister({ employeeId }: { employeeId?: string }) {
+  const [transactions, setTransactions] = useState<PPETransaction[]>([
+    {
+      id: "PPE-24-089",
+      employeeName: "Sarah Jenkins",
+      employeeId: "EMP001",
+      jobTitle: "Welder",
+      ppeType: "Safety Boots",
+      ppeBrand: "Bova Maverick",
+      ppeSize: "Size 8",
+      ppeCategory: "Footwear",
+      issueDate: "2024-01-15",
+      condition: "new",
+      replacementDue: "2024-07-15",
+      signOffStatus: "signed",
+      signOffDate: "2024-01-15T14:30:00",
+    },
+    {
+      id: "PPE-24-088",
+      employeeName: "Michael Chen",
+      employeeId: "EMP002",
+      jobTitle: "Construction Supervisor",
+      ppeType: "Hard Hat",
+      ppeBrand: "3M SecureFit",
+      ppeSize: "Universal",
+      ppeCategory: "Head Protection",
+      issueDate: "2024-01-14",
+      condition: "new",
+      replacementDue: "2025-01-14",
+      signOffStatus: "signed",
+      signOffDate: "2024-01-14T09:15:00",
+    },
+    {
+      id: "PPE-24-087",
+      employeeName: "John Smith",
+      employeeId: "EMP003",
+      jobTitle: "Electrician",
+      ppeType: "Safety Goggles",
+      ppeBrand: "Honeywell Uvex",
+      ppeSize: "One Size",
+      ppeCategory: "Eye Protection",
+      issueDate: "2024-01-12",
+      condition: "re-issued-good",
+      replacementDue: "2024-03-12",
+      signOffStatus: "pending",
+    },
+    {
+      id: "PPE-24-086",
+      employeeName: "Emma Thompson",
+      employeeId: "EMP004",
+      jobTitle: "Environmental Officer",
+      ppeType: "High-Vis Vest",
+      ppeBrand: "ProChoice Safety Gear",
+      ppeSize: "Medium",
+      ppeCategory: "Visibility",
+      issueDate: "2024-01-10",
+      condition: "new",
+      replacementDue: "2024-07-10",
+      signOffStatus: "signed",
+      signOffDate: "2024-01-10T11:20:00",
+    },
+    {
+      id: "PPE-24-085",
+      employeeName: "David van der Merwe",
+      employeeId: "EMP005",
+      jobTitle: "Operations Manager",
+      ppeType: "Safety Boots",
+      ppeBrand: "Caterpillar Holton",
+      ppeSize: "Size 10",
+      ppeCategory: "Footwear",
+      issueDate: "2024-01-08",
+      condition: "new",
+      replacementDue: "2024-07-08",
+      signOffStatus: "signed",
+      signOffDate: "2024-01-08T08:45:00",
+    },
+    {
+      id: "PPE-24-084",
+      employeeName: "Lisa Botha",
+      employeeId: "EMP006",
+      jobTitle: "Rigger / Scaffolder",
+      ppeType: "Safety Harness",
+      ppeBrand: "Miller Titan",
+      ppeSize: "Large",
+      ppeCategory: "Fall Protection",
+      issueDate: "2024-01-05",
+      condition: "new",
+      replacementDue: "2025-01-05",
+      signOffStatus: "signed",
+      signOffDate: "2024-01-05T13:10:00",
+    },
+    {
+      id: "PPE-24-083",
+      employeeName: "James Ndlovu",
+      employeeId: "EMP007",
+      jobTitle: "Plant Operator",
+      ppeType: "Ear Plugs",
+      ppeBrand: "3M E-A-R Classic",
+      ppeSize: "Universal",
+      ppeCategory: "Hearing Protection",
+      issueDate: "2024-01-03",
+      condition: "new",
+      replacementDue: "2024-02-15",
+      signOffStatus: "pending",
+    },
+    {
+      id: "PPE-24-082",
+      employeeName: "Peter van Zyl",
+      employeeId: "EMP008",
+      jobTitle: "Mechanical Technician",
+      ppeType: "Leather Gloves",
+      ppeBrand: "Tillman TrueFit",
+      ppeSize: "Large",
+      ppeCategory: "Hand Protection",
+      issueDate: "2023-12-28",
+      condition: "re-issued-good",
+      replacementDue: "2024-02-10",
+      signOffStatus: "signed",
+      signOffDate: "2023-12-28T10:30:00",
+    },
+    {
+      id: "PPE-24-081",
+      employeeName: "Thandi Mkhize",
+      employeeId: "EMP009",
+      jobTitle: "Quality Inspector",
+      ppeType: "Safety Boots",
+      ppeBrand: "Bova Classics",
+      ppeSize: "Size 6",
+      ppeCategory: "Footwear",
+      issueDate: "2023-12-20",
+      condition: "new",
+      replacementDue: "2024-06-20",
+      signOffStatus: "signed",
+      signOffDate: "2023-12-20T15:00:00",
+    },
+    {
+      id: "PPE-24-080",
+      employeeName: "Robert Malan",
+      employeeId: "EMP010",
+      jobTitle: "Safety Representative",
+      ppeType: "Dust Mask FFP2",
+      ppeBrand: "Respirex",
+      ppeSize: "Medium",
+      ppeCategory: "Respiratory Protection",
+      issueDate: "2023-12-15",
+      condition: "new",
+      replacementDue: "2024-01-30",
+      signOffStatus: "pending",
+    },
+  ]);
   const { dismissAlert } = useAlerts();
   const [showIssueModal, setShowIssueModal] = useState(false);
   const [showCatalogue, setShowCatalogue] = useState(false);
   const [selectedSite, setSelectedSite] = useState("All Sites");
   const [selectedCategory, setSelectedCategory] = useState("All PPE Types");
 
-  const totalIssued = ppeTransactions.length;
-  const pendingSignOffs = ppeTransactions.filter(
-    (t) => t.signOffStatus === "pending"
+  const handleIssuePPE = (data: any) => {
+    console.log("PPE Issued:", data);
+
+    const employee = employees.find((e) => e.id === data.employee);
+
+    if (!employee) return;
+
+    const newTransactions: PPETransaction[] = Array.from(
+      data.items.entries(),
+    ).map(([itemId, itemDetails]: any, index) => {
+      const item = catalogueItems.find((c) => c.id === itemId);
+
+      const today = new Date();
+      const replacement = new Date();
+      replacement.setMonth(replacement.getMonth() + 6);
+
+      return {
+        id: `PPE-${Date.now()}-${index}`,
+        employeeName: employee.name,
+        employeeId: employee.id,
+        jobTitle: employee.jobTitle,
+        ppeType: item?.name || "",
+        ppeBrand: "Standard Issue",
+        ppeSize: itemDetails.size || "N/A",
+        ppeCategory: item?.category || "",
+        issueDate: today.toISOString(),
+        condition: itemDetails.condition,
+        replacementDue: replacement.toISOString(),
+        signOffStatus: "signed",
+        signOffDate: today.toISOString(),
+      };
+    });
+
+    setTransactions((prev) => [...newTransactions, ...prev]);
+
+    setShowIssueModal(false);
+  };
+
+  const totalIssued = transactions.length;
+  const pendingSignOffs = transactions.filter(
+    (t) => t.signOffStatus === "pending",
   ).length;
-  const signedOff = ppeTransactions.filter(
-    (t) => t.signOffStatus === "signed"
+  const signedOff = transactions.filter(
+    (t) => t.signOffStatus === "signed",
   ).length;
-  const upcomingReplacements = ppeTransactions.filter((t) => {
+  const upcomingReplacements = transactions.filter((t) => {
     const replacementDate = new Date(t.replacementDue);
     const today = new Date();
     const daysUntil =
@@ -218,194 +331,208 @@ export function PPERegister({
   }).length;
 
   const handleDismissAlert = (id: string) => {
-    dismissAlert(id, `PPE Alert: ${pendingSignOffs} items awaiting employee sign-off`, "critical");
+    dismissAlert(
+      id,
+      `PPE Alert: ${pendingSignOffs} items awaiting employee sign-off`,
+      "critical",
+    );
   };
 
-  const filteredTransactions = ppeTransactions.filter((transaction) => {
-  const matchesEmployee = employeeId
-    ? transaction.employeeId === employeeId
-    : true;
+  const filteredTransactions = transactions.filter((transaction) => {
+    const matchesEmployee = employeeId
+      ? transaction.employeeId === employeeId
+      : true;
 
-  const matchesCategory =
-    selectedCategory === "All PPE Types" ||
-    transaction.ppeCategory === selectedCategory;
+    const matchesCategory =
+      selectedCategory === "All PPE Types" ||
+      transaction.ppeCategory === selectedCategory;
 
-  return matchesEmployee && matchesCategory;
-});
+    return matchesEmployee && matchesCategory;
+  });
 
   return (
-    <div className="h-full overflow-y-auto" style={{ backgroundColor: "#0F172A" }}>
+    <div
+      className="h-full overflow-y-auto"
+      style={{ backgroundColor: "#0F172A" }}
+    >
       <div className="max-w-[1600px] mx-auto">
         {!employeeId && (
-  <>
-        {/* Top Notification Bar - Full Width White */}
-        {pendingSignOffs > 0 && (
-          <AlertBanner
-            id="ppe-pending-signoff-alert"
-            type="critical"
-            icon={<Clock className="size-5" />}
-            title={`PPE Alert: ${pendingSignOffs} items awaiting employee sign-off`}
-            description="Ensure all issued PPE is signed for within 24 hours for compliance tracking"
-            onDismiss={handleDismissAlert}
-          />
-        )}
+          <>
+            {/* Top Notification Bar - Full Width White */}
+            {pendingSignOffs > 0 && (
+              <AlertBanner
+                id="ppe-pending-signoff-alert"
+                type="critical"
+                icon={<Clock className="size-5" />}
+                title={`PPE Alert: ${pendingSignOffs} items awaiting employee sign-off`}
+                description="Ensure all issued PPE is signed for within 24 hours for compliance tracking"
+                onDismiss={handleDismissAlert}
+              />
+            )}
 
-        {/* Header Section */}
-        <div className="px-8 pt-6 pb-8">
-          <div className="flex items-start justify-between mb-8">
-            <div>
-              <h1 className="text-3xl mb-2" style={{ color: "#F8FAFC" }}>
-                PPE Register & Issue Log
-              </h1>
-              <div className="flex items-center gap-2 mt-1">
-                <ShieldCheck className="size-4" style={{ color: "var(--compliance-success)" }} />
-                <p className="text-sm" style={{ color: "#94A3B8" }}>
-                  POPI Act Compliant: Restricted Access
-                </p>
+            {/* Header Section */}
+            <div className="px-8 pt-6 pb-8">
+              <div className="flex items-start justify-between mb-8">
+                <div>
+                  <h1 className="text-3xl mb-2" style={{ color: "#F8FAFC" }}>
+                    PPE Register & Issue Log
+                  </h1>
+                  <div className="flex items-center gap-2 mt-1">
+                    <ShieldCheck
+                      className="size-4"
+                      style={{ color: "var(--compliance-success)" }}
+                    />
+                    <p className="text-sm" style={{ color: "#94A3B8" }}>
+                      POPI Act Compliant: Restricted Access
+                    </p>
+                  </div>
+                </div>
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => setShowCatalogue(true)}
+                    className="px-5 py-2.5 rounded-lg font-medium transition-opacity flex items-center gap-2 hover:opacity-90"
+                    style={{
+                      backgroundColor: "rgba(255, 255, 255, 0.1)",
+                      color: "#F8FAFC",
+                    }}
+                  >
+                    <Settings className="size-4" />
+                    PPE Catalogue
+                  </button>
+                  <button
+                    onClick={() => setShowIssueModal(true)}
+                    className="px-5 py-2.5 rounded-lg font-medium text-white transition-opacity flex items-center gap-2 hover:opacity-90"
+                    style={{ backgroundColor: "#3B82F6" }}
+                  >
+                    <Plus className="size-4" />
+                    Issue PPE
+                  </button>
+                </div>
+              </div>
+
+              {/* Filter Section */}
+              <div className="flex items-center gap-3 mb-6">
+                <Filter className="size-5" style={{ color: "#94A3B8" }} />
+                <select
+                  value={selectedSite}
+                  onChange={(e) => setSelectedSite(e.target.value)}
+                  className="px-4 py-2.5 rounded-lg text-sm appearance-none cursor-pointer"
+                  style={{
+                    backgroundColor: "#1E293B",
+                    color: "#F8FAFC",
+                    border: "none",
+                  }}
+                >
+                  {sites.map((site) => (
+                    <option key={site} value={site}>
+                      {site}
+                    </option>
+                  ))}
+                </select>
+                <select
+                  value={selectedCategory}
+                  onChange={(e) => setSelectedCategory(e.target.value)}
+                  className="px-4 py-2.5 rounded-lg text-sm appearance-none cursor-pointer"
+                  style={{
+                    backgroundColor: "#1E293B",
+                    color: "#F8FAFC",
+                    border: "none",
+                  }}
+                >
+                  {ppeCategories.map((category) => (
+                    <option key={category} value={category}>
+                      {category}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Statistics Cards */}
+              <div className="grid grid-cols-5 gap-4">
+                <div
+                  className="px-6 py-4 rounded-lg"
+                  style={{
+                    backgroundColor: "#1E293B",
+                  }}
+                >
+                  <p className="text-sm mb-2" style={{ color: "#94A3B8" }}>
+                    Total Issued
+                  </p>
+                  <p
+                    className="text-3xl font-bold"
+                    style={{ color: "#F8FAFC" }}
+                  >
+                    {totalIssued}
+                  </p>
+                </div>
+                <div
+                  className="px-6 py-4 rounded-lg"
+                  style={{
+                    backgroundColor: "#1E293B",
+                  }}
+                >
+                  <p className="text-sm mb-2" style={{ color: "#94A3B8" }}>
+                    Signed Off
+                  </p>
+                  <p
+                    className="text-3xl font-bold"
+                    style={{ color: "var(--compliance-success)" }}
+                  >
+                    {signedOff}
+                  </p>
+                </div>
+                <div
+                  className="px-6 py-4 rounded-lg"
+                  style={{
+                    backgroundColor: "#1E293B",
+                  }}
+                >
+                  <p className="text-sm mb-2" style={{ color: "#94A3B8" }}>
+                    Pending Sign-Off
+                  </p>
+                  <p
+                    className="text-3xl font-bold"
+                    style={{ color: "var(--compliance-danger)" }}
+                  >
+                    {pendingSignOffs}
+                  </p>
+                </div>
+                <div
+                  className="px-6 py-4 rounded-lg"
+                  style={{
+                    backgroundColor: "#1E293B",
+                  }}
+                >
+                  <p className="text-sm mb-2" style={{ color: "#94A3B8" }}>
+                    Due for Replacement
+                  </p>
+                  <p
+                    className="text-3xl font-bold"
+                    style={{ color: "var(--compliance-warning)" }}
+                  >
+                    {upcomingReplacements}
+                  </p>
+                </div>
+                <div
+                  className="px-6 py-4 rounded-lg"
+                  style={{
+                    backgroundColor: "#1E293B",
+                  }}
+                >
+                  <p className="text-sm mb-2" style={{ color: "#94A3B8" }}>
+                    Completion Rate
+                  </p>
+                  <p
+                    className="text-3xl font-bold"
+                    style={{ color: "var(--compliance-success)" }}
+                  >
+                    {Math.round((signedOff / totalIssued) * 100)}%
+                  </p>
+                </div>
               </div>
             </div>
-            <div className="flex gap-3">
-              <button
-                onClick={() => setShowCatalogue(true)}
-                className="px-5 py-2.5 rounded-lg font-medium transition-opacity flex items-center gap-2 hover:opacity-90"
-                style={{
-                  backgroundColor: "rgba(255, 255, 255, 0.1)",
-                  color: "#F8FAFC",
-                }}
-              >
-                <Settings className="size-4" />
-                PPE Catalogue
-              </button>
-              <button
-                onClick={() => setShowIssueModal(true)}
-                className="px-5 py-2.5 rounded-lg font-medium text-white transition-opacity flex items-center gap-2 hover:opacity-90"
-                style={{ backgroundColor: "#3B82F6" }}
-              >
-                <Plus className="size-4" />
-                Issue PPE
-              </button>
-            </div>
-          </div>
-
-          {/* Filter Section */}
-          <div className="flex items-center gap-3 mb-6">
-            <Filter className="size-5" style={{ color: "#94A3B8" }} />
-            <select
-              value={selectedSite}
-              onChange={(e) => setSelectedSite(e.target.value)}
-              className="px-4 py-2.5 rounded-lg text-sm appearance-none cursor-pointer"
-              style={{
-                backgroundColor: "#1E293B",
-                color: "#F8FAFC",
-                border: "none",
-              }}
-            >
-              {sites.map((site) => (
-                <option key={site} value={site}>
-                  {site}
-                </option>
-              ))}
-            </select>
-            <select
-              value={selectedCategory}
-              onChange={(e) => setSelectedCategory(e.target.value)}
-              className="px-4 py-2.5 rounded-lg text-sm appearance-none cursor-pointer"
-              style={{
-                backgroundColor: "#1E293B",
-                color: "#F8FAFC",
-                border: "none",
-              }}
-            >
-              {ppeCategories.map((category) => (
-                <option key={category} value={category}>
-                  {category}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Statistics Cards */}
-          <div className="grid grid-cols-5 gap-4">
-            <div
-              className="px-6 py-4 rounded-lg"
-              style={{
-                backgroundColor: "#1E293B",
-              }}
-            >
-              <p className="text-sm mb-2" style={{ color: "#94A3B8" }}>
-                Total Issued
-              </p>
-              <p className="text-3xl font-bold" style={{ color: "#F8FAFC" }}>
-                {totalIssued}
-              </p>
-            </div>
-            <div
-              className="px-6 py-4 rounded-lg"
-              style={{
-                backgroundColor: "#1E293B",
-              }}
-            >
-              <p className="text-sm mb-2" style={{ color: "#94A3B8" }}>
-                Signed Off
-              </p>
-              <p
-                className="text-3xl font-bold"
-                style={{ color: "var(--compliance-success)" }}
-              >
-                {signedOff}
-              </p>
-            </div>
-            <div
-              className="px-6 py-4 rounded-lg"
-              style={{
-                backgroundColor: "#1E293B",
-              }}
-            >
-              <p className="text-sm mb-2" style={{ color: "#94A3B8" }}>
-                Pending Sign-Off
-              </p>
-              <p
-                className="text-3xl font-bold"
-                style={{ color: "var(--compliance-danger)" }}
-              >
-                {pendingSignOffs}
-              </p>
-            </div>
-            <div
-              className="px-6 py-4 rounded-lg"
-              style={{
-                backgroundColor: "#1E293B",
-              }}
-            >
-              <p className="text-sm mb-2" style={{ color: "#94A3B8" }}>
-                Due for Replacement
-              </p>
-              <p
-                className="text-3xl font-bold"
-                style={{ color: "var(--compliance-warning)" }}
-              >
-                {upcomingReplacements}
-              </p>
-            </div>
-            <div
-              className="px-6 py-4 rounded-lg"
-              style={{
-                backgroundColor: "#1E293B",
-              }}
-            >
-              <p className="text-sm mb-2" style={{ color: "#94A3B8" }}>
-                Completion Rate
-              </p>
-              <p
-                className="text-3xl font-bold"
-                style={{ color: "var(--compliance-success)" }}
-              >
-                {Math.round((signedOff / totalIssued) * 100)}%
-              </p>
-            </div>
-          </div>
-        </div>
-</>)}
+          </>
+        )}
         {/* PPE Transaction Log Table */}
         <div className="px-8 pb-8">
           <div
@@ -468,7 +595,9 @@ export function PPERegister({
                 </thead>
                 <tbody>
                   {filteredTransactions.map((transaction, index) => {
-                    const replacementDate = new Date(transaction.replacementDue);
+                    const replacementDate = new Date(
+                      transaction.replacementDue,
+                    );
                     const today = new Date();
                     const isOverdue = replacementDate < today;
                     const isDueSoon =
@@ -482,7 +611,8 @@ export function PPERegister({
                         key={transaction.id}
                         className="transition-colors hover:bg-opacity-80"
                         style={{
-                          backgroundColor: index % 2 === 0 ? "#1E293B" : "#0F172A",
+                          backgroundColor:
+                            index % 2 === 0 ? "#1E293B" : "#0F172A",
                         }}
                       >
                         <td
@@ -499,7 +629,10 @@ export function PPERegister({
                             >
                               {transaction.employeeName}
                             </div>
-                            <div className="text-sm" style={{ color: "#94A3B8" }}>
+                            <div
+                              className="text-sm"
+                              style={{ color: "#94A3B8" }}
+                            >
                               {transaction.jobTitle}
                             </div>
                           </div>
@@ -512,18 +645,24 @@ export function PPERegister({
                             >
                               {transaction.ppeType}
                             </div>
-                            <div className="text-sm" style={{ color: "#94A3B8" }}>
+                            <div
+                              className="text-sm"
+                              style={{ color: "#94A3B8" }}
+                            >
                               {transaction.ppeBrand} • {transaction.ppeSize}
                             </div>
                           </div>
                         </td>
-                        <td className="px-6 py-4 text-sm" style={{ color: "#94A3B8" }}>
+                        <td
+                          className="px-6 py-4 text-sm"
+                          style={{ color: "#94A3B8" }}
+                        >
                           {new Date(transaction.issueDate).toLocaleDateString(
                             "en-GB",
                             {
                               day: "numeric",
                               month: "short",
-                            }
+                            },
                           )}
                         </td>
                         <td className="px-6 py-4 text-sm">
@@ -532,12 +671,12 @@ export function PPERegister({
                               color: isOverdue
                                 ? "var(--compliance-danger)"
                                 : isDueSoon
-                                ? "var(--compliance-warning)"
-                                : "var(--compliance-success)",
+                                  ? "var(--compliance-warning)"
+                                  : "var(--compliance-success)",
                             }}
                           >
                             {new Date(
-                              transaction.replacementDue
+                              transaction.replacementDue,
                             ).toLocaleDateString("en-GB", {
                               day: "numeric",
                               month: "short",
@@ -576,7 +715,7 @@ export function PPERegister({
                               >
                                 {transaction.signOffDate
                                   ? new Date(
-                                      transaction.signOffDate
+                                      transaction.signOffDate,
                                     ).toLocaleDateString("en-GB", {
                                       day: "numeric",
                                       month: "short",
@@ -613,6 +752,7 @@ export function PPERegister({
       <IssuePPEModal
         isOpen={showIssueModal}
         onClose={() => setShowIssueModal(false)}
+        onSubmit={handleIssuePPE}
       />
 
       {/* PPE Catalogue Modal */}

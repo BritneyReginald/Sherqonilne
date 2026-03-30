@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { useTheme } from "@/app/contexts/theme-context";
 import { useLegalAppointments } from "@/app/contexts/legal-appointments-context";
+import { appointmentTemplates } from "../templates/appointment-templates";
 
 interface LegalAppointment {
   id: string;
@@ -191,13 +192,39 @@ interface LegalAppointmentsProps {
   sidebarOpen?: boolean;
 }
 
+export const generateAppointmentLetter = (appointment) => {
+  const type = appointment.appointmentType;
+
+  let template;
+
+  if (type.includes("16.2")) {
+    template = appointmentTemplates["HSE Representative"];
+  } else if (type.includes("17")) {
+    template = appointmentTemplates["HSE Representative"];
+  } else if (type.includes("Investigator")) {
+    template = appointmentTemplates["Incident Investigator"];
+  }
+
+  if (!template) {
+    return {
+      title: "No Template",
+      body: "No template found for this appointment type.",
+    };
+  }
+
+  return {
+    title: template.title,
+    body: template.body(appointment),
+  };
+};
+
 export function LegalAppointments({
   employeeId,
   sidebarOpen = true,
 }: LegalAppointmentsProps) {
   const isEmployeeView = !!employeeId;
   const { appointments } = useLegalAppointments();
-
+  
   const [filterType, setFilterType] = useState("all");
   const [filterStatus, setFilterStatus] = useState("all");
   const [showDetailPanel, setShowDetailPanel] = useState(true);
@@ -230,12 +257,11 @@ export function LegalAppointments({
   const [selectedAppointment, setSelectedAppointment] = useState(
     filteredAppointments[0] || null,
   );
+  const letter = generateAppointmentLetter(selectedAppointment);
   useEffect(() => {
-  setSelectedAppointment(filteredAppointments[0] || null);
-}, [employeeId, filterType, filterStatus, appointments]);
+    setSelectedAppointment(filteredAppointments[0] || null);
+  }, [employeeId, filterType, filterStatus, appointments]);
   const { colors } = useTheme();
-
-  
 
   const getStatusStyle = (status: LegalAppointment["status"]) => {
     switch (status) {
@@ -258,305 +284,330 @@ export function LegalAppointments({
   };
 
   const formatDate = (date: Date | string) => {
-  const d = new Date(date);
-  return d.toLocaleDateString("en-ZA", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  });
-};
+    const d = new Date(date);
+    return d.toLocaleDateString("en-ZA", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    });
+  };
 
   const calculateDaysRemaining = (endDate: Date | string) => {
-  const today = new Date();
-  const d = new Date(endDate);
-  const diff = d.getTime() - today.getTime();
+    const today = new Date();
+    const d = new Date(endDate);
+    const diff = d.getTime() - today.getTime();
     const days = Math.ceil(diff / (1000 * 60 * 60 * 24));
     return days;
   };
 
   return (
     <div className="min-h-full" style={{ backgroundColor: colors.background }}>
-      
       <div className="p-6">
         {!isEmployeeView && (
-  <>
-        {/* Header */}
-        <div className="mb-6">
-          
-          <h1
-            className="text-3xl font-bold mb-2"
-            style={{ color: colors.primaryText }}
-          >
-            Legal Appointments
-          </h1>
-          <p className="text-sm" style={{ color: colors.subText }}>
-            Manage OHS Act appointments, legal designations, and compliance
-            documentation
-          </p>
-        </div>
+          <>
+            {/* Header */}
+            <div className="mb-6">
+              <h1
+                className="text-3xl font-bold mb-2"
+                style={{ color: colors.primaryText }}
+              >
+                Legal Appointments
+              </h1>
+              <p className="text-sm" style={{ color: colors.subText }}>
+                Manage OHS Act appointments, legal designations, and compliance
+                documentation
+              </p>
+            </div>
 
-        {/* Summary Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-          {/* Total Appointments */}
-          <div
-            className="rounded-lg p-5"
-            style={{
-              backgroundColor: colors.surface,
-              boxShadow:
-                colors.background === "#0F172A"
-                  ? "0 4px 6px -1px rgba(0, 0, 0, 0.3)"
-                  : "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
-            }}
-          >
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm mb-1" style={{ color: colors.subText }}>
-                  Total Appointments
-                </p>
-                <p
-                  className="text-3xl font-bold"
-                  style={{ color: colors.primaryText }}
-                >
-                  {totalAppointments}
-                </p>
-              </div>
+            {/* Summary Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+              {/* Total Appointments */}
               <div
-                className="p-3 rounded-lg"
-                style={{ backgroundColor: "rgba(59, 130, 246, 0.1)" }}
+                className="rounded-lg p-5"
+                style={{
+                  backgroundColor: colors.surface,
+                  boxShadow:
+                    colors.background === "#0F172A"
+                      ? "0 4px 6px -1px rgba(0, 0, 0, 0.3)"
+                      : "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
+                }}
               >
-                <FileText className="size-6" style={{ color: "#3B82F6" }} />
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p
+                      className="text-sm mb-1"
+                      style={{ color: colors.subText }}
+                    >
+                      Total Appointments
+                    </p>
+                    <p
+                      className="text-3xl font-bold"
+                      style={{ color: colors.primaryText }}
+                    >
+                      {totalAppointments}
+                    </p>
+                  </div>
+                  <div
+                    className="p-3 rounded-lg"
+                    style={{ backgroundColor: "rgba(59, 130, 246, 0.1)" }}
+                  >
+                    <FileText className="size-6" style={{ color: "#3B82F6" }} />
+                  </div>
+                </div>
               </div>
-            </div>
-          </div>
 
-          {/* Active Appointments */}
-          <div
-            className="rounded-lg p-5"
-            style={{
-              backgroundColor: colors.surface,
-              boxShadow:
-                colors.background === "#0F172A"
-                  ? "0 4px 6px -1px rgba(0, 0, 0, 0.3)"
-                  : "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
-            }}
-          >
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm mb-1" style={{ color: colors.subText }}>
-                  Active Appointments
-                </p>
-                <p className="text-3xl font-bold" style={{ color: "#10B981" }}>
-                  {activeAppointments}
-                </p>
-              </div>
+              {/* Active Appointments */}
               <div
-                className="p-3 rounded-lg"
-                style={{ backgroundColor: "rgba(16, 185, 129, 0.1)" }}
+                className="rounded-lg p-5"
+                style={{
+                  backgroundColor: colors.surface,
+                  boxShadow:
+                    colors.background === "#0F172A"
+                      ? "0 4px 6px -1px rgba(0, 0, 0, 0.3)"
+                      : "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
+                }}
               >
-                <CheckCircle className="size-6" style={{ color: "#10B981" }} />
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p
+                      className="text-sm mb-1"
+                      style={{ color: colors.subText }}
+                    >
+                      Active Appointments
+                    </p>
+                    <p
+                      className="text-3xl font-bold"
+                      style={{ color: "#10B981" }}
+                    >
+                      {activeAppointments}
+                    </p>
+                  </div>
+                  <div
+                    className="p-3 rounded-lg"
+                    style={{ backgroundColor: "rgba(16, 185, 129, 0.1)" }}
+                  >
+                    <CheckCircle
+                      className="size-6"
+                      style={{ color: "#10B981" }}
+                    />
+                  </div>
+                </div>
               </div>
-            </div>
-          </div>
 
-          {/* Expired Appointments */}
-          <div
-            className="rounded-lg p-5"
-            style={{
-              backgroundColor: colors.surface,
-              boxShadow:
-                colors.background === "#0F172A"
-                  ? "0 4px 6px -1px rgba(0, 0, 0, 0.3)"
-                  : "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
-            }}
-          >
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm mb-1" style={{ color: colors.subText }}>
-                  Expired Appointments
-                </p>
-                <p className="text-3xl font-bold" style={{ color: "#EF4444" }}>
-                  {expiredAppointments}
-                </p>
-              </div>
+              {/* Expired Appointments */}
               <div
-                className="p-3 rounded-lg"
-                style={{ backgroundColor: "rgba(239, 68, 68, 0.1)" }}
+                className="rounded-lg p-5"
+                style={{
+                  backgroundColor: colors.surface,
+                  boxShadow:
+                    colors.background === "#0F172A"
+                      ? "0 4px 6px -1px rgba(0, 0, 0, 0.3)"
+                      : "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
+                }}
               >
-                <XCircle className="size-6" style={{ color: "#EF4444" }} />
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p
+                      className="text-sm mb-1"
+                      style={{ color: colors.subText }}
+                    >
+                      Expired Appointments
+                    </p>
+                    <p
+                      className="text-3xl font-bold"
+                      style={{ color: "#EF4444" }}
+                    >
+                      {expiredAppointments}
+                    </p>
+                  </div>
+                  <div
+                    className="p-3 rounded-lg"
+                    style={{ backgroundColor: "rgba(239, 68, 68, 0.1)" }}
+                  >
+                    <XCircle className="size-6" style={{ color: "#EF4444" }} />
+                  </div>
+                </div>
               </div>
-            </div>
-          </div>
 
-          {/* Pending Signatures */}
-          <div
-            className="rounded-lg p-5"
-            style={{
-              backgroundColor: colors.surface,
-              boxShadow:
-                colors.background === "#0F172A"
-                  ? "0 4px 6px -1px rgba(0, 0, 0, 0.3)"
-                  : "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
-            }}
-          >
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm mb-1" style={{ color: colors.subText }}>
-                  Pending Signatures
-                </p>
-                <p className="text-3xl font-bold" style={{ color: "#F59E0B" }}>
-                  {pendingSignatures}
-                </p>
-              </div>
+              {/* Pending Signatures */}
               <div
-                className="p-3 rounded-lg"
-                style={{ backgroundColor: "rgba(245, 158, 11, 0.1)" }}
+                className="rounded-lg p-5"
+                style={{
+                  backgroundColor: colors.surface,
+                  boxShadow:
+                    colors.background === "#0F172A"
+                      ? "0 4px 6px -1px rgba(0, 0, 0, 0.3)"
+                      : "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
+                }}
               >
-                <Clock className="size-6" style={{ color: "#F59E0B" }} />
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p
+                      className="text-sm mb-1"
+                      style={{ color: colors.subText }}
+                    >
+                      Pending Signatures
+                    </p>
+                    <p
+                      className="text-3xl font-bold"
+                      style={{ color: "#F59E0B" }}
+                    >
+                      {pendingSignatures}
+                    </p>
+                  </div>
+                  <div
+                    className="p-3 rounded-lg"
+                    style={{ backgroundColor: "rgba(245, 158, 11, 0.1)" }}
+                  >
+                    <Clock className="size-6" style={{ color: "#F59E0B" }} />
+                  </div>
+                </div>
               </div>
             </div>
-          </div>
-        </div>
 
-        {/* Filter & Actions Bar */}
-        <div
-          className="rounded-lg p-4 mb-6"
-          style={{
-            backgroundColor: colors.surface,
-            boxShadow:
-              colors.background === "#0F172A"
-                ? "0 4px 6px -1px rgba(0, 0, 0, 0.3)"
-                : "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
-          }}
-        >
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            {/* Left Side: Filters */}
-            <div className="flex flex-wrap items-center gap-3">
-              <div className="flex items-center gap-2">
-                <Filter className="size-4" style={{ color: colors.subText }} />
-                <span
-                  className="text-sm font-medium"
-                  style={{ color: colors.primaryText }}
-                >
-                  Filters:
-                </span>
+            {/* Filter & Actions Bar */}
+            <div
+              className="rounded-lg p-4 mb-6"
+              style={{
+                backgroundColor: colors.surface,
+                boxShadow:
+                  colors.background === "#0F172A"
+                    ? "0 4px 6px -1px rgba(0, 0, 0, 0.3)"
+                    : "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
+              }}
+            >
+              <div className="flex flex-wrap items-center justify-between gap-4">
+                {/* Left Side: Filters */}
+                <div className="flex flex-wrap items-center gap-3">
+                  <div className="flex items-center gap-2">
+                    <Filter
+                      className="size-4"
+                      style={{ color: colors.subText }}
+                    />
+                    <span
+                      className="text-sm font-medium"
+                      style={{ color: colors.primaryText }}
+                    >
+                      Filters:
+                    </span>
+                  </div>
+
+                  {/* Appointment Type Filter */}
+                  <select
+                    value={filterType}
+                    onChange={(e) => setFilterType(e.target.value)}
+                    className="px-4 py-2.5 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
+                    style={{
+                      backgroundColor: "rgba(15, 23, 42, 0.6)",
+                      color: "#F8FAFC",
+                      border: "none",
+                    }}
+                  >
+                    <option value="all">All Types</option>
+                    <option value="16.1">Section 16.1</option>
+                    <option value="16.2">Section 16.2</option>
+                    <option value="17">SHE Rep</option>
+                    <option value="First Aid">First Aid</option>
+                    <option value="Fire">Fire Safety</option>
+                    <option value="Environmental">Environmental</option>
+                  </select>
+
+                  {/* Status Filter */}
+                  <select
+                    value={filterStatus}
+                    onChange={(e) => setFilterStatus(e.target.value)}
+                    className="px-4 py-2.5 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
+                    style={{
+                      backgroundColor: "rgba(15, 23, 42, 0.6)",
+                      color: "#F8FAFC",
+                      border: "none",
+                    }}
+                  >
+                    <option value="all">All Status</option>
+                    <option value="Active">Active</option>
+                    <option value="Expired">Expired</option>
+                    <option value="Pending">Pending</option>
+                  </select>
+
+                  {/* Clear Filters */}
+                  {(filterType !== "all" || filterStatus !== "all") && (
+                    <button
+                      onClick={() => {
+                        setFilterType("all");
+                        setFilterStatus("all");
+                      }}
+                      className="flex items-center gap-2 px-3 py-2 rounded-lg transition-colors text-sm"
+                      style={{
+                        backgroundColor: "rgba(239, 68, 68, 0.1)",
+                        color: "#EF4444",
+                      }}
+                    >
+                      <X className="size-4" />
+                      <span>Clear</span>
+                    </button>
+                  )}
+                </div>
+
+                {/* Right Side: Actions */}
+                <div className="flex items-center gap-3">
+                  <button
+                    className="flex items-center gap-2 px-4 py-2.5 rounded-lg transition-all text-sm font-medium"
+                    style={{
+                      backgroundColor: "rgba(59, 130, 246, 0.1)",
+                      color: "#3B82F6",
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.backgroundColor =
+                        "rgba(59, 130, 246, 0.2)";
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.backgroundColor =
+                        "rgba(59, 130, 246, 0.1)";
+                    }}
+                  >
+                    <Upload className="size-4" />
+                    <span>Upload Letter</span>
+                  </button>
+
+                  <button
+                    className="flex items-center gap-2 px-4 py-2.5 rounded-lg transition-all text-sm font-medium"
+                    style={{
+                      backgroundColor: "rgba(59, 130, 246, 0.1)",
+                      color: "#3B82F6",
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.backgroundColor =
+                        "rgba(59, 130, 246, 0.2)";
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.backgroundColor =
+                        "rgba(59, 130, 246, 0.1)";
+                    }}
+                  >
+                    <Download className="size-4" />
+                    <span>Export Register</span>
+                  </button>
+
+                  <button
+                    className="flex items-center gap-2 px-4 py-2.5 rounded-lg transition-all text-sm font-medium"
+                    style={{
+                      backgroundColor: "#3B82F6",
+                      color: "white",
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.backgroundColor = "#2563EB";
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.backgroundColor = "#3B82F6";
+                    }}
+                  >
+                    <Plus className="size-4" />
+                    <span>Add Appointment</span>
+                  </button>
+                </div>
               </div>
-
-              {/* Appointment Type Filter */}
-              <select
-                value={filterType}
-                onChange={(e) => setFilterType(e.target.value)}
-                className="px-4 py-2.5 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
-                style={{
-                  backgroundColor: "rgba(15, 23, 42, 0.6)",
-                  color: "#F8FAFC",
-                  border: "none",
-                }}
-              >
-                <option value="all">All Types</option>
-                <option value="16.1">Section 16.1</option>
-                <option value="16.2">Section 16.2</option>
-                <option value="17">SHE Rep</option>
-                <option value="First Aid">First Aid</option>
-                <option value="Fire">Fire Safety</option>
-                <option value="Environmental">Environmental</option>
-              </select>
-
-              {/* Status Filter */}
-              <select
-                value={filterStatus}
-                onChange={(e) => setFilterStatus(e.target.value)}
-                className="px-4 py-2.5 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
-                style={{
-                  backgroundColor: "rgba(15, 23, 42, 0.6)",
-                  color: "#F8FAFC",
-                  border: "none",
-                }}
-              >
-                <option value="all">All Status</option>
-                <option value="Active">Active</option>
-                <option value="Expired">Expired</option>
-                <option value="Pending">Pending</option>
-              </select>
-
-              {/* Clear Filters */}
-              {(filterType !== "all" || filterStatus !== "all") && (
-                <button
-                  onClick={() => {
-                    setFilterType("all");
-                    setFilterStatus("all");
-                  }}
-                  className="flex items-center gap-2 px-3 py-2 rounded-lg transition-colors text-sm"
-                  style={{
-                    backgroundColor: "rgba(239, 68, 68, 0.1)",
-                    color: "#EF4444",
-                  }}
-                >
-                  <X className="size-4" />
-                  <span>Clear</span>
-                </button>
-              )}
             </div>
-
-            {/* Right Side: Actions */}
-            <div className="flex items-center gap-3">
-              <button
-                className="flex items-center gap-2 px-4 py-2.5 rounded-lg transition-all text-sm font-medium"
-                style={{
-                  backgroundColor: "rgba(59, 130, 246, 0.1)",
-                  color: "#3B82F6",
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor =
-                    "rgba(59, 130, 246, 0.2)";
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.backgroundColor =
-                    "rgba(59, 130, 246, 0.1)";
-                }}
-              >
-                <Upload className="size-4" />
-                <span>Upload Letter</span>
-              </button>
-
-              <button
-                className="flex items-center gap-2 px-4 py-2.5 rounded-lg transition-all text-sm font-medium"
-                style={{
-                  backgroundColor: "rgba(59, 130, 246, 0.1)",
-                  color: "#3B82F6",
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor =
-                    "rgba(59, 130, 246, 0.2)";
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.backgroundColor =
-                    "rgba(59, 130, 246, 0.1)";
-                }}
-              >
-                <Download className="size-4" />
-                <span>Export Register</span>
-              </button>
-
-              <button
-                className="flex items-center gap-2 px-4 py-2.5 rounded-lg transition-all text-sm font-medium"
-                style={{
-                  backgroundColor: "#3B82F6",
-                  color: "white",
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor = "#2563EB";
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.backgroundColor = "#3B82F6";
-                }}
-              >
-                <Plus className="size-4" />
-                <span>Add Appointment</span>
-              </button>
-            </div>
-          </div>
-        </div>
-        </>
+          </>
         )}
 
         {/* Main Content Area: Table + Detail Panel */}
@@ -623,6 +674,8 @@ export function LegalAppointments({
                     Document
                   </span>
                 </div>
+                
+  
                 <div className="col-span-1">
                   <span
                     className="text-xs font-semibold uppercase tracking-wider"
@@ -1055,6 +1108,14 @@ export function LegalAppointments({
                         : "rgba(0, 0, 0, 0.02)",
                   }}
                 >
+                  <h3 className="text-md font-semibold mb-2">Generated Appointment Letter</h3>
+  
+  <div className="p-4 rounded-lg bg-gray-100 text-sm whitespace-pre-line">
+    <strong>{letter.title}</strong>
+    {"\n\n"}
+    {letter.body}
+  </div>
+</div>
                   <div className="flex items-center justify-between mb-3">
                     <p
                       className="text-sm font-semibold"
@@ -1221,7 +1282,6 @@ export function LegalAppointments({
                   </button>
                 </div>
               </div>
-            </div>
           )}
         </div>
       </div>
