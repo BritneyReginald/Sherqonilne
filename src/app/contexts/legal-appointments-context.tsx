@@ -23,6 +23,7 @@ interface LegalAppointmentsContextType {
   appointments: LegalAppointment[];
   addAppointment: (appointment: LegalAppointment) => void;
   deleteAppointment: (id: string) => void;
+  updateAppointment: (appointment: LegalAppointment) => void;
 }
 
 const LegalAppointmentsContext =
@@ -76,10 +77,19 @@ export function LegalAppointmentsProvider({
       prev.filter((a) => a.id !== id)
     );
   };
+  const updateAppointment = (updatedAppointment: LegalAppointment) => {
+  setAppointments(prev =>
+  prev.map(appt =>
+    appt.id === updatedAppointment.id
+      ? { ...appt, ...updatedAppointment }
+      : appt
+  )
+);
+};
 
   return (
     <LegalAppointmentsContext.Provider
-      value={{ appointments, addAppointment, deleteAppointment }}
+      value={{ appointments, addAppointment, deleteAppointment, updateAppointment }}
     >
       {children}
     </LegalAppointmentsContext.Provider>

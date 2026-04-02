@@ -38,6 +38,9 @@ interface LegalAppointment {
   reportsToId?: string;
   delegatedAuthorityScope: string;
   hierarchyLevel: number;
+  templateKey?: string;
+  documentName?: string;
+  documentUrl?: string;
 }
 
 // const mockAppointments: LegalAppointment[] = [
@@ -193,17 +196,7 @@ interface LegalAppointmentsProps {
 }
 
 export const generateAppointmentLetter = (appointment) => {
-  const type = appointment.appointmentType;
-
-  let template;
-
-  if (type.includes("16.2")) {
-    template = appointmentTemplates["HSE Representative"];
-  } else if (type.includes("17")) {
-    template = appointmentTemplates["HSE Representative"];
-  } else if (type.includes("Investigator")) {
-    template = appointmentTemplates["Incident Investigator"];
-  }
+  const template = appointmentTemplates[appointment.templateKey];
 
   if (!template) {
     return {
@@ -218,13 +211,46 @@ export const generateAppointmentLetter = (appointment) => {
   };
 };
 
+const appointmentTypeMap = {
+  "Section 16.1 - CEO": {
+    legalSection: "OHS Act Section 16.1",
+    department: "Executive",
+    templateKey: "ceo",
+  },
+  "Section 16.2 - Safety Officer": {
+    legalSection: "OHS Act Section 16.2",
+    department: "Health & Safety",
+    templateKey: "safetyOfficer",
+  },
+  "Section 17 - SHE Rep": {
+    legalSection: "OHS Act Section 17",
+    department: "Health & Safety",
+    templateKey: "hseRep",
+  },
+  "First Aid Officer": {
+    legalSection: "OHS Act General Safety Regulation 3",
+    department: "Health & Safety",
+    templateKey: "firstAid",
+  },
+  "Fire Marshal": {
+    legalSection: "OHS Act General Safety Regulation 4",
+    department: "Facilities",
+    templateKey: "fireMarshal",
+  },
+  "Incident Investigator": {
+    legalSection: "OHS Act Section 24",
+    department: "Health & Safety",
+    templateKey: "investigator",
+  },
+};
+
 export function LegalAppointments({
   employeeId,
   sidebarOpen = true,
 }: LegalAppointmentsProps) {
   const isEmployeeView = !!employeeId;
-  const { appointments } = useLegalAppointments();
-  
+  const { appointments, addAppointment, updateAppointment } = useLegalAppointments();
+
   const [filterType, setFilterType] = useState("all");
   const [filterStatus, setFilterStatus] = useState("all");
   const [showDetailPanel, setShowDetailPanel] = useState(true);
@@ -257,7 +283,9 @@ export function LegalAppointments({
   const [selectedAppointment, setSelectedAppointment] = useState(
     filteredAppointments[0] || null,
   );
-  const letter = generateAppointmentLetter(selectedAppointment);
+  const letter = selectedAppointment
+    ? generateAppointmentLetter(selectedAppointment)
+    : { title: "", body: "" };
   useEffect(() => {
     setSelectedAppointment(filteredAppointments[0] || null);
   }, [employeeId, filterType, filterStatus, appointments]);
@@ -299,6 +327,87 @@ export function LegalAppointments({
     const days = Math.ceil(diff / (1000 * 60 * 60 * 24));
     return days;
   };
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [formData, setFormData] = useState({
+    employeeName: "",
+    employeeId: "",
+    appointmentType: "",
+    department: "",
+    startDate: "",
+    endDate: "",
+  });
+
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+
+    if (name === "appointmentType") {
+      const selected = appointmentTypeMap[value];
+
+      setFormData((prev) => ({
+        ...prev,
+        appointmentType: value,
+        department: selected?.department || "",
+      }));
+    } else {
+      setFormData((prev) => ({
+        ...prev,
+        [name]: value,
+      }));
+    }
+  };
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+
+    const selected = appointmentTypeMap[formData.appointmentType];
+
+    const newAppointment = {
+      id: Date.now().toString(),
+      employeeName: formData.employeeName,
+      employeeId: formData.employeeId,
+      appointmentType: formData.appointmentType,
+      department: selected?.department || formData.department,
+      legalSection: selected?.legalSection || "N/A",
+      startDate: new Date(formData.startDate),
+      endDate: new Date(formData.endDate),
+
+      jobTitle: "N/A",
+      status: "Active",
+      documentUploaded: false,
+      signatureStatus: "Pending",
+      delegatedAuthorityScope: selected?.department || formData.department,
+      hierarchyLevel: 3,
+       templateKey: selected?.templateKey || "",
+    };
+    addAppointment(newAppointment);
+
+    setShowAddModal(false);
+
+    // reset form
+    setFormData({
+      employeeName: "",
+      employeeId: "",
+      appointmentType: "",
+      department: "",
+      startDate: "",
+      endDate: "",
+    });
+  };
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const file = e.target.files?.[0];
+  if (!file || !selectedAppointment) return;
+
+  const updatedAppointment = {
+    ...selectedAppointment,
+    documentUploaded: true,
+    documentName: file.name,
+    documentUrl: URL.createObjectURL(file),
+  };
+
+  updateAppointment(updatedAppointment);
+  setSelectedAppointment(updatedAppointment);
+};
 
   return (
     <div className="min-h-full" style={{ backgroundColor: colors.background }}>
@@ -589,6 +698,7 @@ export function LegalAppointments({
                   </button>
 
                   <button
+                    onClick={() => setShowAddModal(true)}
                     className="flex items-center gap-2 px-4 py-2.5 rounded-lg transition-all text-sm font-medium"
                     style={{
                       backgroundColor: "#3B82F6",
@@ -602,6 +712,7 @@ export function LegalAppointments({
                     }}
                   >
                     <Plus className="size-4" />
+
                     <span>Add Appointment</span>
                   </button>
                 </div>
@@ -674,8 +785,7 @@ export function LegalAppointments({
                     Document
                   </span>
                 </div>
-                
-  
+
                 <div className="col-span-1">
                   <span
                     className="text-xs font-semibold uppercase tracking-wider"
@@ -1108,183 +1218,258 @@ export function LegalAppointments({
                         : "rgba(0, 0, 0, 0.02)",
                   }}
                 >
-                  <h3 className="text-md font-semibold mb-2">Generated Appointment Letter</h3>
-  
-  <div className="p-4 rounded-lg bg-gray-100 text-sm whitespace-pre-line">
-    <strong>{letter.title}</strong>
-    {"\n\n"}
-    {letter.body}
-  </div>
-</div>
-                  <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-md font-semibold mb-2">
+                    Generated Appointment Letter
+                  </h3>
+
+                  <div className="p-4 rounded-lg bg-gray-100 text-sm whitespace-pre-line text-gray-900">
+                    <strong>{letter.title}</strong>
+                    {"\n\n"}
+                    {letter.body}
+                  </div>
+                </div>
+                <div className="flex items-center justify-between mb-3">
+                  <p
+                    className="text-sm font-semibold"
+                    style={{ color: colors.primaryText }}
+                  >
+                    Appointment Letter
+                  </p>
+                  {selectedAppointment.documentUploaded ? (
+                    <div className="flex items-center gap-2">
+                      <CheckCircle
+                        className="size-4"
+                        style={{ color: "#10B981" }}
+                      />
+                      <span
+                        className="text-xs font-medium"
+                        style={{ color: "#10B981" }}
+                      >
+                        Uploaded
+                      </span>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <XCircle
+                        className="size-4"
+                        style={{ color: "#EF4444" }}
+                      />
+                      <span
+                        className="text-xs font-medium"
+                        style={{ color: "#EF4444" }}
+                      >
+                        Missing
+                      </span>
+                    </div>
+                  )}
+                </div>
+                {selectedAppointment.documentUploaded ? (
+                  <div
+                    className="flex items-center gap-3 p-3 rounded-lg"
+                    style={{ backgroundColor: colors.surface }}
+                  >
+                    <FileCheck
+                      className="size-8"
+                      style={{ color: "#3B82F6" }}
+                    />
+                    <div className="flex-1">
+                      <p
+                        className="text-sm font-medium"
+                        style={{ color: colors.primaryText }}
+                      >
+                        {selectedAppointment.documentName || `Appointment_Letter_${selectedAppointment.employeeId}.pdf`}
+                      </p>
+                      <p className="text-xs" style={{ color: colors.subText }}>
+                        Uploaded: {formatDate(selectedAppointment.startDate)}
+                      </p>
+                    </div>
+                    <button
+                      className="p-2 rounded-lg transition-colors"
+                      style={{ backgroundColor: "rgba(59, 130, 246, 0.1)" }}
+                    >
+                      <Download
+                        className="size-4"
+                        style={{ color: "#3B82F6" }}
+                      />
+                    </button>
+                  </div>
+                ) : (
+                  <label className="w-full py-3 rounded-lg border-2 border-dashed text-sm font-medium cursor-pointer flex flex-col items-center justify-center">
+  <Upload className="size-5 mb-1" />
+  Upload Document
+
+  <input
+    type="file"
+    accept=".pdf,.doc,.docx"
+    className="hidden"
+    onChange={handleFileUpload}
+  />
+</label>
+                )}
+              </div>
+
+              {/* Signature Status */}
+              <div
+                className="rounded-lg p-4 mb-6"
+                style={{
+                  backgroundColor:
+                    selectedAppointment.signatureStatus === "Signed"
+                      ? "rgba(16, 185, 129, 0.1)"
+                      : "rgba(245, 158, 11, 0.1)",
+                }}
+              >
+                <div className="flex items-center gap-3">
+                  <FileText
+                    className="size-5"
+                    style={{
+                      color:
+                        selectedAppointment.signatureStatus === "Signed"
+                          ? "#10B981"
+                          : "#F59E0B",
+                    }}
+                  />
+                  <div>
                     <p
                       className="text-sm font-semibold"
                       style={{ color: colors.primaryText }}
                     >
-                      Appointment Letter
+                      Signature Status
                     </p>
-                    {selectedAppointment.documentUploaded ? (
-                      <div className="flex items-center gap-2">
-                        <CheckCircle
-                          className="size-4"
-                          style={{ color: "#10B981" }}
-                        />
-                        <span
-                          className="text-xs font-medium"
-                          style={{ color: "#10B981" }}
-                        >
-                          Uploaded
-                        </span>
-                      </div>
-                    ) : (
-                      <div className="flex items-center gap-2">
-                        <XCircle
-                          className="size-4"
-                          style={{ color: "#EF4444" }}
-                        />
-                        <span
-                          className="text-xs font-medium"
-                          style={{ color: "#EF4444" }}
-                        >
-                          Missing
-                        </span>
-                      </div>
-                    )}
+                    <p className="text-xs" style={{ color: colors.subText }}>
+                      {selectedAppointment.signatureStatus === "Signed"
+                        ? "Appointment letter signed and acknowledged"
+                        : "Awaiting employee signature"}
+                    </p>
                   </div>
-                  {selectedAppointment.documentUploaded ? (
-                    <div
-                      className="flex items-center gap-3 p-3 rounded-lg"
-                      style={{ backgroundColor: colors.surface }}
-                    >
-                      <FileCheck
-                        className="size-8"
-                        style={{ color: "#3B82F6" }}
-                      />
-                      <div className="flex-1">
-                        <p
-                          className="text-sm font-medium"
-                          style={{ color: colors.primaryText }}
-                        >
-                          Appointment_Letter_{selectedAppointment.employeeId}
-                          .pdf
-                        </p>
-                        <p
-                          className="text-xs"
-                          style={{ color: colors.subText }}
-                        >
-                          Uploaded: {formatDate(selectedAppointment.startDate)}
-                        </p>
-                      </div>
-                      <button
-                        className="p-2 rounded-lg transition-colors"
-                        style={{ backgroundColor: "rgba(59, 130, 246, 0.1)" }}
-                      >
-                        <Download
-                          className="size-4"
-                          style={{ color: "#3B82F6" }}
-                        />
-                      </button>
-                    </div>
-                  ) : (
-                    <button
-                      className="w-full py-3 rounded-lg border-2 border-dashed transition-colors text-sm font-medium"
-                      style={{
-                        borderColor: "#64748B",
-                        color: colors.subText,
-                      }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.borderColor = "#3B82F6";
-                        e.currentTarget.style.backgroundColor =
-                          "rgba(59, 130, 246, 0.05)";
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.borderColor = "#64748B";
-                        e.currentTarget.style.backgroundColor = "transparent";
-                      }}
-                    >
-                      <Upload className="size-5 mx-auto mb-1" />
-                      Upload Document
-                    </button>
-                  )}
-                </div>
-
-                {/* Signature Status */}
-                <div
-                  className="rounded-lg p-4 mb-6"
-                  style={{
-                    backgroundColor:
-                      selectedAppointment.signatureStatus === "Signed"
-                        ? "rgba(16, 185, 129, 0.1)"
-                        : "rgba(245, 158, 11, 0.1)",
-                  }}
-                >
-                  <div className="flex items-center gap-3">
-                    <FileText
-                      className="size-5"
-                      style={{
-                        color:
-                          selectedAppointment.signatureStatus === "Signed"
-                            ? "#10B981"
-                            : "#F59E0B",
-                      }}
-                    />
-                    <div>
-                      <p
-                        className="text-sm font-semibold"
-                        style={{ color: colors.primaryText }}
-                      >
-                        Signature Status
-                      </p>
-                      <p className="text-xs" style={{ color: colors.subText }}>
-                        {selectedAppointment.signatureStatus === "Signed"
-                          ? "Appointment letter signed and acknowledged"
-                          : "Awaiting employee signature"}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Action Buttons */}
-                <div className="flex gap-3">
-                  <button
-                    className="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-lg transition-all text-sm font-medium"
-                    style={{
-                      backgroundColor: "rgba(59, 130, 246, 0.1)",
-                      color: "#3B82F6",
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.backgroundColor =
-                        "rgba(59, 130, 246, 0.2)";
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.backgroundColor =
-                        "rgba(59, 130, 246, 0.1)";
-                    }}
-                  >
-                    <RefreshCw className="size-4" />
-                    <span>Renew</span>
-                  </button>
-                  <button
-                    className="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-lg transition-all text-sm font-medium"
-                    style={{
-                      backgroundColor: "#3B82F6",
-                      color: "white",
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.backgroundColor = "#2563EB";
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.backgroundColor = "#3B82F6";
-                    }}
-                  >
-                    <Upload className="size-4" />
-                    <span>Upload</span>
-                  </button>
                 </div>
               </div>
+
+              {/* Action Buttons */}
+              <div className="flex gap-3">
+                <button
+                  className="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-lg transition-all text-sm font-medium"
+                  style={{
+                    backgroundColor: "rgba(59, 130, 246, 0.1)",
+                    color: "#3B82F6",
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor =
+                      "rgba(59, 130, 246, 0.2)";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor =
+                      "rgba(59, 130, 246, 0.1)";
+                  }}
+                >
+                  <RefreshCw className="size-4" />
+                  <span>Renew</span>
+                </button>
+                <button
+                  className="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-lg transition-all text-sm font-medium"
+                  style={{
+                    backgroundColor: "#3B82F6",
+                    color: "white",
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = "#2563EB";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = "#3B82F6";
+                  }}
+                >
+                  <Upload className="size-4" />
+                  <span>Upload</span>
+                </button>
+              </div>
+            </div>
           )}
         </div>
       </div>
+      {showAddModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-[500px]">
+            <h2 className="text-lg font-semibold mb-4 text-gray-900">
+              Add Appointment
+            </h2>
+
+            <form onSubmit={handleSubmit} className="space-y-3 text-gray-900">
+              <input
+                type="text"
+                name="employeeName"
+                value={formData.employeeName}
+                onChange={handleChange}
+                placeholder="Employee Name"
+                className="w-full border p-2 rounded"
+              />
+
+              <input
+                type="text"
+                name="employeeId"
+                value={formData.employeeId}
+                placeholder="Employee ID"
+                className="w-full border p-2 rounded"
+              />
+
+              <select
+                name="appointmentType"
+                value={formData.appointmentType}
+                onChange={handleChange}
+                className="w-full border p-2 rounded"
+              >
+                <option value="">Select Appointment Type</option>
+                {Object.keys(appointmentTypeMap).map((type) => (
+                  <option key={type} value={type}>
+                    {type}
+                  </option>
+                ))}
+              </select>
+
+              <input
+                type="text"
+                name="department"
+                placeholder="Department"
+                value={formData.department}
+                readOnly
+                className="w-full border p-2 rounded bg-gray-100"
+              />
+
+              <input
+                type="date"
+                name="startDate"
+                value={formData.startDate}
+                placeholder="Start Date"
+                onChange={handleChange}
+                className="w-full border p-2 rounded"
+              />
+              <input
+                type="date"
+                name="endDate"
+                value={formData.endDate}
+                placeholder="End Date"
+                onChange={handleChange}
+                className="w-full border p-2 rounded"
+              />
+
+              <div className="flex justify-end gap-2 mt-4">
+                <button
+                  type="button"
+                  onClick={() => setShowAddModal(false)}
+                  className="px-4 py-2 bg-gray-300 rounded"
+                >
+                  Cancel
+                </button>
+
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-blue-600 text-white rounded"
+                >
+                  Save
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
