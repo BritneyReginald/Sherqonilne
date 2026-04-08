@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { jsPDF } from "jspdf";
 import {
   FileText,
   CheckCircle,
@@ -34,6 +35,12 @@ interface LegalAppointment {
   employeeId: string;
   department: string;
   signatureStatus: "Signed" | "Pending" | "Not Required";
+  documentStatus:
+    | "Not Generated"
+    | "Generated"
+    | "Downloaded"
+    | "Uploaded"
+    | "Signed";
   reportsTo?: string;
   reportsToId?: string;
   delegatedAuthorityScope: string;
@@ -196,7 +203,7 @@ interface LegalAppointmentsProps {
 }
 
 export const generateAppointmentLetter = (appointment) => {
-  const template = appointmentTemplates[appointment.templateKey];
+  const template = appointmentTemplates[appointment.templateKey || ""];
 
   if (!template) {
     return {
@@ -249,7 +256,8 @@ export function LegalAppointments({
   sidebarOpen = true,
 }: LegalAppointmentsProps) {
   const isEmployeeView = !!employeeId;
-  const { appointments, addAppointment, updateAppointment } = useLegalAppointments();
+  const { appointments, addAppointment, updateAppointment } =
+    useLegalAppointments();
 
   const [filterType, setFilterType] = useState("all");
   const [filterStatus, setFilterStatus] = useState("all");
@@ -287,8 +295,10 @@ export function LegalAppointments({
     ? generateAppointmentLetter(selectedAppointment)
     : { title: "", body: "" };
   useEffect(() => {
-    setSelectedAppointment(filteredAppointments[0] || null);
-  }, [employeeId, filterType, filterStatus, appointments]);
+    if (!filteredAppointments.find((a) => a.id === selectedAppointment?.id)) {
+      setSelectedAppointment(filteredAppointments[0] || null);
+    }
+  }, [filteredAppointments]);
   const { colors } = useTheme();
 
   const getStatusStyle = (status: LegalAppointment["status"]) => {
@@ -359,6 +369,10 @@ export function LegalAppointments({
   const handleSubmit = (e) => {
     e.preventDefault();
 
+    if (!formData.employeeName || !formData.appointmentType) {
+      alert("Please fill all required fields");
+      return;
+    }
     const selected = appointmentTypeMap[formData.appointmentType];
 
     const newAppointment = {
@@ -377,7 +391,7 @@ export function LegalAppointments({
       signatureStatus: "Pending",
       delegatedAuthorityScope: selected?.department || formData.department,
       hierarchyLevel: 3,
-       templateKey: selected?.templateKey || "",
+      templateKey: selected?.templateKey || "",
     };
     addAppointment(newAppointment);
 
@@ -395,19 +409,41 @@ export function LegalAppointments({
   };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-  const file = e.target.files?.[0];
-  if (!file || !selectedAppointment) return;
+    const file = e.target.files?.[0];
+    if (!file || !selectedAppointment) return;
 
-  const updatedAppointment = {
-    ...selectedAppointment,
-    documentUploaded: true,
-    documentName: file.name,
-    documentUrl: URL.createObjectURL(file),
+    const updatedAppointment = {
+      ...selectedAppointment,
+      documentUploaded: true,
+      documentName: file.name,
+      documentUrl: URL.createObjectURL(file),
+    };
+
+    updateAppointment(updatedAppointment);
+    setSelectedAppointment(updatedAppointment);
   };
 
-  updateAppointment(updatedAppointment);
-  setSelectedAppointment(updatedAppointment);
-};
+  const downloadLetter = (appointment) => {
+    const { title, body } = generateAppointmentLetter(appointment);
+
+    const blob = new Blob([`${title}\n\n${body}`], { type: "text/plain" });
+
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = `${appointment.employeeName}_Appointment.txt`;
+    link.click();
+  };
+
+  const downloadPDF = (appointment) => {
+    const doc = new jsPDF();
+    const { title, body } = generateAppointmentLetter(appointment);
+
+    doc.text(title, 10, 10);
+    const splitText = doc.splitTextToSize(body, 180);
+    doc.text(splitText, 10, 20);
+
+    doc.save(`Appointment_${appointment.employeeName}.pdf`);
+  };
 
   return (
     <div className="min-h-full" style={{ backgroundColor: colors.background }}>
@@ -659,7 +695,7 @@ export function LegalAppointments({
 
                 {/* Right Side: Actions */}
                 <div className="flex items-center gap-3">
-                  <button
+                  <button onClick={() => handleFileUpload()}
                     className="flex items-center gap-2 px-4 py-2.5 rounded-lg transition-all text-sm font-medium"
                     style={{
                       backgroundColor: "rgba(59, 130, 246, 0.1)",
@@ -673,6 +709,7 @@ export function LegalAppointments({
                       e.currentTarget.style.backgroundColor =
                         "rgba(59, 130, 246, 0.1)";
                     }}
+                    
                   >
                     <Upload className="size-4" />
                     <span>Upload Letter</span>
@@ -1263,6 +1300,16 @@ export function LegalAppointments({
                     </div>
                   )}
                 </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => downloadPDF(selectedAppointment)}
+                    className="p-5"
+                  >
+                    <Download /> Download Letter
+                  </button>
+
+                  <button className="p-2">Sign Electronically</button>
+                </div>
                 {selectedAppointment.documentUploaded ? (
                   <div
                     className="flex items-center gap-3 p-3 rounded-lg"
@@ -1277,7 +1324,8 @@ export function LegalAppointments({
                         className="text-sm font-medium"
                         style={{ color: colors.primaryText }}
                       >
-                        {selectedAppointment.documentName || `Appointment_Letter_${selectedAppointment.employeeId}.pdf`}
+                        {selectedAppointment.documentName ||
+                          `Appointment_Letter_${selectedAppointment.employeeId}.pdf`}
                       </p>
                       <p className="text-xs" style={{ color: colors.subText }}>
                         Uploaded: {formatDate(selectedAppointment.startDate)}
@@ -1295,16 +1343,15 @@ export function LegalAppointments({
                   </div>
                 ) : (
                   <label className="w-full py-3 rounded-lg border-2 border-dashed text-sm font-medium cursor-pointer flex flex-col items-center justify-center">
-  <Upload className="size-5 mb-1" />
-  Upload Document
-
-  <input
-    type="file"
-    accept=".pdf,.doc,.docx"
-    className="hidden"
-    onChange={handleFileUpload}
-  />
-</label>
+                    <Upload className="size-5 mb-1" />
+                    Upload Document
+                    <input
+                      type="file"
+                      accept=".pdf,.doc,.docx"
+                      className="hidden"
+                      onChange={handleFileUpload}
+                    />
+                  </label>
                 )}
               </div>
 
@@ -1406,6 +1453,7 @@ export function LegalAppointments({
                 type="text"
                 name="employeeId"
                 value={formData.employeeId}
+                onChange={handleChange}
                 placeholder="Employee ID"
                 className="w-full border p-2 rounded"
               />

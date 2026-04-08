@@ -14,6 +14,7 @@ export const appointmentTemplates = {
 
   effectiveDate: `This appointment is effective from ${appt.startDate}.`,
 }),
+fileName: (data) => `FirstAid_${data.employeeId}.pdf`
   },
 
   hseRep: {
@@ -33,5 +34,6 @@ Any issues must be reported to ${appt.reportsTo || "your supervisor"}.
 
 This appointment is effective from ${appt.startDate}.
   `,
+  fileName: (data) => `FirstAid_${data.employeeId}.pdf`
 },
 };
