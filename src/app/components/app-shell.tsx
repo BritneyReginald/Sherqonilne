@@ -42,6 +42,7 @@ import { RiskMethodology } from "@/app/components/risk-methodology";
 import { RiskAssessmentBeforeControls } from "@/app/components/risk-assessment-before-controls";
 import { RiskAssessmentAfterControls } from "@/app/components/risk-assessment-after-controls";
 import { RiskAssessmentSummary } from "@/app/components/risk-assessment-summary";
+import Incidents from "@/app/components/incidents/incidents";
 
 interface NavigationItem {
   id: string;
@@ -102,6 +103,28 @@ const navigationItems: NavigationItem[] = [
     id: "risk-assessments",
     label: "Risk Assessments",
     icon: <AlertTriangle className="size-5" />,
+  },
+  {
+    id: "incidents",
+    label: "Incidents",
+    icon: <AlertTriangle className="size-5" />,
+    children: [
+      {
+        id: "incidents-main",
+        label: "Manage Incidents",
+        icon: <AlertTriangle className="size-4" />,
+      },
+      {
+        id: "ncr",
+        label: "NCR",
+        icon: <FileText className="size-4" />,
+      },
+      {
+        id: "injuries",
+        label: "Injuries",
+        icon: <Heart className="size-4" />,
+      },
+    ],
   },
   {
     id: "document-library",
@@ -306,16 +329,26 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
                             ? "PPE Register"
                             : activeItem === "risk-assessments"
                               ? "Risk Assessments"
-                              : activeItem === "medicals"
-                                ? "Medical Surveillance"
-                                : activeItem === "analytics"
-                                  ? "Reports & Analytics"
-                                  : activeItem === "system-audit-log"
-                                    ? "System Audit Log"
-                                    : activeItem === "system-settings"
-                                      ? "System Settings"
-                                      : activeItem.charAt(0).toUpperCase() +
-                                        activeItem.slice(1).replace("-", " ")}
+                              : activeItem === "incidents-main"
+                                ? "Incidents"
+                                : activeItem === "ncr"
+                                  ? "NCR"
+                                  : activeItem === "injuries"
+                                    ? "Injuries"
+                                    : activeItem === "medicals"
+                                      ? "Medical Surveillance"
+                                      : activeItem === "analytics"
+                                        ? "Reports & Analytics"
+                                        : activeItem === "system-audit-log"
+                                          ? "System Audit Log"
+                                          : activeItem === "system-settings"
+                                            ? "System Settings"
+                                            : activeItem
+                                                .charAt(0)
+                                                .toUpperCase() +
+                                              activeItem
+                                                .slice(1)
+                                                .replace("-", " ")}
             </h2>
           </div>
 
@@ -613,6 +646,12 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
             <RiskAssessmentRegisterEnhanced />
           ) : activeItem === "risk-assessment-new" ? (
             <NewRiskAssessment />
+          ) : activeItem === "incidents-main" ? (
+            <Incidents type="incident" />
+          ) : activeItem === "ncr" ? (
+            <Incidents type="ncr" />
+          ) : activeItem === "injuries" ? (
+            <Incidents type="injury" />
           ) : activeItem === "medicals" ? (
             <MedicalSurveillanceEnhanced />
           ) : activeItem === "analytics" ? (
