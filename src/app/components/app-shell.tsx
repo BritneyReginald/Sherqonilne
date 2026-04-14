@@ -106,25 +106,8 @@ const navigationItems: NavigationItem[] = [
   },
   {
     id: "incidents",
-    label: "Incidents",
+    label: "Incidents / NCR / Injuries",
     icon: <AlertTriangle className="size-5" />,
-    children: [
-      {
-        id: "incidents-main",
-        label: "Manage Incidents",
-        icon: <AlertTriangle className="size-4" />,
-      },
-      {
-        id: "ncr",
-        label: "NCR",
-        icon: <FileText className="size-4" />,
-      },
-      {
-        id: "injuries",
-        label: "Injuries",
-        icon: <Heart className="size-4" />,
-      },
-    ],
   },
   {
     id: "document-library",
@@ -646,12 +629,8 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
             <RiskAssessmentRegisterEnhanced />
           ) : activeItem === "risk-assessment-new" ? (
             <NewRiskAssessment />
-          ) : activeItem === "incidents-main" ? (
-            <Incidents type="incident" />
-          ) : activeItem === "ncr" ? (
-            <Incidents type="ncr" />
-          ) : activeItem === "injuries" ? (
-            <Incidents type="injury" />
+          ) : activeItem === "incidents" ? (
+            <Incidents />
           ) : activeItem === "medicals" ? (
             <MedicalSurveillanceEnhanced />
           ) : activeItem === "analytics" ? (
