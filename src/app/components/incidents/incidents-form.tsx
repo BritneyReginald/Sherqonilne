@@ -1,14 +1,18 @@
 import { useState } from "react";
 
-export function IncidentForm({ onSubmit }: any) {
+const employees = [
+  { name: "John Doe", number: "EMP001", supervisor: "Mike Ross" },
+  { name: "Jane Smith", number: "EMP002", supervisor: "Rachel Zane" },
+];
+
+export function IncidentForm({ onSubmit, incidentType, incidentNumber }: any) {
   const [form, setForm] = useState({
     division: "",
     date: "",
-    classification: "",
     employeeName: "",
+    supervisor: "",
     site: "",
     time: "",
-    incidentNumber: "",
     employeeNumber: "",
     description: "",
   });
@@ -18,124 +22,138 @@ export function IncidentForm({ onSubmit }: any) {
   };
 
   return (
-    <div className="mb-6 bg-white rounded-xl shadow p-4">
-      <table className="w-full border border-gray-200">
-        <thead>
-          <tr>
-            <th colSpan={4} className="bg-blue-600 text-white text-left p-3">
-              Details of Incident
-            </th>
-          </tr>
-        </thead>
+    <div className="space-y-6">
+      {/* ================= BASIC DETAILS ================= */}
+      <div className="bg-white rounded-xl shadow p-6">
+        <h2 className="text-lg font-semibold mb-4 text-gray-900">
+          Incident Details
+        </h2>
 
-        <tbody className="text-gray-900">
-          <tr>
-            <td className="p-2 font-medium">Division: </td>
-            <td className="p-2">
-              <input
-                value={form.division}
-                onChange={(e) => handleChange("division", e.target.value)}
-                className="input w-full"
-              />
-            </td>
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="text-sm text-gray-600">Division:</label>
+            <input
+              value={form.division}
+              onChange={(e) => handleChange("division", e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
 
-            <td className="p-2 font-medium">Site: </td>
-            <td className="p-2">
-              <input
-                value={form.site}
-                onChange={(e) => handleChange("site", e.target.value)}
-                className="input w-full"
-              />
-            </td>
-          </tr>
+          <div>
+            <label className="text-sm text-gray-600">Site:</label>
+            <input
+              value={form.site}
+              onChange={(e) => handleChange("site", e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
 
-          <tr>
-            <td className="p-2 font-medium">Date Of Incident: </td>
-            <td className="p-2">
-              <input
-                type="date"
-                value={form.date}
-                onChange={(e) => handleChange("date", e.target.value)}
-                className="input w-full"
-              />
-            </td>
+          <div>
+            <label className="text-sm text-gray-600">Date Of Incident:</label>
+            <input
+              type="date"
+              value={form.date}
+              onChange={(e) => handleChange("date", e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
 
-            <td className="p-2 font-medium">Time Of Incident: </td>
-            <td className="p-2">
-              <input
-                type="time"
-                value={form.time}
-                onChange={(e) => handleChange("time", e.target.value)}
-                className="input w-full"
-              />
-            </td>
-            
+          <div>
+            <label className="text-sm text-gray-600">Time Of Incident:</label>
+            <input
+              type="time"
+              value={form.time}
+              onChange={(e) => handleChange("time", e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
 
-            
-          </tr>
+          <div>
+            <label className="text-sm text-gray-600">
+              Incident Classification:
+            </label>
+            <input
+              value={incidentType}
+              readOnly
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-700"
+            />
+          </div>
 
-          <tr>
-            <td className="p-2 font-medium">Incident Classification: </td>
-            <td className="p-2">
-              <input
-                value={form.classification}
-                onChange={(e) => handleChange("classification", e.target.value)}
-                className="input w-full"
-              />
-            </td>
+          <div>
+            <label className="text-sm text-gray-600">Incident Number:</label>
+            <input
+              value={incidentNumber}
+              readOnly
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-700"
+            />
+          </div>
 
-            <td className="p-2 font-medium">Incident Number: </td>
-            <td className="p-2">
-              <input
-                value={form.incidentNumber}
-                onChange={(e) => handleChange("incidentNumber", e.target.value)}
-                className="input w-full"
-              />
-            </td>
+          <div>
+            <label className="text-sm text-gray-600">
+              Employee Involved Name:
+            </label>
+            <select
+              value={form.employeeName}
+              onChange={(e) => {
+                const selected = employees.find(
+                  (emp) => emp.name === e.target.value,
+                );
+                setForm((prev) => ({
+                  ...prev,
+                  employeeName: selected?.name || "",
+                  employeeNumber: selected?.number || "",
+                  supervisor: selected?.supervisor || "",
+                }));
+              }}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900"
+            >
+              <option value="">Select Employee</option>
+              {employees.map((emp) => (
+                <option key={emp.number} value={emp.name}>
+                  {emp.name}
+                </option>
+              ))}
+            </select>
+          </div>
 
-            
-          </tr>
+          <div>
+            <label className="text-sm text-gray-600">Employee Co. No.</label>
+            <input
+              value={form.employeeNumber}
+              onChange={(e) => handleChange("employeeNumber", e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+          <div>
+            <label className="text-sm text-gray-600">Supervisor</label>
+            <input
+              value={form.supervisor}
+              readOnly
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-700"
+            />
+          </div>
+        </div>
+      </div>
 
-          <tr>
-            <td className="p-2 font-medium">Employee Involved Name: </td>
-            <td className="p-2">
-              <input
-                value={form.employeeName}
-                onChange={(e) => handleChange("employeeName", e.target.value)}
-                className="input w-full"
-              />
-            </td>
+      {/* ================= DESCRIPTION ================= */}
+      <div className="bg-white rounded-xl shadow p-6">
+        <h2 className="text-lg font-semibold mb-4 text-gray-900">
+          Detail Description Of Incident:
+        </h2>
 
-            <td className="p-2 font-medium">Employee Co. No. : </td>
-            <td className="p-2">
-              <input
-                value={form.employeeNumber}
-                onChange={(e) => handleChange("employeeNumber", e.target.value)}
-                className="input w-full"
-              />
-            </td>
-          </tr>
+        <textarea
+          value={form.description}
+          onChange={(e) => handleChange("description", e.target.value)}
+          className="w-full h-32 px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          placeholder="Provide a detailed description of the incident..."
+        />
+      </div>
 
-          {/* FULL WIDTH DESCRIPTION */}
-          <tr>
-            <td className="p-2 font-medium align-top">Description: </td>
-            <td colSpan={3} className="p-2">
-              <textarea
-                value={form.description}
-                onChange={(e) => handleChange("description", e.target.value)}
-                className="input w-full h-24"
-                placeholder="Detailed description of incident"
-              />
-            </td>
-          </tr>
-        </tbody>
-      </table>
-
-      {/* SAVE BUTTON */}
-      <div className="mt-4">
+      {/* ================= ACTION BUTTON ================= */}
+      <div className="flex justify-end">
         <button
           onClick={() => onSubmit(form)}
-          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg"
+          className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg"
         >
           Save Incident
         </button>
