@@ -1,11 +1,23 @@
 import { useState } from "react";
 
 type InjuryType = "firstAid" | "hospital" | null;
+type FirstAidEntry = {
+  date: string;
+  name: string;
+  injury: string;
+  treatment: string;
+  firstAider: string;
+  signature: string;
+  time: string;
+  comment: string;
+};
 
 const employees = [
   { name: "John Doe", number: "EMP001", supervisor: "Mike Ross" },
   { name: "Jane Smith", number: "EMP002", supervisor: "Rachel Zane" },
 ];
+
+const firstAiders = ["Mike Ross", "Rachel Zane"];
 
 export function InjuryForm({
   onSubmit,
@@ -31,15 +43,61 @@ export function InjuryForm({
     disablement: "",
   });
 
+  const [entries, setEntries] = useState<FirstAidEntry[]>([
+    {
+      date: "",
+      name: "",
+      injury: "",
+      treatment: "",
+      firstAider: "",
+      signature: "",
+      time: "",
+      comment: "",
+    },
+  ]);
+
   const handleChange = (field: string, value: string) => {
     setForm((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const handleTableChange = (
+    index: number,
+    field: keyof FirstAidEntry,
+    value: string,
+  ) => {
+    const updated = [...entries];
+    updated[index][field] = value;
+    setEntries(updated);
+  };
+
+  const addRow = () => {
+    setEntries([
+      ...entries,
+      {
+        date: "",
+        name: "",
+        injury: "",
+        treatment: "",
+        firstAider: "",
+        signature: "",
+        time: "",
+        comment: "",
+      },
+    ]);
+  };
+
+  const removeRow = (index: number) => {
+    const updated = entries.filter((_, i) => i !== index);
+    setEntries(updated);
   };
 
   // ================= STEP 1: SELECTION =================
   if (!step) {
     return (
       <div className="bg-white p-6 rounded-xl shadow">
-        <h2 className="text-lg font-semibold mb-4 text-gray-600">Select Injury Type</h2>
+        <h2 className="text-lg font-semibold mb-4 text-gray-600">
+          Select Injury Type
+        </h2>
 
         <div className="flex gap-4">
           <button
@@ -64,16 +122,167 @@ export function InjuryForm({
   if (step === "firstAid") {
     return (
       <div className="bg-white p-6 rounded-xl shadow">
-        <h2 className="text-lg font-semibold mb-4 text-gray-600">First Aid Case Dressing</h2>
+        <h2 className="text-lg font-semibold mb-4 text-gray-600">
+          First Aid Case Dressing
+        </h2>
 
-        <p className="mb-4 text-gray-600">Form is still in development.</p>
+        <div className="overflow-x-auto">
+          <table className="w-full border border-gray-300 text-sm text-gray-600">
+            <thead className="bg-gray-100 sticky top-0">
+              <tr>
+                <th className="border px-2 py-2">Date</th>
+                <th className="border px-2 py-2">Name</th>
+                <th className="border px-2 py-2">Nature of Injury</th>
+                <th className="border px-2 py-2">Treatment</th>
+                <th className="border px-2 py-2">First Aider</th>
+                <th className="border px-2 py-2">Signature</th>
+                <th className="border px-2 py-2">Time</th>
+                <th className="border px-2 py-2">Comment</th>
+                <th className="border px-2 py-2">Del</th>
+              </tr>
+            </thead>
 
-        <button
-          onClick={() => setStep(null)}
-          className="bg-gray-500 text-white px-4 py-2 rounded"
-        >
-          Back
-        </button>
+            <tbody>
+              {entries.map((entry, index) => (
+                <tr key={index} className="even:bg-gray-50">
+                  <td className="border p-1">
+                    <input
+                      type="date"
+                      value={entry.date}
+                      onChange={(e) =>
+                        handleTableChange(index, "date", e.target.value)
+                      }
+                      className="w-full px-1 py-1 border rounded"
+                    />
+                  </td>
+
+                  <td className="border p-1">
+                    <select
+                      value={entry.name}
+                      onChange={(e) =>
+                        handleTableChange(index, "name", e.target.value)
+                      }
+                      className="w-full px-1 py-1 border rounded"
+                    >
+                      <option value="">Select Employee</option>
+                      {employees.map((emp) => (
+                        <option key={emp.number} value={emp.name}>
+                          {emp.name}
+                        </option>
+                      ))}
+                    </select>
+                  </td>
+
+                  <td className="border p-1">
+                    <input
+                      value={entry.injury}
+                      onChange={(e) =>
+                        handleTableChange(index, "injury", e.target.value)
+                      }
+                      className="w-full px-1 py-1 border rounded"
+                    />
+                  </td>
+
+                  <td className="border p-1">
+                    <input
+                      placeholder="e.g. Bandage, Ice pack"
+                      value={entry.treatment}
+                      onChange={(e) =>
+                        handleTableChange(index, "treatment", e.target.value)
+                      }
+                      className="w-full px-1 py-1 border rounded"
+                    />
+                  </td>
+
+                  <td className="border p-1">
+                    <select
+                      value={entry.firstAider}
+                      onChange={(e) =>
+                        handleTableChange(index, "firstAider", e.target.value)
+                      }
+                      className="w-full px-1 py-1 border rounded"
+                    >
+                      <option value="">Select First Aider</option>
+                      {firstAiders.map((fa, i) => (
+                        <option key={i} value={fa}>
+                          {fa}
+                        </option>
+                      ))}
+                    </select>
+                  </td>
+
+                  <td className="border p-1">
+                    <input
+                      value={entry.signature}
+                      onChange={(e) =>
+                        handleTableChange(index, "signature", e.target.value)
+                      }
+                      className="w-full px-1 py-1 border rounded"
+                    />
+                  </td>
+
+                  <td className="border p-1">
+                    <input
+                      type="time"
+                      value={entry.time}
+                      onChange={(e) =>
+                        handleTableChange(index, "time", e.target.value)
+                      }
+                      className="w-full px-1 py-1 border rounded"
+                    />
+                  </td>
+
+                  <td className="border p-1">
+                    <input
+                      value={entry.comment}
+                      onChange={(e) =>
+                        handleTableChange(index, "comment", e.target.value)
+                      }
+                      className="w-full px-1 py-1 border rounded"
+                    />
+                  </td>
+
+                  <td className="border p-1 text-center">
+                    <button
+                      onClick={() => removeRow(index)}
+                      className="text-red-600"
+                    >
+                      ✕
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        <div className="flex gap-4 mt-4">
+          <button
+            onClick={addRow}
+            className="bg-green-600 text-white px-4 py-2 rounded"
+          >
+            Add Row
+          </button>
+
+          <button
+            onClick={() =>
+              onSubmit({
+                type: "firstAid",
+                entries,
+              })
+            }
+            className="bg-blue-600 text-white px-4 py-2 rounded"
+          >
+            Save First Aid Log
+          </button>
+
+          <button
+            onClick={() => setStep(null)}
+            className="bg-gray-500 text-white px-4 py-2 rounded"
+          >
+            Back
+          </button>
+        </div>
       </div>
     );
   }

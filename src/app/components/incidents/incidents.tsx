@@ -2,8 +2,28 @@ import { useEffect, useState } from "react";
 import { IncidentForm } from "./incidents-form";
 import { NCRForm } from "./ncr-form";
 import { InjuryForm } from "./injury-form";
+import { InvestigationForm } from "./investigation";
 
 type RecordType = "incident" | "ncr" | "injury" | null;
+
+type InvestigationData = {
+  investigator?: string;
+  investigationDate?: string;
+  location?: string;
+  department?: string;
+
+  immediateCause?: string;
+  rootCause?: string;
+  contributingFactors?: string;
+
+  correctiveActions?: string;
+  responsiblePerson?: string;
+  dueDate?: string;
+
+  preventiveActions?: string;
+
+  evidence?: File[];
+};
 
 type IncidentRecord = {
   id: number;
@@ -12,8 +32,8 @@ type IncidentRecord = {
   title: string;
   description: string;
   status: "Open" | "Under Investigation" | "Closed";
-  investigationNotes?: string;
-  evidence?: File[];
+
+  investigation?: InvestigationData;
 };
 
 export default function Incidents() {
@@ -38,9 +58,8 @@ export default function Incidents() {
   const [notes, setNotes] = useState("");
   const [files, setFiles] = useState<File[]>([]);
   useEffect(() => {
-    if (selectedRecord) {
-      setNotes(selectedRecord.investigationNotes || "");
-      setFiles(selectedRecord.evidence || []);
+    if (selectedRecord?.investigation) {
+      setFiles(selectedRecord.investigation.evidence || []);
     }
   }, [selectedRecord]);
 
@@ -66,31 +85,21 @@ export default function Incidents() {
   const updateStatus = (newStatus: IncidentRecord["status"]) => {
     if (!selectedRecord) return;
 
+    const updatedRecord = {
+      ...selectedRecord,
+      status: newStatus,
+      investigation: {
+        ...selectedRecord.investigation,
+        evidence: files,
+      },
+    };
+
     setRecords((prev) =>
-      prev.map((rec) =>
-        rec.id === selectedRecord.id
-          ? {
-              ...rec,
-              status: newStatus,
-              investigationNotes: notes,
-              evidence: files,
-            }
-          : rec,
-      ),
+      prev.map((rec) => (rec.id === selectedRecord.id ? updatedRecord : rec)),
     );
 
-    setSelectedRecord((prev) =>
-      prev
-        ? {
-            ...prev,
-            status: newStatus,
-            investigationNotes: notes,
-            evidence: files,
-          }
-        : prev,
-    );
+    setSelectedRecord(updatedRecord);
   };
-
   const total = records.length;
   const open = records.filter((r) => r.status === "Open").length;
   const closed = records.filter((r) => r.status === "Closed").length;
@@ -102,6 +111,34 @@ export default function Incidents() {
   const generateInjuryNumber = () => {
     return `INJ-${String(injuryCount).padStart(3, "0")}`;
   };
+
+  const handleDelete = (id: number) => {
+    const confirmDelete = confirm(
+      "Are you sure you want to delete this record?",
+    );
+    if (!confirmDelete) return;
+
+    setRecords((prev) => prev.filter((rec) => rec.id !== id));
+  };
+
+  const updateInvestigation = (field: string, value: any) => {
+    if (!selectedRecord) return;
+
+    const updatedRecord = {
+      ...selectedRecord,
+      investigation: {
+        ...selectedRecord.investigation,
+        [field]: value,
+      },
+    };
+
+    setSelectedRecord(updatedRecord);
+
+    setRecords((prev) =>
+      prev.map((rec) => (rec.id === selectedRecord.id ? updatedRecord : rec)),
+    );
+  };
+  const investigation = selectedRecord?.investigation || {};
 
   return (
     <div className="p-6">
@@ -181,16 +218,38 @@ export default function Incidents() {
                       </span>
                     </td>
 
-                    <td className="p-3">
-                      <button
-                        onClick={() => {
-                          setSelectedRecord(record);
-                          setView("investigation");
-                        }}
-                        className="text-blue-600 hover:underline text-sm"
-                      >
-                        View / Investigate
-                      </button>
+                    <td className="p-3 whitespace-nowrap">
+                      <div className="flex gap-3">
+                        {/* INVESTIGATE */}
+                        <button
+                          onClick={() => {
+                            setSelectedRecord(record);
+                            setView("investigation");
+                          }}
+                          className="text-blue-600 hover:underline text-sm"
+                        >
+                          Investigate
+                        </button>
+
+                        {/* UPLOAD */}
+                        <button
+                          onClick={() => {
+                            setSelectedRecord(record);
+                            setView("investigation");
+                          }}
+                          className="text-purple-600 hover:underline text-sm"
+                        >
+                          Upload
+                        </button>
+
+                        {/* DELETE */}
+                        <button
+                          onClick={() => handleDelete(record.id)}
+                          className="text-red-600 hover:underline text-sm"
+                        >
+                          Delete
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -306,89 +365,19 @@ export default function Incidents() {
       )}
 
       {view === "investigation" && selectedRecord && (
-        <>
-          <button
-            onClick={() => setView("registry")}
-            className="mb-4 text-blue-600"
-          >
-            ← Back
-          </button>
-
-          <h1 className="text-2xl font-bold mb-4 text-white">
-            Investigation Details
-          </h1>
-
-          <div className="bg-white rounded-xl shadow p-6 space-y-4 text-gray-900">
-            <p>
-              <strong>Type:</strong> {selectedRecord.type}
-            </p>
-
-            <p>
-              <strong>Description:</strong>{" "}
-              {selectedRecord.type === "incident"
-                ? selectedRecord.category
-                : selectedRecord.title}
-            </p>
-
-            <p>
-              <strong>Status:</strong> {selectedRecord.status}
-            </p>
-          </div>
-
-          <div className="bg-white rounded-xl shadow p-6 mt-6">
-            <h2 className="text-lg font-semibold mb-4 text-gray-900">
-              Investigation Notes
-            </h2>
-
-            <textarea
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              placeholder="Write investigation findings..."
-              className="w-full h-32 px-3 py-2 border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
-
-          <div className="bg-white rounded-xl shadow p-6 mt-6">
-            <h2 className="text-lg font-semibold mb-4 text-gray-900">
-              Evidence Upload
-            </h2>
-
-            <input
-              type="file"
-              multiple
-              onChange={(e) => {
-                if (!e.target.files) return;
-                setFiles(Array.from(e.target.files));
-              }}
-              className="mb-4"
-            />
-
-            {/* Show uploaded files */}
-            <ul className="text-sm text-gray-600 space-y-1">
-              {files.map((file, index) => (
-                <li key={index}>📄 {file.name}</li>
-              ))}
-            </ul>
-          </div>
-
-          {/* STATUS ACTIONS */}
-          <div className="flex gap-4 mt-6">
-            <button
-              onClick={() => updateStatus("Under Investigation")}
-              className="bg-yellow-500 text-white px-4 py-2 rounded-lg"
-            >
-              Start Investigation
-            </button>
-
-            <button
-              onClick={() => updateStatus("Closed")}
-              className="bg-green-600 text-white px-4 py-2 rounded-lg"
-            >
-              Close Case
-            </button>
-          </div>
-        </>
-      )}
+  <InvestigationForm
+    record={selectedRecord}
+    investigation={investigation}
+    files={files}
+    onBack={() => setView("registry")}
+    onChange={updateInvestigation}
+    onFileChange={(newFiles) => {
+      setFiles(newFiles);
+      updateInvestigation("evidence", newFiles);
+    }}
+    onUpdateStatus={updateStatus}
+  />
+)}
     </div>
   );
 }
