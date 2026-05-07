@@ -23,6 +23,6 @@ export type IncidentRecord = {
   category?: string;
   title: string;
   description: string;
-  status: "Open" | "Under Investigation" | "Closed";
+  status: "Created" | "Under Investigation" | "Complete";
   investigation?: InvestigationData;
 };
