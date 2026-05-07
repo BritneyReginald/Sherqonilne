@@ -3,6 +3,8 @@ import { IncidentForm } from "./incidents-form";
 import { NCRForm } from "./ncr-form";
 import { InjuryForm } from "./injury-form";
 import { InvestigationForm } from "./investigation";
+import { UploadPage } from "./upload";
+import { PDFView } from "./pdf-view";
 
 type RecordType = "incident" | "ncr" | "injury" | null;
 
@@ -21,8 +23,10 @@ type InvestigationData = {
   dueDate?: string;
 
   preventiveActions?: string;
-
-  evidence?: File[];
+  evidence?: {
+    name: string;
+    data: string; // base64
+  }[];
 };
 
 type IncidentRecord = {
@@ -31,7 +35,7 @@ type IncidentRecord = {
   category?: string;
   title: string;
   description: string;
-  status: "Open" | "Under Investigation" | "Closed";
+  status: "Created" | "Under Investigation" | "Complete";
 
   investigation?: InvestigationData;
 };
@@ -43,7 +47,9 @@ export default function Incidents() {
     | "incident-form"
     | "ncr"
     | "injury"
-    | "investigation";
+    | "investigation"
+    | "upload"
+    | "pdf";
 
   const [incidentCategory, setIncidentCategory] = useState<string | null>(null);
   const [view, setView] = useState<ViewType>("registry");
@@ -55,11 +61,9 @@ export default function Incidents() {
   const [selectedRecord, setSelectedRecord] = useState<IncidentRecord | null>(
     null,
   );
-  const [notes, setNotes] = useState("");
-  const [files, setFiles] = useState<File[]>([]);
+
   useEffect(() => {
     if (selectedRecord?.investigation) {
-      setFiles(selectedRecord.investigation.evidence || []);
     }
   }, [selectedRecord]);
 
@@ -74,7 +78,7 @@ export default function Incidents() {
       category: data.category || incidentCategory || undefined,
       title: data.ncrNo || data.title || "",
       description: data.description,
-      status: "Open",
+      status: "Created",
     };
 
     setCounter((prev) => prev + 1);
@@ -83,26 +87,29 @@ export default function Incidents() {
   };
 
   const updateStatus = (newStatus: IncidentRecord["status"]) => {
-    if (!selectedRecord) return;
-
-    const updatedRecord = {
-      ...selectedRecord,
-      status: newStatus,
-      investigation: {
-        ...selectedRecord.investigation,
-        evidence: files,
-      },
-    };
-
     setRecords((prev) =>
-      prev.map((rec) => (rec.id === selectedRecord.id ? updatedRecord : rec)),
-    );
+      prev.map((rec) => {
+        if (rec.id !== selectedRecord?.id) return rec;
 
-    setSelectedRecord(updatedRecord);
+        const updated = {
+          ...rec,
+          status: newStatus,
+        };
+
+        // also sync selectedRecord
+        setSelectedRecord(updated);
+
+        return updated;
+      }),
+    );
   };
+
   const total = records.length;
-  const open = records.filter((r) => r.status === "Open").length;
-  const closed = records.filter((r) => r.status === "Closed").length;
+  const created = records.filter((r) => r.status === "Created").length;
+  const underInvestigation = records.filter(
+    (r) => r.status === "Under Investigation",
+  ).length;
+  const complete = records.filter((r) => r.status === "Complete").length;
 
   const ncrRecords = records.filter((r) => r.type === "ncr");
 
@@ -140,6 +147,37 @@ export default function Incidents() {
   };
   const investigation = selectedRecord?.investigation || {};
 
+  const handleUpload = (files: { name: string; data: string }[]) => {
+    if (!selectedRecord) return;
+
+    const updatedRecord = {
+      ...selectedRecord,
+      investigation: {
+        ...selectedRecord.investigation,
+        evidence: [...(selectedRecord.investigation?.evidence || []), ...files],
+      },
+    };
+
+    setSelectedRecord(updatedRecord);
+
+    setRecords((prev) =>
+      prev.map((rec) => (rec.id === selectedRecord.id ? updatedRecord : rec)),
+    );
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case "Created":
+        return "bg-gray-200 text-gray-700";
+      case "Under Investigation":
+        return "bg-yellow-200 text-yellow-800";
+      case "Complete":
+        return "bg-green-200 text-green-800";
+      default:
+        return "";
+    }
+  };
+
   return (
     <div className="p-6">
       {/* ================= REGISTRY ================= */}
@@ -157,13 +195,20 @@ export default function Incidents() {
             </div>
 
             <div className="p-4 rounded-xl shadow bg-white">
-              <p className="text-sm text-gray-500">Open</p>
-              <p className="text-2xl font-bold text-red-500">{open}</p>
+              <p className="text-sm text-gray-500">Created</p>
+              <p className="text-2xl font-bold text-red-500">{created}</p>
             </div>
 
             <div className="p-4 rounded-xl shadow bg-white">
-              <p className="text-sm text-gray-500">Closed</p>
-              <p className="text-2xl font-bold text-green-600">{closed}</p>
+              <p className="text-sm text-gray-500">Under Investigation</p>
+              <p className="text-2xl font-bold text-green-600">
+                {underInvestigation}
+              </p>
+            </div>
+
+            <div className="p-4 rounded-xl shadow bg-white">
+              <p className="text-sm text-gray-500">Complete</p>
+              <p className="text-2xl font-bold text-green-600">{complete}</p>
             </div>
           </div>
 
@@ -213,7 +258,9 @@ export default function Incidents() {
                         : record.title}
                     </td>
                     <td className="p-3">
-                      <span className="px-2 py-1 rounded-full text-xs font-medium">
+                      <span
+                        className={`px-2 py-1 rounded-full text-xs ${getStatusColor(record.status)}`}
+                      >
                         {record.status}
                       </span>
                     </td>
@@ -235,11 +282,21 @@ export default function Incidents() {
                         <button
                           onClick={() => {
                             setSelectedRecord(record);
-                            setView("investigation");
+                            setView("upload");
                           }}
                           className="text-purple-600 hover:underline text-sm"
                         >
                           Upload
+                        </button>
+
+                        <button
+                          onClick={() => {
+                            setSelectedRecord(record);
+                            setView("pdf");
+                          }}
+                          className="text-gray-700 hover:underline text-sm"
+                        >
+                          View PDF
                         </button>
 
                         {/* DELETE */}
@@ -283,6 +340,14 @@ export default function Incidents() {
             incidentNumber={`INC-${counter.toString().padStart(4, "0")}`}
           />
         </>
+      )}
+
+      {view === "upload" && selectedRecord && (
+        <UploadPage
+          record={selectedRecord!}
+          onBack={() => setView("registry")}
+          onUpload={handleUpload}
+        />
       )}
 
       {/* ================= NCR PAGE ================= */}
@@ -365,19 +430,18 @@ export default function Incidents() {
       )}
 
       {view === "investigation" && selectedRecord && (
-  <InvestigationForm
-    record={selectedRecord}
-    investigation={investigation}
-    files={files}
-    onBack={() => setView("registry")}
-    onChange={updateInvestigation}
-    onFileChange={(newFiles) => {
-      setFiles(newFiles);
-      updateInvestigation("evidence", newFiles);
-    }}
-    onUpdateStatus={updateStatus}
-  />
-)}
+        <InvestigationForm
+          record={selectedRecord!}
+          investigation={investigation}
+          onBack={() => setView("registry")}
+          onChange={updateInvestigation}
+          onUpdateStatus={updateStatus}
+        />
+      )}
+
+      {view === "pdf" && selectedRecord && (
+        <PDFView record={selectedRecord} onBack={() => setView("registry")} />
+      )}
     </div>
   );
 }

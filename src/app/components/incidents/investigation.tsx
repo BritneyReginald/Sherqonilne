@@ -3,9 +3,7 @@ import { IncidentRecord, InvestigationData } from "./types";
 type Props = {
   record: IncidentRecord;
   investigation: InvestigationData;
-  files: File[];
   onChange: (field: string, value: any) => void;
-  onFileChange: (files: File[]) => void;
   onUpdateStatus: (status: IncidentRecord["status"]) => void;
   onBack: () => void;
 };
@@ -13,9 +11,7 @@ type Props = {
 export const InvestigationForm = ({
   record,
   investigation,
-  files,
   onChange,
-  onFileChange,
   onUpdateStatus,
   onBack,
 }: Props) => {
@@ -87,9 +83,7 @@ export const InvestigationForm = ({
           className="w-full border p-2 rounded"
           placeholder="Contributing Factors"
           value={investigation.contributingFactors || ""}
-          onChange={(e) =>
-            onChange("contributingFactors", e.target.value)
-          }
+          onChange={(e) => onChange("contributingFactors", e.target.value)}
         />
       </div>
 
@@ -101,9 +95,7 @@ export const InvestigationForm = ({
           className="w-full border p-2 rounded"
           placeholder="Corrective Actions"
           value={investigation.correctiveActions || ""}
-          onChange={(e) =>
-            onChange("correctiveActions", e.target.value)
-          }
+          onChange={(e) => onChange("correctiveActions", e.target.value)}
         />
 
         <input
@@ -111,9 +103,7 @@ export const InvestigationForm = ({
           type="text"
           placeholder="Responsible Person"
           value={investigation.responsiblePerson || ""}
-          onChange={(e) =>
-            onChange("responsiblePerson", e.target.value)
-          }
+          onChange={(e) => onChange("responsiblePerson", e.target.value)}
         />
 
         <input
@@ -132,47 +122,25 @@ export const InvestigationForm = ({
           className="w-full border p-2 rounded"
           placeholder="Preventive Actions"
           value={investigation.preventiveActions || ""}
-          onChange={(e) =>
-            onChange("preventiveActions", e.target.value)
-          }
+          onChange={(e) => onChange("preventiveActions", e.target.value)}
         />
-      </div>
-
-      {/* EVIDENCE */}
-      <div className="bg-white rounded-xl shadow p-6 mt-6 text-gray-900">
-        <h2 className="font-semibold text-lg mb-4">Evidence Upload</h2>
-
-        <input
-          type="file"
-          multiple
-          onChange={(e) => {
-            if (!e.target.files) return;
-            const newFiles = Array.from(e.target.files);
-            onFileChange(newFiles);
-          }}
-        />
-
-        <ul className="mt-3 text-sm">
-          {files.map((file, i) => (
-            <li key={i}>📄 {file.name}</li>
-          ))}
-        </ul>
       </div>
 
       {/* ACTION BUTTONS */}
       <div className="flex gap-4 mt-6">
         <button
-          onClick={() => onUpdateStatus("Under Investigation")}
+          onClick={() =>{ console.log("CLICKED"); onUpdateStatus("Under Investigation"); onBack(); }}
+          
           className="bg-yellow-500 text-white px-4 py-2 rounded-lg"
         >
           Start Investigation
         </button>
 
         <button
-          onClick={() => onUpdateStatus("Closed")}
+          onClick={() => { console.log("CLICKED"); onUpdateStatus("Complete"); onBack(); } }
           className="bg-green-600 text-white px-4 py-2 rounded-lg"
         >
-          Close Case
+          Mark as Complete
         </button>
       </div>
     </>
