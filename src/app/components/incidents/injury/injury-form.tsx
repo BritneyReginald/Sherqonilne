@@ -1,23 +1,17 @@
 import { useState } from "react";
 
-type InjuryType = "firstAid" | "hospital" | null;
-type FirstAidEntry = {
-  date: string;
-  name: string;
-  injury: string;
-  treatment: string;
-  firstAider: string;
-  signature: string;
-  time: string;
-  comment: string;
-};
+import SignatureCanvas from "react-signature-canvas";
+import { FirstAidSection } from "./first-aid-section";
 
-const employees = [
-  { name: "John Doe", number: "EMP001", supervisor: "Mike Ross" },
-  { name: "Jane Smith", number: "EMP002", supervisor: "Rachel Zane" },
-];
+import {
+  InjuryType,
+  FirstAidEntry,
+} from "./types";
 
-const firstAiders = ["Mike Ross", "Rachel Zane"];
+import {
+  employees,
+  firstAiders,
+} from "./constants";
 
 export function InjuryForm({
   onSubmit,
@@ -45,14 +39,23 @@ export function InjuryForm({
 
   const [entries, setEntries] = useState<FirstAidEntry[]>([
     {
+      id: crypto.randomUUID(),
+
       date: "",
-      name: "",
+      time: "",
+
+      employeeName: "",
+      employeeNumber: "",
+
       injury: "",
       treatment: "",
+      comments: "",
+
       firstAider: "",
-      signature: "",
-      time: "",
-      comment: "",
+
+      furtherMedicalAttention: false,
+
+      status: "draft",
     },
   ]);
 
@@ -63,7 +66,7 @@ export function InjuryForm({
   const handleTableChange = (
     index: number,
     field: keyof FirstAidEntry,
-    value: string,
+    value: any,
   ) => {
     const updated = [...entries];
     updated[index][field] = value;
@@ -74,14 +77,23 @@ export function InjuryForm({
     setEntries([
       ...entries,
       {
+        id: crypto.randomUUID(),
+
         date: "",
-        name: "",
+        time: "",
+
+        employeeName: "",
+        employeeNumber: "",
+
         injury: "",
         treatment: "",
+        comments: "",
+
         firstAider: "",
-        signature: "",
-        time: "",
-        comment: "",
+
+        furtherMedicalAttention: false,
+
+        status: "draft",
       },
     ]);
   };
@@ -120,172 +132,21 @@ export function InjuryForm({
 
   // ================= STEP 2: FIRST AID =================
   if (step === "firstAid") {
-    return (
-      <div className="bg-white p-6 rounded-xl shadow">
-        <h2 className="text-lg font-semibold mb-4 text-gray-600">
-          First Aid Case Dressing
-        </h2>
-
-        <div className="overflow-x-auto">
-          <table className="w-full border border-gray-300 text-sm text-gray-600">
-            <thead className="bg-gray-100 sticky top-0">
-              <tr>
-                <th className="border px-2 py-2">Date</th>
-                <th className="border px-2 py-2">Name</th>
-                <th className="border px-2 py-2">Nature of Injury</th>
-                <th className="border px-2 py-2">Treatment</th>
-                <th className="border px-2 py-2">First Aider</th>
-                <th className="border px-2 py-2">Signature</th>
-                <th className="border px-2 py-2">Time</th>
-                <th className="border px-2 py-2">Comment</th>
-                <th className="border px-2 py-2">Del</th>
-              </tr>
-            </thead>
-
-            <tbody>
-              {entries.map((entry, index) => (
-                <tr key={index} className="even:bg-gray-50">
-                  <td className="border p-1">
-                    <input
-                      type="date"
-                      value={entry.date}
-                      onChange={(e) =>
-                        handleTableChange(index, "date", e.target.value)
-                      }
-                      className="w-full px-1 py-1 border rounded"
-                    />
-                  </td>
-
-                  <td className="border p-1">
-                    <select
-                      value={entry.name}
-                      onChange={(e) =>
-                        handleTableChange(index, "name", e.target.value)
-                      }
-                      className="w-full px-1 py-1 border rounded"
-                    >
-                      <option value="">Select Employee</option>
-                      {employees.map((emp) => (
-                        <option key={emp.number} value={emp.name}>
-                          {emp.name}
-                        </option>
-                      ))}
-                    </select>
-                  </td>
-
-                  <td className="border p-1">
-                    <input
-                      value={entry.injury}
-                      onChange={(e) =>
-                        handleTableChange(index, "injury", e.target.value)
-                      }
-                      className="w-full px-1 py-1 border rounded"
-                    />
-                  </td>
-
-                  <td className="border p-1">
-                    <input
-                      placeholder="e.g. Bandage, Ice pack"
-                      value={entry.treatment}
-                      onChange={(e) =>
-                        handleTableChange(index, "treatment", e.target.value)
-                      }
-                      className="w-full px-1 py-1 border rounded"
-                    />
-                  </td>
-
-                  <td className="border p-1">
-                    <select
-                      value={entry.firstAider}
-                      onChange={(e) =>
-                        handleTableChange(index, "firstAider", e.target.value)
-                      }
-                      className="w-full px-1 py-1 border rounded"
-                    >
-                      <option value="">Select First Aider</option>
-                      {firstAiders.map((fa, i) => (
-                        <option key={i} value={fa}>
-                          {fa}
-                        </option>
-                      ))}
-                    </select>
-                  </td>
-
-                  <td className="border p-1">
-                    <input
-                      value={entry.signature}
-                      onChange={(e) =>
-                        handleTableChange(index, "signature", e.target.value)
-                      }
-                      className="w-full px-1 py-1 border rounded"
-                    />
-                  </td>
-
-                  <td className="border p-1">
-                    <input
-                      type="time"
-                      value={entry.time}
-                      onChange={(e) =>
-                        handleTableChange(index, "time", e.target.value)
-                      }
-                      className="w-full px-1 py-1 border rounded"
-                    />
-                  </td>
-
-                  <td className="border p-1">
-                    <input
-                      value={entry.comment}
-                      onChange={(e) =>
-                        handleTableChange(index, "comment", e.target.value)
-                      }
-                      className="w-full px-1 py-1 border rounded"
-                    />
-                  </td>
-
-                  <td className="border p-1 text-center">
-                    <button
-                      onClick={() => removeRow(index)}
-                      className="text-red-600"
-                    >
-                      ✕
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-
-        <div className="flex gap-4 mt-4">
-          <button
-            onClick={addRow}
-            className="bg-green-600 text-white px-4 py-2 rounded"
-          >
-            Add Row
-          </button>
-
-          <button
-            onClick={() =>
-              onSubmit({
-                type: "firstAid",
-                entries,
-              })
-            }
-            className="bg-blue-600 text-white px-4 py-2 rounded"
-          >
-            Save First Aid Log
-          </button>
-
-          <button
-            onClick={() => setStep(null)}
-            className="bg-gray-500 text-white px-4 py-2 rounded"
-          >
-            Back
-          </button>
-        </div>
-      </div>
-    );
-  }
+  return (
+    <FirstAidSection
+      entries={entries}
+      handleTableChange={handleTableChange}
+      removeRow={removeRow}
+      addRow={addRow}
+      onSubmit={() =>
+        onSubmit({
+          type: "firstAid",
+          entries,
+        })
+      }
+    />
+  );
+}
 
   // ================= STEP 3: HOSPITAL FORM =================
   return (

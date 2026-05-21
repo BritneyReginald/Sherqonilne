@@ -276,6 +276,7 @@ export function PPERegister({ employeeId }: { employeeId?: string }) {
   const [showCatalogue, setShowCatalogue] = useState(false);
   const [selectedSite, setSelectedSite] = useState("All Sites");
   const [selectedCategory, setSelectedCategory] = useState("All PPE Types");
+  const [selectedEmployee, setSelectedEmployee] = useState("All Employees");
 
   const handleIssuePPE = (data: any) => {
     console.log("PPE Issued:", data);
@@ -338,8 +339,13 @@ export function PPERegister({ employeeId }: { employeeId?: string }) {
     );
   };
 
+  const employeeFilterOptions = [
+    "All Employees",
+    ...employees.map((employee) => employee.name),
+  ];
+
   const filteredTransactions = transactions.filter((transaction) => {
-    const matchesEmployee = employeeId
+    const matchesEmployeeId = employeeId
       ? transaction.employeeId === employeeId
       : true;
 
@@ -347,7 +353,11 @@ export function PPERegister({ employeeId }: { employeeId?: string }) {
       selectedCategory === "All PPE Types" ||
       transaction.ppeCategory === selectedCategory;
 
-    return matchesEmployee && matchesCategory;
+    const matchesEmployee =
+      selectedEmployee === "All Employees" ||
+      transaction.employeeName === selectedEmployee;
+
+    return matchesEmployeeId && matchesCategory && matchesEmployee;
   });
 
   return (
@@ -442,6 +452,23 @@ export function PPERegister({ employeeId }: { employeeId?: string }) {
                   {ppeCategories.map((category) => (
                     <option key={category} value={category}>
                       {category}
+                    </option>
+                  ))}
+                </select>
+
+                <select
+                  value={selectedEmployee}
+                  onChange={(e) => setSelectedEmployee(e.target.value)}
+                  className="px-4 py-2.5 rounded-lg text-sm appearance-none cursor-pointer"
+                  style={{
+                    backgroundColor: "#1E293B",
+                    color: "#F8FAFC",
+                    border: "none",
+                  }}
+                >
+                  {employeeFilterOptions.map((employee) => (
+                    <option key={employee} value={employee}>
+                      {employee}
                     </option>
                   ))}
                 </select>

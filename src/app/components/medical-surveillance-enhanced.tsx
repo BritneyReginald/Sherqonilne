@@ -133,6 +133,12 @@ export function MedicalSurveillanceEnhanced({
     null,
   );
   const [showRetentionInfo, setShowRetentionInfo] = useState(false);
+  const [selectedEmployee, setSelectedEmployee] = useState("All Employees");
+
+  const employeeNames = [
+    "All Employees",
+    ...Array.from(new Set(medicalRecords.map((r) => r.employeeName))).sort(),
+  ];
 
   const sites = [
     "All Sites",
@@ -150,7 +156,13 @@ export function MedicalSurveillanceEnhanced({
     const matchesFitness =
       selectedFitness === "all" || record.fitnessStatus === selectedFitness;
 
-    return matchesEmployee && matchesSite && matchesFitness;
+    const matchesEmployeeName =
+      selectedEmployee === "All Employees" ||
+      record.employeeName === selectedEmployee;
+
+    return (
+      matchesEmployee && matchesEmployeeName && matchesSite && matchesFitness
+    );
   });
 
   const getExamTypeBadge = (type: string) => {
@@ -302,9 +314,10 @@ export function MedicalSurveillanceEnhanced({
                 </button>
               </div>
 
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3 flex-wrap">
                 <div className="flex items-center gap-2">
                   <Filter className="size-4" style={{ color: "white" }} />
+
                   <select
                     value={selectedSite}
                     onChange={(e) => setSelectedSite(e.target.value)}
@@ -341,6 +354,23 @@ export function MedicalSurveillanceEnhanced({
                     Fit with Restrictions
                   </option>
                   <option value="unfit">Unfit for Duty</option>
+                </select>
+
+                <select
+                  value={selectedEmployee}
+                  onChange={(e) => setSelectedEmployee(e.target.value)}
+                  className="px-4 py-2 rounded-lg border text-sm"
+                  style={{
+                    backgroundColor: "white",
+                    borderColor: "var(--grey-300)",
+                    color: "var(--grey-900)",
+                  }}
+                >
+                  {employeeNames.map((employee) => (
+                    <option key={employee} value={employee}>
+                      {employee}
+                    </option>
+                  ))}
                 </select>
               </div>
             </div>
@@ -444,7 +474,6 @@ export function MedicalSurveillanceEnhanced({
 
         {/* Medical Records Table */}
         <div className="px-8 pb-6">
-          
           <div
             className="rounded-lg overflow-hidden relative"
             style={{

@@ -15,6 +15,7 @@ import { useTheme } from "@/app/contexts/theme-context";
 import { useTraining } from "@/app/contexts/training-context";
 import type { TrainingRecord } from "@/app/contexts/training-context";
 import { employees } from "@/app/components/data/employees";
+import { useRecycleBin } from "@/app/contexts/recycle-bin-context";
 interface TrainingMatrixProps {
   employeeId?: string;
 }
@@ -55,9 +56,37 @@ export function TrainingMatrix({ employeeId }: TrainingMatrixProps) {
 
   const { colors } = useTheme();
   const { records, deleteRecord } = useTraining();
-  const filteredRecords = employeeId
-    ? records.filter((r) => r.employeeId === employeeId)
-    : records;
+  const [selectedSite, setSelectedSite] = useState("All Sites");
+  const [selectedStatus, setSelectedStatus] = useState("All Training Statuses");
+  const [selectedEmployee, setSelectedEmployee] = useState("All Employees");
+  const filteredRecords = records.filter((record) => {
+    // Employee profile page view
+    if (employeeId && record.employeeId !== employeeId) {
+      return false;
+    }
+
+    // Employee dropdown filter
+    if (
+      selectedEmployee !== "All Employees" &&
+      record.employeeId !== selectedEmployee
+    ) {
+      return false;
+    }
+
+    // Status filter
+    if (selectedStatus !== "All Training Statuses") {
+      const status = getTrainingStatus(record.expiryDate);
+
+      if (selectedStatus === "Valid" && status !== "valid") return false;
+
+      if (selectedStatus === "Expiring Soon" && status !== "expiring")
+        return false;
+
+      if (selectedStatus === "Expired" && status !== "expired") return false;
+    }
+
+    return true;
+  });
   const [modalOpen, setModalOpen] = useState(false);
   const [addModalOpen, setAddModalOpen] = useState(false);
 
@@ -74,12 +103,12 @@ export function TrainingMatrix({ employeeId }: TrainingMatrixProps) {
   const [selectedRecord, setSelectedRecord] = useState<TrainingRecord | null>(
     null,
   );
-  const [selectedSite, setSelectedSite] = useState("All Sites");
-  const [selectedStatus, setSelectedStatus] = useState("All Training Statuses");
 
   const expiredCount = filteredRecords.filter(
     (r) => getTrainingStatus(r.expiryDate) === "expired",
   ).length;
+
+  const { moveToRecycleBin } = useRecycleBin();
 
   const handleDeleteClick = (record: TrainingRecord) => {
     setSelectedRecord(record);
@@ -88,8 +117,16 @@ export function TrainingMatrix({ employeeId }: TrainingMatrixProps) {
 
   const handleConfirmArchive = () => {
     if (selectedRecord) {
-      // Remove the record from the list (in a real app, this would call an API)
+      moveToRecycleBin({
+        id: selectedRecord.id,
+        name: selectedRecord.certificateName,
+        type: "Training Record",
+        data: selectedRecord,
+        deletedAt: new Date().toISOString(),
+      });
+
       deleteRecord(selectedRecord.id);
+
       setSelectedRecord(null);
     }
   };
@@ -368,6 +405,25 @@ export function TrainingMatrix({ employeeId }: TrainingMatrixProps) {
                 {statuses.map((status) => (
                   <option key={status} value={status}>
                     {status}
+                  </option>
+                ))}
+              </select>
+
+              <select
+                value={selectedEmployee}
+                onChange={(e) => setSelectedEmployee(e.target.value)}
+                className="px-4 py-2.5 rounded-lg text-sm appearance-none cursor-pointer"
+                style={{
+                  backgroundColor: "#1E293B",
+                  color: "#F8FAFC",
+                  border: "none",
+                }}
+              >
+                <option value="All Employees">All Employees</option>
+
+                {employees.map((employee) => (
+                  <option key={employee.employeeId} value={employee.employeeId}>
+                    {employee.fullName}
                   </option>
                 ))}
               </select>
