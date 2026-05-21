@@ -1,4 +1,6 @@
 import { IncidentRecord } from "./types";
+import html2pdf from "html2pdf.js/dist/html2pdf.min.js";
+import { useRef } from "react";
 
 type Props = {
   record: IncidentRecord;
@@ -6,8 +8,33 @@ type Props = {
 };
 
 export const PDFView = ({ record, onBack }: Props) => {
+  const pdfRef = useRef<HTMLDivElement>(null);
+  const downloadPDF = () => {
+  const element = pdfRef.current;
+
+  if (!element) return;
+
+  html2pdf()
+    .from(element)
+    .set({
+      margin: 0.5,
+      filename: `${record.type}-${record.id}.pdf`,
+      image: { type: "jpeg", quality: 1 },
+      html2canvas: { scale: 2 },
+      jsPDF: {
+        unit: "in",
+        format: "a4",
+        orientation: "portrait",
+      },
+    })
+    .save();
+};
+
   return (
-    <div className="bg-white min-h-screen p-8 text-black">
+    <div
+  ref={pdfRef}
+  className="bg-white min-h-screen p-8 text-black"
+>
       {/* ACTION BUTTONS */}
       <div className="flex justify-between mb-6 print:hidden">
         <button onClick={onBack} className="bg-gray-200 px-4 py-2 rounded">
@@ -15,7 +42,7 @@ export const PDFView = ({ record, onBack }: Props) => {
         </button>
 
         <button
-          onClick={() => window.print()}
+          onClick={downloadPDF}
           className="bg-blue-600 text-white px-4 py-2 rounded"
         >
           Print / Save PDF

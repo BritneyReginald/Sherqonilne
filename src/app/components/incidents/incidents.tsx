@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { IncidentForm } from "./incidents-form";
 import { NCRForm } from "./ncr-form";
-import { InjuryForm } from "./injury-form";
+import { InjuryForm } from "./injury/injury-form";
 import { InvestigationForm } from "./investigation";
 import { UploadPage } from "./upload";
 import { PDFView } from "./pdf-view";

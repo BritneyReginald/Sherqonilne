@@ -43,6 +43,8 @@ import { RiskAssessmentBeforeControls } from "@/app/components/risk-assessment-b
 import { RiskAssessmentAfterControls } from "@/app/components/risk-assessment-after-controls";
 import { RiskAssessmentSummary } from "@/app/components/risk-assessment-summary";
 import Incidents from "@/app/components/incidents/incidents";
+import { useMockAuth } from "../contexts/mock-auth-context";
+import { RecycleBin } from "@/app/components/recycle-bin";
 
 interface NavigationItem {
   id: string;
@@ -161,6 +163,7 @@ const bottomNavigationItems: NavigationItem[] = [
 export function AppShell({ children }: { children?: React.ReactNode }) {
   const { dismissedAlerts } = useAlerts();
   const { theme, colors, brandPrimaryBg, getNavTextColor } = useTheme();
+  const { user, switchUser } = useMockAuth();
   const [activeItem, setActiveItem] = useState("dashboard");
   const [expandedItems, setExpandedItems] = useState<string[]>([
     "compliance",
@@ -522,7 +525,7 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
             </div>
 
             {/* User Profile Dropdown */}
-            <div className="relative">
+            <div className="relative text-gray-600">
               <button
                 onClick={() => setShowUserMenu(!showUserMenu)}
                 className="flex items-center gap-2 px-3 py-2 rounded-lg transition-colors"
@@ -561,43 +564,19 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
                     borderColor: "var(--grey-200)",
                   }}
                 >
-                  <div
-                    className="px-4 py-3 border-b"
-                    style={{ borderColor: "var(--grey-200)" }}
-                  >
-                    <p
-                      className="font-medium"
-                      style={{ color: "var(--grey-900)" }}
+                  <div className="px-4 py-3 border-b space-y-2">
+                    <p className="font-medium">Admin User</p>
+                    <p className="text-sm text-gray-500">admin@sherq.com</p>
+
+                    <select
+                      value={user.role}
+                      onChange={(e) => switchUser(e.target.value)}
+                      className="w-full text-sm px-2 py-1 border rounded"
                     >
-                      Admin User
-                    </p>
-                    <p className="text-sm" style={{ color: "var(--grey-500)" }}>
-                      admin@sherq.com
-                    </p>
-                  </div>
-                  <div className="py-2">
-                    <button
-                      className="w-full px-4 py-2 text-left hover:bg-secondary transition-colors"
-                      style={{ color: "var(--grey-700)" }}
-                    >
-                      Profile Settings
-                    </button>
-                    <button
-                      className="w-full px-4 py-2 text-left hover:bg-secondary transition-colors"
-                      style={{ color: "var(--grey-700)" }}
-                    >
-                      Account Preferences
-                    </button>
-                    <div
-                      className="border-t my-2"
-                      style={{ borderColor: "var(--grey-200)" }}
-                    />
-                    <button
-                      className="w-full px-4 py-2 text-left hover:bg-secondary transition-colors"
-                      style={{ color: "var(--compliance-danger)" }}
-                    >
-                      Sign Out
-                    </button>
+                      <option value="employee">Employee</option>
+                      <option value="firstAider">First Aider</option>
+                      <option value="safetyOfficer">Safety Officer</option>
+                    </select>
                   </div>
                 </div>
               )}
@@ -637,6 +616,8 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
             <ReportsAnalytics />
           ) : activeItem === "system-audit-log" ? (
             <SystemAuditLog />
+          ) : activeItem === "recycle-bin" ? (
+            <RecycleBin />
           ) : activeItem === "system-settings" ? (
             <SystemSettings />
           ) : (

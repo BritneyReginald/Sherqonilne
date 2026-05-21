@@ -5,15 +5,20 @@ import { AlertProvider } from "@/app/contexts/alert-context";
 import { SiteFilterProvider } from "@/app/contexts/site-filter-context";
 import { TrainingProvider } from "@/app/contexts/training-context";
 import { LegalAppointmentsProvider } from "@/app/contexts/legal-appointments-context";
+import { MockAuthProvider } from "@/app/contexts/mock-auth-context";
+import { RecycleBinProvider } from "@/app/contexts/recycle-bin-context";
 
 export default function App() {
   return (
+    <MockAuthProvider> 
     <ThemeProvider>
       <AlertProvider>
         <SiteFilterProvider>
           <LegalAppointmentsProvider>
             <TrainingProvider>
-              <AppShell />
+              <RecycleBinProvider>
+   <AppShell />
+</RecycleBinProvider>
             </TrainingProvider>
           </LegalAppointmentsProvider>
 
@@ -39,5 +44,7 @@ export default function App() {
         </SiteFilterProvider>
       </AlertProvider>
     </ThemeProvider>
+    </MockAuthProvider>
   );
+
 }
