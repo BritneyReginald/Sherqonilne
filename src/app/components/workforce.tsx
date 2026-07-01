@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Search,
   Filter,
@@ -7,10 +7,13 @@ import {
   CheckCircle2,
   AlertTriangle,
   XCircle,
+  Trash2,
+  UserX,
 } from "lucide-react";
 import { EmployeeProfile } from "@/app/components/employee-profile";
 import { useTheme } from "@/app/contexts/theme-context";
-import { employees } from "@/app/components/data/employees";
+import { useRecycleBin } from "@/app/contexts/recycle-bin-context";
+import { Employee } from "@/app/types";
 
 const sites = [
   "All Sites",
@@ -33,11 +36,71 @@ export function Workforce() {
   const [selectedStatus, setSelectedStatus] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedEmployee, setSelectedEmployee] = useState<any | null>(null);
-  const [employeeList, setEmployeeList] = useState(employees);
-
+  const [employeeList, setEmployeeList] = useState<Employee[]>([]);
+  const [activeRowMenu, setActiveRowMenu] = useState<string | null>(null);
+  const [confirmModal, setConfirmModal] = useState<{
+    type: "deactivate" | "delete";
+    employee: any;
+  } | null>(null);
+  const [isActioning, setIsActioning] = useState(false);
+  const { moveToRecycleBin } = useRecycleBin();
   const [currentStep, setCurrentStep] = useState(1);
 
   const totalSteps = 5;
+
+  useEffect(() => {
+    fetchEmployees();
+  }, []);
+
+  const fetchEmployees = async () => {
+    try {
+      const response = await fetch("http://localhost:3000/employees");
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch employees");
+      }
+
+      const data = await response.json();
+
+      const formattedEmployees = data.map((employee: any) => ({
+        id: employee.id.toString(),
+        employeeId: employee.employee_id,
+        fullName: employee.full_name,
+        dateOfBirth: employee.date_of_birth,
+        idNumber: employee.id_number,
+        gender: employee.gender,
+        nationality: employee.nationality,
+        email: employee.email,
+        phone: employee.phone,
+        mobile: employee.mobile,
+        address: employee.address,
+        reportingManager: employee.reporting_manager,
+        reportingManagerId: employee.reporting_manager_id,
+        reportingManagerJobTitle: employee.reporting_manager_job_title,
+        reportingManagerLegalAppointment:
+          employee.reporting_manager_legal_appointment,
+        department: employee.department,
+        division: employee.division,
+        organisationalLevel: employee.organisational_level,
+        emergencyContact: employee.emergency_contact,
+        relationship: employee.relationship,
+        emergencyPhone: employee.emergency_phone,
+        jobTitle: employee.job_title,
+        siteLocation: employee.site_location,
+        employmentType: employee.employment_type,
+        startDate: employee.start_date,
+        contractEndDate: employee.contract_end_date,
+        salaryGrade: employee.salary_grade,
+        workSchedule: employee.work_schedule,
+        complianceStatus: employee.compliance_status,
+        status: employee.status,
+      }));
+
+      setEmployeeList(formattedEmployees);
+    } catch (error) {
+      console.error("Error fetching employees:", error);
+    }
+  };
 
   const steps = ["Personal", "Contact", "Reporting", "Employment", "Emergency"];
 
@@ -55,63 +118,119 @@ export function Workforce() {
     return matchesSite && matchesStatus && matchesSearch;
   });
 
-  const handleAddEmployee = () => {
-    const employee = {
-      id: crypto.randomUUID(),
-      ...newEmployee,
-    };
+  const handleSaveEmployee = async () => {
+    try {
+      const response = await fetch("http://localhost:3000/employees", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(newEmployee),
+      });
+      if (response.ok) {
+        const savedEmployee = await response.json();
+        console.log(savedEmployee);
 
-    setEmployeeList((prev) => [...prev, employee]);
+        const formattedEmployee = {
+          id: savedEmployee.id,
+          employeeId: savedEmployee.employee_id,
+          fullName: savedEmployee.full_name,
+          dateOfBirth: savedEmployee.date_of_birth,
+          idNumber: savedEmployee.id_number,
+          gender: savedEmployee.gender,
+          nationality: savedEmployee.nationality,
+          email: savedEmployee.email,
+          phone: savedEmployee.phone,
+          mobile: savedEmployee.mobile,
+          address: savedEmployee.address,
+          reportingManager: savedEmployee.reporting_manager,
+          reportingManagerId: savedEmployee.reporting_manager_id,
+          reportingManagerJobTitle: savedEmployee.reporting_manager_job_title,
+          reportingManagerLegalAppointment:
+            savedEmployee.reporting_manager_legal_appointment,
+          department: savedEmployee.department,
+          division: savedEmployee.division,
+          organisationalLevel: savedEmployee.organisational_level,
+          emergencyContact: savedEmployee.emergency_contact,
+          relationship: savedEmployee.relationship,
+          emergencyPhone: savedEmployee.emergency_phone,
+          jobTitle: savedEmployee.job_title,
+          siteLocation: savedEmployee.site_location,
+          employmentType: savedEmployee.employment_type,
+          startDate: savedEmployee.start_date,
+          contractEndDate: savedEmployee.contract_end_date,
+          salaryGrade: savedEmployee.salary_grade,
+          workSchedule: savedEmployee.work_schedule,
+          complianceStatus: savedEmployee.compliance_status,
+          status: savedEmployee.status,
+        };
 
-    setNewEmployee({
-      employeeId: `EMP-${Date.now().toString().slice(-6)}`,
-      fullName: "",
-      dateOfBirth: "",
-      idNumber: "",
-      gender: "",
-      nationality: "",
+        setEmployeeList((prev) => [...prev, formattedEmployee]);
+        setShowAddModal(false);
+        // Reset form if needed
+      } else {
+        console.error("Failed to save employee");
+      }
+    } catch (error) {
+      console.error("Error:", error);
+    }
+  };
 
-      email: "",
-      phone: "",
-      mobile: "",
-      address: "",
+  const handleDeactivate = async (employee: any) => {
+    setIsActioning(true);
+    try {
+      const response = await fetch(
+        `http://localhost:3000/employees/${employee.id}/deactivate`,
+        { method: "PATCH", headers: { "Content-Type": "application/json" } },
+      );
+      if (!response.ok) throw new Error("Failed");
 
-      reportingManager: "",
-      reportingManagerId: "",
-      reportingManagerJobTitle: "",
-      reportingManagerLegalAppointment: "",
-      department: "",
-      division: "",
-      organisationalLevel: "",
+      // Update status in the list so the Inactive badge shows immediately
+      setEmployeeList((prev) =>
+        prev.map((e) =>
+          e.id === employee.id ? { ...e, status: "Inactive" } : e,
+        ),
+      );
+      setConfirmModal(null);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsActioning(false);
+    }
+  };
 
-      emergencyContact: "",
-      relationship: "",
-      emergencyPhone: "",
+  const handleDelete = async (employee: any) => {
+    setIsActioning(true);
+    try {
+      const response = await fetch(
+        `http://localhost:3000/employees/${employee.id}`,
+        { method: "DELETE" },
+      );
+      if (!response.ok) throw new Error("Failed");
 
-      jobTitle: "",
-      siteLocation: "Johannesburg Main",
-      employmentType: "",
+      // Move to recycle bin BEFORE removing from list
+      moveToRecycleBin({
+        id: employee.id,
+        name: employee.fullName,
+        type: "Employee",
+        data: employee,
+        deletedAt: new Date().toISOString(),
+      });
 
-      startDate: "",
-      contractEndDate: "",
-
-      salaryGrade: "",
-      workSchedule: "",
-
-      complianceStatus: "compliant",
-
-      status: "Active",
-    });
-    setCurrentStep(1);
-
-    setShowAddModal(false);
+      setEmployeeList((prev) => prev.filter((e) => e.id !== employee.id));
+      setConfirmModal(null);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsActioning(false);
+    }
   };
 
   const [showAddModal, setShowAddModal] = useState(false);
 
   const [newEmployee, setNewEmployee] = useState({
     // Personal Information
-    employeeId: `EMP-${Date.now().toString().slice(-6)}`,
+    employeeId: "",
     fullName: "",
     dateOfBirth: "",
     idNumber: "",
@@ -164,6 +283,17 @@ export function Workforce() {
       <EmployeeProfile
         employee={selectedEmployee}
         onBack={() => setSelectedEmployee(null)}
+        onEmployeeUpdate={(updated) => {
+          if (updated._deleted) {
+            setEmployeeList((prev) => prev.filter((e) => e.id !== updated.id));
+            setSelectedEmployee(null);
+          } else {
+            setEmployeeList((prev) =>
+              prev.map((e) => (e.id === updated.id ? updated : e)),
+            );
+            setSelectedEmployee(updated);
+          }
+        }}
       />
     );
   }
@@ -405,13 +535,19 @@ export function Workforce() {
                     >
                       Overall Compliance Status
                     </th>
+                    <th
+                      className="px-6 py-4 text-left text-sm font-medium"
+                      style={{ color: colors.subText }}
+                    >
+                      Actions
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
                   {filteredEmployees.length > 0 ? (
                     filteredEmployees.map((employee, index) => (
                       <tr
-                        key={employee.id}
+                        key={`${employee.id}-${employee.employeeId}`}
                         className="transition-opacity cursor-pointer hover:opacity-80"
                         style={{
                           backgroundColor:
@@ -433,7 +569,20 @@ export function Workforce() {
                           className="px-6 py-4 text-sm"
                           style={{ color: colors.primaryText }}
                         >
-                          {employee.fullName}
+                          <div className="flex items-center gap-2">
+                            {employee.fullName}
+                            {employee.status === "Inactive" && (
+                              <span
+                                className="px-2 py-0.5 rounded-full text-xs font-medium"
+                                style={{
+                                  backgroundColor: "#F3F4F6",
+                                  color: "#6B7280",
+                                }}
+                              >
+                                Inactive
+                              </span>
+                            )}
+                          </div>
                         </td>
                         <td
                           className="px-6 py-4 text-sm"
@@ -449,6 +598,77 @@ export function Workforce() {
                         </td>
                         <td className="px-6 py-4">
                           <ComplianceBadge status={employee.complianceStatus} />
+                        </td>
+
+                        <td
+                          className="px-6 py-4"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <div className="relative">
+                            <button
+                              onClick={() =>
+                                setActiveRowMenu(
+                                  activeRowMenu === employee.id
+                                    ? null
+                                    : employee.id,
+                                )
+                              }
+                              className="px-2 py-1 rounded text-lg leading-none"
+                              style={{ color: colors.subText }}
+                            >
+                              ⋮
+                            </button>
+                            {activeRowMenu === employee.id && (
+                              <>
+                                <div
+                                  className="fixed inset-0 z-10"
+                                  onClick={() => setActiveRowMenu(null)}
+                                />
+                                <div
+                                  className="absolute right-0 mt-1 w-52 rounded-lg border shadow-lg z-20 overflow-hidden"
+                                  style={{
+                                    backgroundColor: colors.surface,
+                                    borderColor:
+                                      colors.border || "var(--grey-200)",
+                                  }}
+                                >
+                                  <button
+                                    onClick={() => {
+                                      setActiveRowMenu(null);
+                                      setConfirmModal({
+                                        type: "deactivate",
+                                        employee,
+                                      });
+                                    }}
+                                    className="w-full px-4 py-3 text-sm text-left flex items-center gap-2"
+                                    style={{ color: "#B45309" }}
+                                  >
+                                    <UserX className="size-4" />
+                                    Deactivate Employee
+                                  </button>
+                                  <div
+                                    style={{
+                                      borderTop: `1px solid ${colors.border || "var(--grey-100)"}`,
+                                    }}
+                                  />
+                                  <button
+                                    onClick={() => {
+                                      setActiveRowMenu(null);
+                                      setConfirmModal({
+                                        type: "delete",
+                                        employee,
+                                      });
+                                    }}
+                                    className="w-full px-4 py-3 text-sm text-left flex items-center gap-2"
+                                    style={{ color: "#DC2626" }}
+                                  >
+                                    <Trash2 className="size-4" />
+                                    Delete Permanently
+                                  </button>
+                                </div>
+                              </>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     ))
@@ -1059,7 +1279,7 @@ export function Workforce() {
                     </button>
                   ) : (
                     <button
-                      onClick={handleAddEmployee}
+                      onClick={handleSaveEmployee}
                       className="px-5 py-2 rounded-lg text-white bg-green-600"
                     >
                       Save Employee
@@ -1067,6 +1287,88 @@ export function Workforce() {
                   )}
                 </div>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {confirmModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div
+            className="w-full max-w-md rounded-xl shadow-xl p-6"
+            style={{ backgroundColor: colors.surface }}
+          >
+            <div className="flex items-center gap-3 mb-4">
+              <div
+                className="size-10 rounded-full flex items-center justify-center"
+                style={{
+                  backgroundColor:
+                    confirmModal.type === "delete" ? "#FEE2E2" : "#FEF3C7",
+                }}
+              >
+                {confirmModal.type === "delete" ? (
+                  <Trash2 className="size-5" style={{ color: "#DC2626" }} />
+                ) : (
+                  <UserX className="size-5" style={{ color: "#B45309" }} />
+                )}
+              </div>
+              <h2
+                className="text-lg font-medium"
+                style={{ color: colors.primaryText }}
+              >
+                {confirmModal.type === "delete"
+                  ? "Delete Permanently"
+                  : "Deactivate Employee"}
+              </h2>
+            </div>
+            <p className="text-sm mb-1" style={{ color: colors.primaryText }}>
+              Are you sure you want to{" "}
+              {confirmModal.type === "delete"
+                ? "permanently delete"
+                : "deactivate"}{" "}
+              <strong>{confirmModal.employee.fullName}</strong>?
+            </p>
+            <p
+              className="text-sm mb-6"
+              style={{
+                color:
+                  confirmModal.type === "delete" ? "#DC2626" : colors.subText,
+              }}
+            >
+              {confirmModal.type === "delete"
+                ? "⚠ This cannot be undone. All data will be removed from the database."
+                : "Their record will be kept but marked as Inactive."}
+            </p>
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => setConfirmModal(null)}
+                className="px-4 py-2 rounded-lg text-sm"
+                style={{
+                  backgroundColor: colors.background,
+                  color: colors.primaryText,
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() =>
+                  confirmModal.type === "delete"
+                    ? handleDelete(confirmModal.employee)
+                    : handleDeactivate(confirmModal.employee)
+                }
+                disabled={isActioning}
+                className="px-4 py-2 rounded-lg text-sm text-white disabled:opacity-60"
+                style={{
+                  backgroundColor:
+                    confirmModal.type === "delete" ? "#DC2626" : "#D97706",
+                }}
+              >
+                {isActioning
+                  ? "Processing…"
+                  : confirmModal.type === "delete"
+                    ? "Yes, Delete"
+                    : "Yes, Deactivate"}
+              </button>
             </div>
           </div>
         </div>
@@ -1098,7 +1400,8 @@ function ComplianceBadge({ status }: ComplianceBadgeProps) {
     },
   };
 
-  const config = badgeConfig[status];
+  const config =
+    badgeConfig[status as keyof typeof badgeConfig] ?? badgeConfig.compliant;
 
   return (
     <div
