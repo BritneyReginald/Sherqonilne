@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Employee Management | Reginald SHERQ</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body { background-color: #f8f9fa; font-family: Arial, sans-serif; }
+        .sidebar { background-color: #1a365d; min-height: 100vh; color: white; }
+        .sidebar .nav-link { color: rgba(255,255,255,0.8); margin: 5px 0; border-radius: 6px; text-decoration: none; display: block; padding: 10px; }
+        .sidebar .nav-link:hover, .sidebar .nav-link.active { background-color: #99cc33; color: #1a365d; font-weight: bold; }
+        .card { border-radius: 12px; border: none; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+        .table th { background-color: #f1f5f9; color: #1a365d; }
+        .btn-add { background-color: #99cc33; color: #1a365d; font-weight: bold; border: none; }
+        .btn-add:hover { background-color: #88bb22; color: #1a365d; }
+        
+        .modal-content { background-color: #ffffff !important; opacity: 1 !important; box-shadow: 0 15px 35px rgba(0, 0, 0, 0.25) !important; border: 1px solid rgba(0,0,0,0.1) !important; }
+        .modal-body, .modal-header, .modal-footer { background-color: #ffffff !important; opacity: 1 !important; }
+        .modal-body input, .modal-body select { background-color: #ffffff !important; color: #212529 !important; pointer-events: auto !important; }
+        .search-control-oval { max-width: 320px; border-radius: 50px !important; border: 1px solid #ced4da; padding-top: 0.45rem; padding-bottom: 0.45rem; }
+        .filter-control-oval { max-width: 200px; border-radius: 50px !important; border: 1px solid #ced4da; padding-top: 0.45rem; padding-bottom: 0.45rem; }
+        .search-icon-inside { position: absolute; top: 50%; left: 1.25rem; transform: translateY(-50%); color: #6c757d; z-index: 5; }
+    </style>
+</head>
+<body>
+    <div class="container-fluid">
+        <div class="row">
+            <div class="col-md-2 sidebar p-3 d-flex flex-column">
+                <h5 class="text-center fw-bold py-3 border-bottom border-secondary">REGINALD<span style="color:#99cc33;">SHERQ</span></h5>
+                <ul class="nav flex-column mt-3 flex-grow-1">
+                    <li class="nav-item"><a href="/admin/dashboard" class="nav-link"><i class="fa-solid fa-gauge me-2"></i> Dashboard</a></li>
+                    <li class="nav-item"><a href="/admin/register" class="nav-link"><i class="fa-solid fa-boxes-stacked me-2"></i> Asset Register</a></li>
+                    <li class="nav-item"><a href="/admin/inspection_register" class="nav-link"><i class="fa-solid fa-clipboard-list me-2"></i> Inspection Register</a></li>
+                    <li class="nav-item"><a href="/admin/alerts" class="nav-link"><i class="fa-solid fa-triangle-exclamation me-2"></i>  Alerts</a></li>
+                    <li class="nav-item"><a href="/admin/employees" class="nav-link active"><i class="fa-solid fa-users-gear me-2"></i> Employee Management</a></li>
+                </ul>
+                <a href="/logout" class="btn btn-sm btn-outline-danger mt-auto"><i class="fa-solid fa-right-from-bracket me-2"></i> Logout</a>
+            </div>
+
+            <div class="col-md-10 p-4">
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                    {% if messages %}
+                        {% for category, message in messages %}
+                            <div class="alert alert-{{ category if category != 'error' else 'danger' }} alert-dismissible fade show shadow-sm" role="alert">
+                                {{ message }}
+                                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                            </div>
+                        {% endfor %}
+                    {% endif %}
+                {% endwith %}
+
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h3 class="fw-bold" style="color: #1a365d;">Employee Registry</h3>
+                    <button class="btn btn-add" data-bs-toggle="modal" data-bs-target="#addEmployeeModal"><i class="fa-solid fa-user-plus me-2"></i>Add Employee</button>
+                </div>
+
+                <div class="d-flex gap-3 align-items-center mb-4 bg-white p-3 card flex-row flex-wrap">
+                    <div class="position-relative flex-grow-1" style="max-width: 320px;">
+                        <span class="search-icon-inside"><i class="fa-solid fa-magnifying-glass"></i></span>
+                        <input type="text" id="employeeSearchInput" class="form-control search-control-oval ps-5" placeholder="Search Employee by ID or Name...">
+                    </div>
+                    <div>
+                        <select id="roleFilterDropdown" class="form-select filter-control-oval px-4">
+                            <option value="ALL">All Roles</option>
+                            <option value="Inspector">Inspector</option>
+                            <option value="SHE Officer">SHE Officer</option>
+                            <option value="Manager">Manager</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="card p-3">
+                    <table class="table table-hover align-middle mb-0" id="employeeTable">
+                        <thead>
+                            <tr>
+                                <th>Employee Number</th>
+                                <th>Full Name</th>
+                                <th>Email Address</th>
+                                <th>Operational Role</th>
+                                <th class="text-center">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for emp in employees %}
+                            <tr class="employee-row" data-role="{{ emp.role }}">
+                                <td class="fw-bold text-secondary emp-num-cell">{{ emp.employee_number }}</td>
+                                <td class="fw-bold emp-name-cell" style="color: #1a365d;">{{ emp.full_name }}</td>
+                                <td>{{ emp.email if emp.email else 'N/A' }}</td>
+                                <td><span class="badge bg-secondary role-badge">{{ emp.role }}</span></td>
+                                <td class="text-center">
+                                    <button class="btn btn-sm btn-outline-primary me-1" data-bs-toggle="modal" data-bs-target="#editModal{{ emp.id }}"><i class="fa-solid fa-pen"></i></button>
+                                    <button class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#deleteModal{{ emp.id }}"><i class="fa-solid fa-trash"></i></button>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="addEmployeeModal" tabindex="-1"><div class="modal-dialog"><form method="POST" class="modal-content"><div class="modal-header"><h5>Add Employee</h5></div><div class="modal-body"><input type="text" name="employee_number" placeholder="Emp Number" class="form-control mb-2" required><input type="text" name="full_name" placeholder="Full Name" class="form-control mb-2" required><input type="email" name="email" placeholder="Email" class="form-control mb-2"><select name="role" class="form-select"><option>Inspector</option><option>SHE Officer</option><option>Manager</option></select></div><div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button><button type="submit" class="btn btn-primary">Add Employee</button></div></form></div></div>
+    {% for emp in employees %}
+    <div class="modal fade" id="editModal{{ emp.id }}" tabindex="-1"><div class="modal-dialog"><form action="{{ url_for('update_employee', id=emp.id) }}" method="POST" class="modal-content"><div class="modal-header"><h5>Edit Employee</h5></div><div class="modal-body"><input type="text" name="full_name" value="{{ emp.full_name }}" class="form-control mb-2" required><input type="email" name="email" value="{{ emp.email }}" class="form-control mb-2"><select name="role" class="form-select"><option {% if emp.role == 'Inspector' %}selected{% endif %}>Inspector</option><option {% if emp.role == 'SHE Officer' %}selected{% endif %}>SHE Officer</option><option {% if emp.role == 'Manager' %}selected{% endif %}>Manager</option></select></div><div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button><button type="submit" class="btn btn-primary">Update</button></div></form></div></div>
+    <div class="modal fade" id="deleteModal{{ emp.id }}" tabindex="-1"><div class="modal-dialog"><div class="modal-content"><div class="modal-header"><h5>Confirm Delete</h5></div><div class="modal-body"><p>Are you sure you want to remove {{ emp.full_name }}?</p></div><div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button><a href="{{ url_for('delete_employee', id=emp.id) }}" class="btn btn-danger">Delete</a></div></div></div></div>
+    {% endfor %}
+
+    <script>
+        document.getElementById('employeeSearchInput').addEventListener('keyup', function() {
+            let s = this.value.toLowerCase();
+            let r = document.getElementById('roleFilterDropdown').value;
+            document.querySelectorAll('.employee-row').forEach(row => {
+                let show = (row.querySelector('.emp-name-cell').innerText.toLowerCase().includes(s) || row.querySelector('.emp-num-cell').innerText.toLowerCase().includes(s)) && (r == 'ALL' || row.getAttribute('data-role') == r);
+                row.style.display = show ? '' : 'none';
+            });
+        });
+        document.getElementById('roleFilterDropdown').addEventListener('change', function() {
+            document.getElementById('employeeSearchInput').dispatchEvent(new Event('keyup'));
+        });
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

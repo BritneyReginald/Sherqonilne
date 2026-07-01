@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reginald SHERQ | Inspection Register</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body { background-color: #f4f7f6; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        .sidebar { background-color: #1a365d; min-height: 100vh; color: white; padding: 20px; }
+        .sidebar .nav-link { color: rgba(255,255,255,0.8); margin: 5px 0; border-radius: 6px; text-decoration: none; display: block; padding: 10px; }
+        .sidebar .nav-link:hover, .sidebar .nav-link.active { background-color: #99cc33; color: #1a365d; font-weight: bold; }
+        
+        .brand-green { color: #99cc33; }
+        .stat-card { border: none; border-radius: 12px; transition: transform 0.2s; }
+        .stat-card:hover { transform: translateY(-5px); }
+        
+        .status-badge { padding: 6px 12px; border-radius: 20px; font-size: 0.85rem; font-weight: 600; }
+        .status-completed { background-color: #e8f5e9; color: #2e7d32; }
+        .status-inprogress { background-color: #fff3e0; color: #ef6c00; }
+        .status-created { background-color: #ffebee; color: #c62828; border: 1px solid #ffcdd2; }
+
+        .table-container { background: white; border-radius: 12px; padding: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+        .search-box { border-radius: 20px; padding-left: 40px; }
+        .search-icon { position: absolute; left: 15px; top: 10px; color: #aaa; }
+
+        .modal-content { border: none; border-radius: 15px; overflow: hidden; background-color: #ffffff !important; opacity: 1 !important; }
+        .modal-header-brand { background-color: #1a365d; color: white; border-bottom: 5px solid #99cc33; padding: 20px; }
+        .delete-icon-circle {
+            width: 80px; height: 80px; background-color: #fff1f0; color: #ff4d4f;
+            border-radius: 50%; display: flex; align-items: center; justify-content: center;
+            font-size: 2.5rem; margin: 0 auto 20px;
+        }
+        .btn-confirm-delete { background-color: #d32f2f; color: white; border-radius: 25px; padding: 10px 25px; border: none; transition: 0.3s; }
+        .btn-confirm-delete:hover { background-color: #b71c1c; transform: scale(1.05); }
+        .btn-cancel-custom { background-color: #f5f5f5; color: #616161; border-radius: 25px; padding: 10px 25px; border: none; }
+    </style>
+</head>
+<body>
+
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-md-2 sidebar p-3 d-flex flex-column">
+            <h5 class="text-center fw-bold py-3 border-bottom border-secondary m-0">REGINALD<span class="brand-green">SHERQ</span></h5>
+            <ul class="nav flex-column mt-3 flex-grow-1">
+                <li class="nav-item"><a href="/admin/dashboard" class="nav-link"><i class="fa-solid fa-gauge me-2"></i> Dashboard</a></li>
+                <li class="nav-item"><a href="/admin/register" class="nav-link"><i class="fa-solid fa-boxes-stacked me-2"></i> Asset Register</a></li>
+                <li class="nav-item"><a href="/admin/inspection_register" class="nav-link active"><i class="fa-solid fa-clipboard-list me-2"></i> Inspection Register</a></li>
+                <li class="nav-item"><a href="/admin/alerts" class="nav-link"><i class="fa-solid fa-triangle-exclamation me-2"></i>  Alerts</a></li>
+                <li class="nav-item"><a href="/admin/employees" class="nav-link"><i class="fa-solid fa-users-gear me-2"></i> Employee Management</a></li>
+            </ul>
+            <a href="/logout" class="btn btn-sm btn-outline-danger mt-auto"><i class="fa-solid fa-right-from-bracket me-2"></i> Logout</a>
+        </div>
+
+        <main class="col-md-10 p-4">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2 class="fw-bold" style="color: #1a365d;">Inspections / Activity Register</h2>
+                <button class="btn btn-success border-0 shadow-sm text-dark fw-bold" style="background-color: #99cc33;" onclick="window.print()">
+                    <i class="bi bi-printer me-2"></i> Print Report
+                </button>
+            </div>
+
+            <div class="row g-3 mb-4">
+                <div class="col-md-3">
+                    <div class="card stat-card shadow-sm p-3">
+                        <div class="text-muted small">Total Records</div>
+                        <div class="h3 fw-bold" style="color: #1a365d;">{{ stats.total }}</div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card stat-card shadow-sm p-3 border-start border-danger border-4">
+                        <div class="text-muted small">Created</div>
+                        <div class="h3 fw-bold text-danger">{{ stats.created }}</div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card stat-card shadow-sm p-3 border-start border-warning border-4">
+                        <div class="text-muted small">In Progress</div>
+                        <div class="h3 fw-bold text-warning">{{ stats.in_progress }}</div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card stat-card shadow-sm p-3 border-start border-success border-4">
+                        <div class="text-muted small">Completed</div>
+                        <div class="h3 fw-bold text-success">{{ stats.completed }}</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="table-container shadow-sm">
+                <div class="row g-3 mb-4 align-items-center">
+                    <div class="col-md-4 position-relative">
+                        <i class="bi bi-search search-icon"></i>
+                        <input type="text" id="searchInput" class="form-control search-box" placeholder="Search Asset ID or Inspector...">
+                    </div>
+                    
+                    <div class="col-md-3">
+                        <select id="typeFilter" class="form-select" style="border-radius: 20px;">
+                            <option value="">All Asset Types</option>
+                            <option value="Fire Extinguisher">Fire Extinguisher</option>
+                            <option value="Hose Reel">Hose Reel</option>
+                            <option value="Hydrant">Hydrant</option>
+                        </select>
+                    </div>
+
+                    <div class="col-md-3">
+                        <select id="statusFilter" class="form-select" style="border-radius: 20px;">
+                            <option value="">All Statuses</option>
+                            <option value="Completed">Completed</option>
+                            <option value="In Progress">In Progress</option>
+                            <option value="Created">Created</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle" id="inspectionTable">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Date</th>
+                                <th>Asset ID</th>
+                                <th>Type</th>
+                                <th>Inspector</th>
+                                <th>Status</th>
+                                <th class="text-end">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for item in inspections %}
+                            <tr class="inspection-row">
+                                <td>{{ item.inspection_date }}</td>
+                                <td><span class="fw-bold" style="color: #1a365d;">{{ item.qr_code_id }}</span></td>
+                                <td>{{ item.category }}</td>
+                                <td>{{ item.inspector_name if item.inspector_name else '---' }}</td>
+                                <td>
+                                    {% if item.report_status == 'Completed' %}
+                                        <span class="status-badge status-completed">Completed</span>
+                                    {% elif item.report_status == 'In Progress' %}
+                                        <span class="status-badge status-inprogress">In Progress</span>
+                                    {% else %}
+                                        <span class="status-badge status-created">Created</span>
+                                    {% endif %}
+                                </td>
+                                <td class="text-end">
+                                    <div class="btn-group">
+                                        <a href="{{ url_for('view_report', report_id=item.id) }}" class="btn btn-sm btn-outline-primary">
+                                            <i class="bi bi-eye"></i> View
+                                        </a>
+                                        <button type="button" class="btn btn-sm btn-outline-danger ms-1" 
+                                                onclick="confirmDelete('{{ item.id }}', '{{ item.qr_code_id }}')">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="6" class="text-center py-4 text-muted">No inspection items logged inside the registry database.</td>
+                            </tr>
+                            {% endfor %}
+                            <tr id="noMatchingQueryRow" style="display: none;">
+                                <td colspan="6" class="text-center py-4 text-muted">No inspection logs match your search filters.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </main>
+    </div>
+</div>
+
+<div class="modal fade" id="deleteModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-sm">
+        <div class="modal-content shadow-lg text-center p-3">
+            <div class="modal-body">
+                <div class="mb-3" style="font-size: 3.5rem; color: #dc3545;">
+                    <i class="fa-solid fa-circle-exclamation"></i>
+                </div>
+                <h5 class="fw-bold mb-2" style="color: #1a365d;">Are you sure?</h5>
+                <p class="text-muted small mb-4">Are you sure you want to remove inspection history data for Asset Entry <strong id="deleteAssetID"></strong>? This cannot be undone.</p>
+                <div class="d-flex justify-content-center gap-2">
+                    <button type="button" class="btn btn-light border fw-bold px-3" data-bs-dismiss="modal">Cancel</button>
+                    <form id="deleteForm" method="POST" style="display:inline;">
+                        <button type="submit" class="btn btn-danger fw-bold px-3">OK</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+    function confirmDelete(reportId, assetId) {
+        document.getElementById('deleteAssetID').innerText = assetId;
+        const deleteForm = document.getElementById('deleteForm');
+        deleteForm.action = "/delete_inspection/" + reportId;
+        const deleteModal = new bootstrap.Modal(document.getElementById('deleteModal'));
+        deleteModal.show();
+    }
+
+    const searchInput = document.getElementById('searchInput');
+    const typeFilter = document.getElementById('typeFilter');
+    const statusFilter = document.getElementById('statusFilter');
+    const tableRows = document.querySelectorAll('.inspection-row');
+    const noQueryFeedback = document.getElementById('noMatchingQueryRow');
+
+    function applyFilters() {
+        const searchText = searchInput.value.toLowerCase().trim();
+        const selectedType = typeFilter.value.toLowerCase();
+        const selectedStatus = statusFilter.value.toLowerCase();
+        let visibleRows = 0;
+
+        tableRows.forEach(row => {
+            const assetId = row.cells[1].textContent.toLowerCase();
+            const type = row.cells[2].textContent.toLowerCase();
+            const inspector = row.cells[3].textContent.toLowerCase();
+            const status = row.cells[4].textContent.toLowerCase();
+
+            const matchesSearch = assetId.includes(searchText) || inspector.includes(searchText);
+            const matchesType = selectedType === "" || type.includes(selectedType);
+            const matchesStatus = selectedStatus === "" || status.includes(selectedStatus);
+
+            if (matchesSearch && matchesType && matchesStatus) {
+                row.style.display = "";
+                visibleRows++;
+            } else {
+                row.style.display = "none";
+            }
+        });
+
+        if (tableRows.length > 0) {
+            noQueryFeedback.style.display = (visibleRows === 0) ? "" : "none";
+        }
+    }
+
+    searchInput.addEventListener('input', applyFilters);
+    typeFilter.addEventListener('change', applyFilters);
+    statusFilter.addEventListener('change', applyFilters);
+</script>
+</body>
+</html>
