@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Asset Recovery | Reginald SHERQ</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { background-color: #003366; color: white; font-family: Arial, sans-serif; padding: 20px; }
+        .brand-green { color: #99cc33; }
+        .card { border: none; border-radius: 12px; color: #003366; }
+        .location-box { background-color: #f8f9fa; border-left: 5px solid #99cc33; padding: 15px; margin-bottom: 20px; }
+        /* Keep all interaction fields hidden until a choice is made */
+        .interaction-area { display: none; }
+        .hidden-fields { display: none; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        
+        <div class="row align-items-center mx-auto mb-4" style="max-width: 600px;">
+            <div class="col-3 text-start">
+                <a href="/details/{{ unit.qr_code_id }}" class="btn btn-light px-3 shadow-sm" style="border-radius: 20px; font-weight: 500; color: #333; background-color: #ffffff; border: 1px solid #e2e8f0;">
+                    &larr; Back
+                </a>
+            </div>
+            <div class="col-6 text-center">
+                <h2 class="fw-bold mb-0" style="font-size: 1.5rem; white-space: nowrap;">REGINALD<span class="brand-green">SHERQ</span> RECOVERY</h2>
+            </div>
+            <div class="col-3"></div> </div>
+
+        <div class="card p-4 shadow-lg mx-auto" style="max-width: 600px;">
+            <div class="location-box">
+                <p class="mb-1 small text-muted text-uppercase fw-bold">Authorized Location:</p>
+                <h4 class="fw-bold">{{ unit.authorized_location }}</h4>
+            </div>
+
+            <form action="/submit_recovery/{{ unit.qr_code_id }}" method="POST">
+                <p class="fw-bold text-dark text-center mb-4">Are you returning this unit to its original location now?</p>
+                
+                <div class="btn-group w-100 mb-4" role="group">
+                    <input type="radio" class="btn-check" name="will_recover" id="yes" value="yes" onclick="showWorkflow(false)" required>
+                    <label class="btn btn-outline-success btn-lg fw-bold" for="yes">YES, I AM MOVING IT</label>
+
+                    <input type="radio" class="btn-check" name="will_recover" id="no" value="no" onclick="showWorkflow(true)">
+                    <label class="btn btn-outline-danger btn-lg fw-bold" for="no">NO, I CANNOT MOVE IT</label>
+                </div>
+
+                <div id="interactionArea" class="interaction-area">
+                    
+                    <div class="mb-3">
+                        <label for="inspector_name" class="form-label fw-bold text-dark">Who is handling this movement / action?</label>
+                        <input class="form-control" list="employeeOptions" id="inspector_name" name="inspector_name" placeholder="Click to choose or start typing to search..." required>
+                        <datalist id="employeeOptions">
+                            {% for emp in employees %}
+                            <option value="{{ emp.full_name }} ">
+                            {% endfor %}
+                        </datalist>
+                    </div>
+
+                    <div class="mb-3">
+                        <label id="commentLabel" class="form-label fw-bold text-dark">Action Details:</label>
+                        <textarea name="comments" id="commentBox" class="form-control" rows="3" required></textarea>
+                    </div>
+
+                    <div id="escalationFields" class="hidden-fields">
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label fw-bold text-dark">Responsible Person:</label>
+                                <input type="text" name="responsible" class="form-control" placeholder="e.g. Site Manager">
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label fw-bold text-dark">Resolution Date:</label>
+                                <input type="date" name="due_date" class="form-control">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="d-grid mt-4">
+                        <button type="submit" class="btn btn-primary btn-lg" style="background-color: #003366;">Submit Recovery Log</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        function showWorkflow(isEscalation) {
+            // Show the main interaction area (Combo box, Comment box, Submit button)
+            document.getElementById('interactionArea').style.display = 'block';
+            
+            const escalationFields = document.getElementById('escalationFields');
+            const label = document.getElementById('commentLabel');
+            const box = document.getElementById('commentBox');
+
+            if (isEscalation) {
+                // USER CLICKED NO
+                escalationFields.style.display = 'block';
+                label.innerText = "Explain why the unit cannot be returned to its original location (e.g. Broken bracket, area blocked):";
+                box.placeholder = "Describe the obstacle...";
+                document.getElementsByName('responsible')[0].required = true;
+                document.getElementsByName('due_date')[0].required = true;
+            } else {
+                // USER CLICKED YES
+                escalationFields.style.display = 'none';
+                label.innerText = "Please provide details on why the unit was moved (if known) and confirm it is now securely re-installed:";
+                box.placeholder = "Confirm the unit is now in its correct place...";
+                document.getElementsByName('responsible')[0].required = false;
+                document.getElementsByName('due_date')[0].required = false;
+            }
+        }
+    </script>
+</body>
+</html>

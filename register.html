@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Asset Register | Reginald SHERQ</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { background-color: #f8f9fa; font-family: Arial, sans-serif; }
+        .navbar { background-color: #003366; border-bottom: 4px solid #99cc33; }
+        .brand-green { color: #99cc33; }
+        .table-container { background: white; border-radius: 10px; padding: 25px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); margin-bottom: 40px; }
+        .thead-dark { background-color: #003366; color: white; }
+        .section-title { color: #003366; font-weight: bold; border-left: 5px solid #99cc33; padding-left: 15px; }
+        .btn-view { background-color: #003366; color: white; border: none; font-weight: bold; }
+        .btn-view:hover { background-color: #002244; color: #99cc33; }
+        .badge-status { font-size: 0.85rem; padding: 6px 10px; }
+        .add-btn { background-color: #99cc33; color: #003366; font-weight: bold; border: none; }
+        .add-btn:hover { background-color: #88bb22; color: white; }
+    </style>
+</head>
+<body>
+
+    <nav class="navbar navbar-dark shadow mb-4">
+        <div class="container py-2">
+            <a class="navbar-brand fw-bold" href="{{ url_for('admin_dashboard') }}">
+                REGINALD<span class="brand-green">SHERQ</span> REGISTER
+            </a>
+            <div class="d-flex gap-2 align-items-center">
+                <button onclick="window.print()" class="btn btn-success btn-sm">Print Register</button>
+                <a href="{{ url_for('employee_management') }}" class="btn btn-sm btn-outline-light">Employee Management</a>
+                <a href="{{ url_for('admin_dashboard') }}" class="btn btn-sm btn-outline-light">Back to Dashboard</a>
+                <a href="#" class="btn btn-sm btn-outline-danger" onclick="confirmLogout()">Logout</a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container">
+        
+        <div class="table-container">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h4 class="section-title m-0">🧯 Fire Extinguishers</h4>
+                <a href="{{ url_for('add_asset', category='extinguisher') }}" class="btn btn-sm add-btn">+ Add Extinguisher</a>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                    <thead class="thead-dark">
+                        <tr>
+                            <th>QR ID</th>
+                            <th>Type</th>
+                            <th>Unit Weight</th> 
+                            <th>Location</th>
+                            <th>Status</th>
+                            <th>Reports</th> 
+                            <th class="text-center">Modify</th>
+                            <th class="text-center">Availability</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in extinguishers %}
+                        <tr>
+                            <td class="fw-bold">{{ item.qr_code_id }}</td>
+                            <td>{{ item.type }}</td>
+                            <td>{{ item.unit_weight }}</td> 
+                            <td>{{ item.location }}</td>
+                            <td>
+                                <span class="badge badge-status {% if item.status == 'In Position' %}bg-success{% else %}bg-danger{% endif %}">
+                                    {{ item.status }}
+                                </span>
+                            </td>
+                            <td>
+                                <a href="{{ url_for('view_history', qr_id=item.qr_code_id) }}" class="btn btn-view btn-sm">View Reports</a>
+                            </td>
+                            <td class="text-center">
+                                <a href="{{ url_for('edit_asset', category='extinguisher', qr_id=item.qr_code_id) }}" class="btn btn-warning btn-sm fw-bold">Edit</a>
+                            </td>
+                            <td class="text-center">
+                                <a href="{{ url_for('toggle_inactive', category='extinguisher', qr_id=item.qr_code_id) }}" class="btn btn-outline-danger btn-sm">Inactive</a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="table-container">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h4 class="section-title m-0">🧵 Fire Hose Reels</h4>
+                <a href="{{ url_for('add_asset', category='hose') }}" class="btn btn-sm add-btn">+ Add Hose Reel</a>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                    <thead class="thead-dark">
+                        <tr>
+                            <th>QR ID</th>
+                            <th>Unit Weight</th>
+                            <th>Location</th>
+                            <th>Status</th>
+                            <th>Reports</th>
+                            <th class="text-center">Modify</th>
+                            <th class="text-center">Availability</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in hoses %}
+                        <tr>
+                            <td class="fw-bold">{{ item.qr_code_id }}</td>
+                            <td>{{ item.unit_weight }}</td>
+                            <td>{{ item.location }}</td>
+                            <td>
+                                <span class="badge badge-status {% if item.status == 'In Position' %}bg-success{% else %}bg-danger{% endif %}">
+                                    {{ item.status }}
+                                </span>
+                            </td>
+                            <td><a href="{{ url_for('view_history', qr_id=item.qr_code_id) }}" class="btn btn-view btn-sm">View Reports</a></td>
+                            <td class="text-center">
+                                <a href="{{ url_for('edit_asset', category='hose', qr_id=item.qr_code_id) }}" class="btn btn-warning btn-sm fw-bold">Edit</a>
+                            </td>
+                            <td class="text-center">
+                                <a href="{{ url_for('toggle_inactive', category='hose', qr_id=item.qr_code_id) }}" class="btn btn-outline-danger btn-sm">Inactive</a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="table-container">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h4 class="section-title m-0">💧 Fire Hydrants</h4>
+                <a href="{{ url_for('add_asset', category='hydrant') }}" class="btn btn-sm add-btn">+ Add Hydrant</a>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                    <thead class="thead-dark">
+                        <tr>
+                            <th>QR ID</th>
+                            <th>Unit Weight</th>
+                            <th>Location</th>
+                            <th>Status</th>
+                            <th>Reports</th>
+                            <th class="text-center">Modify</th>
+                            <th class="text-center">Availability</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in hydrants %}
+                        <tr>
+                            <td class="fw-bold">{{ item.qr_code_id }}</td>
+                            <td>{{ item.unit_weight }}</td>
+                            <td>{{ item.location }}</td>
+                            <td>
+                                <span class="badge badge-status {% if item.status == 'In Position' %}bg-success{% else %}bg-danger{% endif %}">
+                                    {{ item.status }}
+                                </span>
+                            </td>
+                            <td><a href="{{ url_for('view_history', qr_id=item.qr_code_id) }}" class="btn btn-view btn-sm">View Reports</a></td>
+                            <td class="text-center">
+                                <a href="{{ url_for('edit_asset', category='hydrant', qr_id=item.qr_code_id) }}" class="btn btn-warning btn-sm fw-bold">Edit</a>
+                            </td>
+                            <td class="text-center">
+                                <a href="{{ url_for('toggle_inactive', category='hydrant', qr_id=item.qr_code_id) }}" class="btn btn-outline-danger btn-sm">Inactive</a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function confirmLogout() {
+            if (confirm("Are you sure you want to logout?")) {
+                window.location.href = "{{ url_for('logout') }}";
+            }
+        }
+    </script>
+</body>
+</html>

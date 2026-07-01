@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Reginald SHERQ | Final Report</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <style>
+        body { background-color: #f8f9fa; color: #003366; }
+        .report-header { background-color: #003366; color: white; padding: 20px; border-radius: 8px 8px 0 0; }
+        .answer-box { border-bottom: 1px solid #dee2e6; padding: 15px 0; }
+        .badge-yes { background-color: #198754; }
+        .badge-no { background-color: #dc3545; }
+        .comment-text { 
+            border-left: 3px solid #99cc33; 
+            padding-left: 10px; 
+            font-style: italic; 
+            margin-top: 5px;
+        }
+        .asset-info-box {
+            background-color: #f1f8e9;
+            border-left: 5px solid #99cc33;
+            padding: 15px;
+            border-radius: 4px;
+        }
+        .label-style {
+            font-size: 0.75rem;
+            font-weight: bold;
+            color: #666;
+            text-transform: uppercase;
+            margin-bottom: 2px;
+        }
+        .evidence-container {
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            padding: 15px;
+            background-color: #ffffff;
+            text-align: center;
+        }
+        .evidence-img {
+            max-width: 100%;
+            max-height: 500px;
+            height: auto;
+            border-radius: 4px;
+            border: 1px solid #ddd;
+        }
+
+        /* --- PRINT SETTINGS --- */
+        @media print {
+            .btn-print, .btn-view, .toggle-btn, .option-bar { 
+                display: none !important; 
+            }
+            .collapse { 
+                display: block !important; 
+                visibility: visible !important;
+                height: auto !important;
+            }
+            body { padding: 0 !important; }
+            .container { width: 100% !important; max-width: none !important; }
+            .card { border: none !important; box-shadow: none !important; }
+        }
+
+        .option-bar {
+            background: #ffffff;
+            border: 2px solid #99cc33;
+            border-radius: 12px;
+            padding: 15px;
+        }
+    </style>
+</head>
+<body class="py-5">
+    <div class="container">
+        <div class="card shadow mx-auto" style="max-width: 800px;">
+            <div class="report-header text-center">
+                <h3>OFFICIAL INSPECTION RECORD</h3>
+                <p class="mb-0">Unit Identification: {{ report.qr_code_id }}</p>
+            </div>
+            
+            <div class="card-body p-4">
+                <div class="asset-info-box mb-4">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <p class="label-style">Authorized Location</p>
+                            <p class="h6 fw-bold">{{ unit.authorized_location }}</p>
+                        </div>
+                        <div class="col-md-6">
+                            <p class="label-style">Asset Type & Weight</p>
+                           <p class="h6 fw-bold text-capitalize">{{ report.category | replace('Recovery Checklist: ', '') }} - {{ unit.unit_weight }}</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <h5><strong>Inspector:</strong> {{ report.inspector_name }}</h5>
+                    </div>
+                    <div class="col-md-6 text-md-end">
+                        <p><strong>Date:</strong> {{ report.inspection_date }}</p>
+                    </div>
+                </div>
+                
+                <hr>
+                
+                <h5 class="mb-3 fw-bold">Checklist Responses:</h5>
+                
+                {% for key, value in responses.items() %}
+                    {% if key in current_questions %}
+                    <div class="answer-box">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <span class="fw-bold" style="max-width: 85%;">{{ current_questions[key] }}</span>
+                            <span class="badge {% if value == 'yes' %}badge-yes{% elif value == 'no' %}badge-no{% else %}bg-secondary{% endif %}">
+                                {{ value | upper }}
+                            </span>
+                        </div>
+                        
+                        {% set comment_key = key ~ '_comment' %}
+                        {% if responses.get(comment_key) %}
+                            <div class="small comment-text text-muted">
+                                <strong>Comment:</strong> {{ responses[comment_key] }}
+                            </div>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+                {% endfor %}
+
+                {% if responses.get('evidence_file') %}
+                <div class="mt-5 pt-4 border-top">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h5 class="fw-bold m-0">Visual Evidence:</h5>
+                        <button class="btn btn-sm btn-outline-primary fw-bold toggle-btn" 
+                                type="button" 
+                                data-bs-toggle="collapse" 
+                                data-bs-target="#evidenceCollapse" 
+                                aria-expanded="false" 
+                                aria-controls="evidenceCollapse">
+                            📷 VIEW PICTURE
+                        </button>
+                    </div>
+
+                    <div class="collapse" id="evidenceCollapse">
+                        <div class="evidence-container shadow-sm">
+                            {% set filename = responses.get('evidence_file') %}
+                            {% if filename.lower().endswith('.pdf') %}
+                                <div class="alert alert-info mb-0">
+                                    <i class="bi bi-file-earmark-pdf"></i> A PDF document is available: 
+                                    <a href="{{ url_for('static', filename='uploads/' ~ filename) }}" target="_blank" class="fw-bold">Open PDF</a>
+                                </div>
+                            {% else %}
+                                <img src="{{ url_for('static', filename='uploads/' ~ filename) }}" class="evidence-img" alt="Inspection Evidence">
+                                <div class="mt-2 btn-toggle-hide">
+                                    <a href="{{ url_for('static', filename='uploads/' ~ filename) }}" target="_blank" class="small text-primary">Open in New Tab</a>
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+
+            <div class="card-footer text-center py-3">
+                <small class="text-muted">Generated by Reginald SHERQ Management System</small>
+            </div>
+        </div>
+
+        <div class="option-bar shadow-sm mx-auto mt-4 d-print-none d-flex justify-content-between align-items-center" style="max-width: 800px;">
+            <h5 class="fw-bold m-0"><i class="bi bi-file-earmark-pdf-fill text-danger"></i> Report Options:</h5>
+            <div>
+                <button onclick="window.print()" class="btn btn-outline-dark fw-bold me-2">
+                    💾 Save to Desktop
+                </button>
+                <button type="button" class="btn btn-success fw-bold" data-bs-toggle="modal" data-bs-target="#emailModal">
+                    📧 Send via Email
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="emailModal" tabindex="-1" aria-labelledby="emailModalLabel" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+          <div class="modal-header" style="background-color: #003366; color: white;">
+            <h5 class="modal-title" id="emailModalLabel">Send Inspection Report</h5>
+            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body text-dark">
+            <p>Enter an email address to send report <strong>{{ report.qr_code_id }}</strong>:</p>
+            <div class="mb-3">
+              <label for="recipientEmail" class="form-label fw-bold">Recipient Email</label>
+              <input type="email" class="form-control" id="recipientEmail" placeholder="e.g.olwethu.zondi@icloud.com" required>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+            <button type="button" class="btn btn-primary" onclick="processEmail()">Send PDF</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+    function processEmail() {
+        const emailInput = document.getElementById('recipientEmail').value;
+        const reportId = "{{ report.id }}";
+        const assetId = "{{ report.qr_code_id }}";
+        
+        if (!emailInput || !emailInput.includes('@')) {
+            alert("Please enter a valid email address.");
+            return;
+        }
+
+        // UI feedback
+        const sendBtn = document.querySelector('#emailModal .btn-primary');
+        const originalText = sendBtn.innerText;
+        sendBtn.innerText = "Sending...";
+        sendBtn.disabled = true;
+
+        fetch(`/send_report_email/${reportId}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: emailInput })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                alert("Success: Report " + assetId + " has been sent to " + emailInput);
+                // Close modal on success
+                const modalInstance = bootstrap.Modal.getInstance(document.getElementById('emailModal'));
+                modalInstance.hide();
+            } else {
+                alert("Error: " + data.error);
+            }
+        })
+        .catch(err => alert("Connection error: " + err))
+        .finally(() => {
+            sendBtn.innerText = originalText;
+            sendBtn.disabled = false;
+        });
+    }
+    </script>
+</body>
+</html>

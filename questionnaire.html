@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reginald SHERQ | Official Inspection</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { background-color: #003366; color: white; font-family: Arial, sans-serif; padding-top: 20px; }
+        .brand-green { color: #99cc33; }
+        .card { border: none; border-radius: 8px; color: #003366; margin-bottom: 30px; }
+        .section-title { background-color: #003366; color: white; padding: 10px 15px; border-radius: 5px 5px 0 0; text-transform: uppercase; font-size: 0.9rem; letter-spacing: 1px; }
+        .question-row { padding: 15px; border-bottom: 1px solid #eee; }
+        .comment-box { margin-top: 10px; }
+        .form-control[readonly] { background-color: #f8f9fa; }
+        .inspector-section { background-color: #f1f8e9; border: 2px solid #99cc33; }
+        .header-green { background-color: #99cc33 !important; }
+        .required::after { content: " *"; color: red; font-weight: bold; }
+
+        /* Minimalist Dropdown Styling */
+        #attachMenu {
+            display: none;
+            position: absolute;
+            z-index: 1000;
+            background: white;
+            border: 1px solid #ced4da;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            min-width: 180px;
+            margin-top: 5px;
+        }
+        .dropdown-item {
+            padding: 12px 16px;
+            color: #333;
+            cursor: pointer;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        .dropdown-item:last-child { border-bottom: none; }
+        .dropdown-item:hover { background-color: #f8f9fa; }
+    </style>
+</head>
+<body>
+
+    <div class="container pb-5">
+        
+        <div class="row align-items-center mx-auto mb-4" style="max-width: 800px;">
+            <div class="col-3 text-start">
+                <a href="/details/{{ unit.qr_code_id }}" class="btn btn-light px-3 shadow-sm" style="border-radius: 20px; font-weight: 500; color: #333; background-color: #ffffff; border: 1px solid #e2e8f0;">
+                    &larr; Back
+                </a>
+            </div>
+            <div class="col-6 text-center">
+                <h2 class="fw-bold mb-0" style="font-size: 1.5rem; white-space: nowrap;">REGINALD<span class="brand-green">SHERQ</span>SERVICES</h2>
+                <p class="small text-uppercase mb-0" style="font-size: 0.7rem; opacity: 0.8;">Safety • Health • Environment • Risk • Quality</p>
+            </div>
+            <div class="col-3"></div> </div>
+
+        <form id="inspectionForm" action="/submit_inspection/{{ unit.qr_code_id }}" method="POST" enctype="multipart/form-data">
+
+            <div class="card shadow p-4">
+                <div class="section-title mb-3">General Information</div>
+                <div class="row g-3">
+                    <div class="col-md-6"><label class="form-label fw-bold">Location:</label><input type="text" class="form-control" value="{{ unit.authorized_location }}" readonly></div>
+                    <div class="col-md-6"><label class="form-label fw-bold required">Inspection Date:</label><input type="date" name="inspection_date" class="form-control" value="{{ today_date }}" required></div>
+                    <div class="col-md-6"><label class="form-label fw-bold">Asset Type & Size:</label><input type="text" class="form-control" value="{% if unit.extinguisher_type %}{{ unit.extinguisher_type }} - {% endif %}{{ unit.unit_weight or 'Standard' }}" readonly></div>
+                    <div class="col-md-6"><label class="form-label fw-bold">QR Code:</label><input type="text" class="form-control" value="{{ unit.qr_code_id }}" readonly></div>
+                </div>
+            </div>
+
+            {% if "Fire Extinguisher" in category %}
+                {% set all_qs = [('q1', 'Is it mounted correctly (not on the floor)?'), ('q2', 'Is the extinguisher clearly visible and accessible?'), ('q3', 'Is there no physical damage (dents, rust, leaks)?'), ('q4', 'Are operating instructions legible?'), ('q5', 'Is the safety pin in place?'), ('q6', 'Is the tamper seal intact?'), ('q7', 'Is the pressure gauge in the green zone?'), ('q8', 'Is the extinguisher full (not underweight)?'), ('q9', 'Is the hose/nozzle free from cracks or blockage?'), ('q10', 'Is the service tag present and up to date?'), ('q11', 'Has it been serviced within the last 12 months?'), ('q12', 'Is the extinguisher appropriate for the fire risk in the area?')] %}
+            {% elif "Fire Hose Reel" in category %}
+                {% set all_qs = [('h1', 'Is the hose reel easily accessible?'), ('h2', 'Is the signage clearly visible?'), ('h3', 'Is the hose in good condition (no cracks/leaks)?'), ('h4', 'Is the drum/reel secure and undamaged?'), ('h5', 'Does the valve open and close properly?'), ('h6', 'Is there adequate water pressure?'), ('h7', 'Does the hose unwind and rewind smoothly?'), ('h8', 'Is the nozzle functioning properly (spray control works)?'), ('h9', 'Are inspection tags updated?'), ('h10', 'Has the hose reel been tested recently?')] %}
+            {% else %}
+                {% set all_qs = [('y1', 'Is the hydrant easily accessible?'), ('y2', 'Is there clear signage?'), ('y3', 'Is the area clear (1m)?'), ('y4', 'No visible damage?'), ('y5', 'All caps present?'), ('y6', 'Outlet threads clean?'), ('y7', 'Properly painted?'), ('y8', 'Valve operates smoothly?'), ('y9', 'No leakage?'), ('y10', 'Valve stems in condition?'), ('y11', 'Reliable water supply?'), ('y12', 'Pressure adequate?'), ('y13', 'Flow test conducted?'), ('y14', 'Couplings compatible?'), ('y15', 'Gaskets good?'), ('y16', 'Leak-free during use?'), ('y17', 'Drains properly?'), ('y18', 'No water pooling?'), ('y19', 'Compliant with standards?'), ('y20', 'Inspected in period?'), ('y21', 'Tags updated?'), ('y22', 'Records available?'), ('y23', 'Serviced regularly?'), ('y24', 'Any repairs required?')] %}
+            {% endif %}
+
+            <div class="card shadow">
+                <div class="section-title">{{ category }} Inspection Checklist</div>
+                {% for id, text in all_qs %}
+                <div class="question-row" data-question="{{ text }}">
+                    <label class="fw-bold required">{{ text }}</label>
+                    <div class="mt-2 d-flex gap-2">
+                        <input type="radio" class="btn-check" name="{{ id }}" id="{{ id }}y" value="yes" required><label class="btn btn-sm btn-outline-success" for="{{ id }}y">Yes</label>
+                        <input type="radio" class="btn-check" name="{{ id }}" id="{{ id }}n" value="no"><label class="btn btn-sm btn-outline-danger" for="{{ id }}n">No</label>
+                        <input type="radio" class="btn-check" name="{{ id }}" id="{{ id }}na" value="na"><label class="btn btn-sm btn-outline-secondary" for="{{ id }}na">N/A</label>
+                    </div>
+                    <div class="comment-box" id="{{ id }}_comment_box" style="display: none;">
+                        <input type="text" name="{{ id }}_comment" class="form-control form-control-sm" placeholder="Please provide reason for 'No'...">
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+
+            <div class="card shadow p-4 inspector-section">
+                <div class="section-title mb-3 header-green">Evidence & Documents</div>
+                <div class="mb-2 position-relative">
+                    <label class="form-label fw-bold required d-block">Site photo:</label>
+                    <button type="button" class="btn btn-outline-secondary" id="attachFileTrigger" style="border-radius: 20px; padding: 6px 20px;">📁 Attach</button>
+                    <span id="selectedFileName" class="text-muted small ms-2">No file chosen</span>
+                    <input type="file" name="inspection_photo_camera" id="cameraInput" accept="image/*" capture="environment" class="d-none">
+                    <input type="file" name="inspection_photo_file" id="fileInput" accept="image/*,application/pdf" class="d-none">
+                    <div id="attachMenu">
+                        <div class="dropdown-item" id="actionCamera">📷 Take Photo</div>
+                        <div class="dropdown-item" id="actionUpload">📂 Choose from files</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card shadow p-4 inspector-section">
+                <div class="section-title mb-3 header-green">Inspector Verification</div>
+                <div class="mb-2 position-relative">
+                    <label class="form-label fw-bold required">Full Name & Surname:</label>
+                    <input 
+                        type="text" 
+                        name="inspector_name" 
+                        id="inspectorName" 
+                        class="form-control border-success" 
+                        placeholder="Type to search or select your name..." 
+                        list="registered_inspectors" 
+                        autocomplete="off" 
+                        required
+                    >
+                    <datalist id="registered_inspectors">
+                        {% for emp in employees %}
+                            <option value="{{ emp.full_name }}"></option>
+                        {% endfor %}
+                    </datalist>
+                    <div id="inspector_error_msg" class="text-danger fw-bold mt-2 d-none" style="font-size: 0.9rem;">
+                        ⚠️ Access Denied: Your name is not found in the official system database. Please contact management.
+                    </div>
+                </div>
+            </div>
+
+            <div class="d-grid mt-4 mb-5"><button type="submit" class="btn btn-success btn-lg shadow fw-bold py-3 header-green" style="border: none;">SUBMIT FINAL INSPECTION</button></div>
+        </form>
+    </div>
+
+    <div class="modal fade" id="errorModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered"><div class="modal-content text-dark"><div class="modal-header bg-danger text-white"><h5 class="modal-title">⚠️ Incomplete Inspection</h5></div><div class="modal-body" id="errorBody"></div><div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button></div></div></div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        const form = document.getElementById('inspectionForm');
+        const errorModal = new bootstrap.Modal(document.getElementById('errorModal'));
+        const attachMenu = document.getElementById('attachMenu');
+        const fileNameDisplay = document.getElementById('selectedFileName');
+        const inspectorInput = document.getElementById('inspectorName');
+        const inspectorError = document.getElementById('inspector_error_msg');
+
+        // FIX: Directly parsing via JSON conversion filters to satisfy the IDE's Javascript syntax analyzer cleanly
+        const validInspectors = JSON.parse('{{ employees | map(attribute="full_name") | list | tojson | safe }}');
+
+        // Handles live dynamic matching validation 
+        function verifyInspectorProfile() {
+            const enteredName = inspectorInput.value.trim();
+            if (enteredName === "") {
+                inspectorError.classList.add("d-none");
+                inspectorInput.setCustomValidity("");
+                return true;
+            }
+            const isValid = validInspectors.some(name => name.toLowerCase() === enteredName.toLowerCase());
+            if (!isValid) {
+                inspectorError.classList.remove("d-none");
+                inspectorInput.setCustomValidity("Invalid Profile");
+                return false;
+            } else {
+                inspectorError.classList.add("d-none");
+                inspectorInput.setCustomValidity("");
+                return true;
+            }
+        }
+
+        inspectorInput.addEventListener('input', verifyInspectorProfile);
+        inspectorInput.addEventListener('change', verifyInspectorProfile);
+
+        document.querySelectorAll('.btn-check').forEach(radio => {
+            radio.addEventListener('change', function() {
+                const commentBox = document.getElementById(this.name + '_comment_box');
+                if (commentBox) commentBox.style.display = (this.value === 'no') ? 'block' : 'none';
+            });
+        });
+
+        document.getElementById('attachFileTrigger').addEventListener('click', (e) => { e.stopPropagation(); attachMenu.style.display = (attachMenu.style.display === 'block') ? 'none' : 'block'; });
+        document.addEventListener('click', () => { attachMenu.style.display = 'none'; });
+        document.getElementById('actionCamera').addEventListener('click', () => document.getElementById('cameraInput').click());
+        document.getElementById('actionUpload').addEventListener('click', () => document.getElementById('fileInput').click());
+
+        function updateFileName(input, otherInputId) {
+            if (input.files.length > 0) {
+                fileNameDisplay.textContent = input.files[0].name;
+                document.getElementById(otherInputId).value = '';
+            }
+        }
+        document.getElementById('cameraInput').addEventListener('change', function() { updateFileName(this, 'fileInput'); });
+        document.getElementById('fileInput').addEventListener('change', function() { updateFileName(this, 'cameraInput'); });
+
+        form.addEventListener('submit', function(event) {
+            let errors = [];
+            document.querySelectorAll('.question-row').forEach(row => {
+                const checked = row.querySelector('input[type="radio"]:checked');
+                if (!checked) errors.push("Please answer: " + row.dataset.question);
+                else if (checked.value === 'no' && !row.querySelector('input[type="text"]').value.trim()) errors.push("Reason required for: " + row.dataset.question);
+            });
+            if (document.getElementById('cameraInput').files.length === 0 && document.getElementById('fileInput').files.length === 0) errors.push("A site photo is required.");
+            
+            if (!inspectorInput.value.trim()) {
+                errors.push("Inspector name is required.");
+            } else if (!verifyInspectorProfile()) {
+                errors.push("Access Denied: Your name is not found in the official system database.");
+            }
+
+            if (errors.length > 0) {
+                event.preventDefault();
+                document.getElementById('errorBody').innerHTML = "<ul><li>" + errors.join("</li><li>") + "</li></ul>";
+                errorModal.show();
+            }
+        });
+    </script>
+</body>
+</html>

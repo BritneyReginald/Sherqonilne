@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Action Recorded | Reginald SHERQ</title>
+
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+
+    <style>
+
+        body { background-color: #003366; color: white; font-family: Arial, sans-serif; min-height: 100vh; display: flex; align-items: center; }
+
+        .brand-green { color: #99cc33; }
+
+        .card { border: none; border-radius: 10px; color: #003366; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+
+        .btn-report { background-color: #003366; color: white; font-weight: bold; border: none; padding: 15px; }
+
+        .btn-report:hover { background-color: #002244; color: white; }
+
+        .btn-website { border: 2px solid #99cc33; color: #99cc33; font-weight: bold; padding: 15px; text-decoration: none; border-radius: 5px; }
+
+        .btn-website:hover { background-color: #99cc33; color: white; }
+
+    </style>
+
+</head>
+
+<body>
+
+    <div class="container text-center">
+
+        <div class="mb-5">
+
+            <h2 class="fw-bold">REGINALD<span class="brand-green">SHERQ</span>SERVICES</h2>
+
+            <p class="small text-uppercase opacity-75">Safety • Health • Environment • Risk • Quality</p>
+
+        </div>
+
+        
+
+        <div class="card p-5 mx-auto" style="max-width: 550px;">
+
+            <div class="mb-4">
+
+                <div style="font-size: 64px;">✅</div>
+
+                <h3 class="fw-bold mt-3">Inspection Success</h3>
+
+                <p class="text-muted small">Asset ID: {{ unit_id }}</p>
+
+            </div>
+
+            
+
+            <!-- Updated dynamic message as requested -->
+
+            <p class="lead mb-5 text-dark">
+
+                The inspection done by <strong>{{ inspector_name }}</strong> has been successfully done.
+
+            </p>
+
+            
+
+            <div class="d-grid gap-3">
+
+                <!-- New button to view the generated report -->
+
+                <a href="/view_report/{{ report_id }}" class="btn btn-report btn-lg shadow">VIEW INSPECTION REPORT</a>
+
+                
+
+                <!-- Updated website button -->
+
+                <a href="https://reginaldsherq.co.za" class="btn btn-website btn-lg">VISIT OUR OFFICIAL WEBSITE</a>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</body>
+
+</html> 
+
+

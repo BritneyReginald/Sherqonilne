@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Inspection Reports | Reginald SHERQ</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .navbar { background-color: #003366; border-bottom: 4px solid #99cc33; }
+        .status-created { background-color: #ffc107; color: black; } /* Yellow */
+        .status-progress { background-color: #0d6efd; color: white; } /* Blue */
+        .status-complete { background-color: #198754; color: white; } /* Green */
+    </style>
+</head>
+<body class="bg-light">
+    <nav class="navbar navbar-dark shadow mb-4">
+        <div class="container py-2">
+            <span class="navbar-brand fw-bold">Inspection Reports Of: {{ qr_id }}</span>
+            <a href="/register" class="btn btn-sm btn-outline-light">Back to Register</a>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div class="card shadow-sm p-4">
+            <table class="table table-hover">
+                <thead class="table-dark">
+                    <tr>
+                        <th>Date</th>
+                        <th>Inspector</th>
+                        <th>Inspection Status</th> <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for report in reports %}
+                    <tr>
+                        <td>{{ report.inspection_date }}</td>
+                        <td>{{ report.inspector_name }}</td>
+                        <td>
+                            {% if report.completion_status == 'complete' %}
+                                <span class="badge status-complete">Complete</span>
+                            {% elif report.has_due_dates %}
+                                <span class="badge status-progress">In Progress</span>
+                            {% else %}
+                                <span class="badge status-created">Created</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <a href="/view_report/{{ report.id }}" class="btn btn-sm btn-primary">View Full Details</a>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr><td colspan="4" class="text-center">No reports found for this equipment.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</body>
+</html>
