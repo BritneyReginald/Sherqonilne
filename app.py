@@ -9,7 +9,9 @@ from fpdf import FPDF  # Pure Python PDF generation - works perfectly on Python 
 from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
-
+@app.route('/')
+def home():
+    return render_template('admin_dashboard.html')
 app.secret_key = 'reginald_sherq_secret_key_2026'
 
 # --- EMAIL CONFIGURATION ---
