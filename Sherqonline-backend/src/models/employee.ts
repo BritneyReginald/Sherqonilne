@@ -1,5 +1,3 @@
-import pool from "../config/db";
-import { Employee } from "../types";
 
 import pool from "../config/db";
 import { Employee } from "../types";
