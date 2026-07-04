@@ -23,4 +23,14 @@ pool.on("error", (err) => {
   console.error("Unexpected PostgreSQL error", err);
 });
 
+pool.query("SELECT NOW()")
+  .then((result) => {
+    console.log("✅ PostgreSQL connection successful");
+    console.log("Database time:", result.rows[0].now);
+  })
+  .catch((err) => {
+    console.error("❌ PostgreSQL connection failed");
+    console.error(err);
+  });
+
 export default pool;
