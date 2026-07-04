@@ -32,5 +32,8 @@ app.get("/", (_, res) => {
 app.use("/employees", employeeRoutes);
 
 app.listen(PORT, () => {
+  console.log("=================================");
+  console.log("🚀 NEW VERSION DEPLOYED");
   console.log(`Server running on port ${PORT}`);
+  console.log("=================================");
 });
