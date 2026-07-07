@@ -37,5 +37,6 @@ app.listen(PORT, () => {
   console.log("=================================");
 });
 
+initializeDatabase().catch(console.error);
 initializeDatabase().catch(console.error);============");
 });
