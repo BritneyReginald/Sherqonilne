@@ -1,14 +1,13 @@
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
-
 import "./config/db";
 import employeeRoutes from "./routes/employeeRoutes";
+import { initializeDatabase } from "./config/initDatabase";
 
 dotenv.config();
 
 const app = express();
-
 const PORT = process.env.PORT || 3000;
 
 const corsOptions = {
@@ -36,4 +35,7 @@ app.listen(PORT, () => {
   console.log("🚀 NEW VERSION DEPLOYED");
   console.log(`Server running on port ${PORT}`);
   console.log("=================================");
+});
+
+initializeDatabase().catch(console.error);============");
 });
