@@ -1,0 +1,60 @@
+# Deploys ONLY the built React website (the dist folder) to ohs-online-web
+name: Build and deploy React frontend to Azure Web App - ohs-online-web
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '24.x'
+
+      - name: Install and build the frontend
+        run: |
+          npm install
+          npm run build
+
+      - name: Upload ONLY the built site (dist folder)
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-dist
+          path: dist
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - name: Download the built site
+        uses: actions/download-artifact@v4
+        with:
+          name: web-dist
+          path: dist
+
+      - name: Login to Azure
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_D58DFD466C104315A54C40F9E1120BAC }}
+          tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_88313E3B622B4D68B7B8064D3022E89D }}
+          subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_94C555AB06AB418D976D8E543FA2E70D }}
+
+      - name: Deploy to Azure Web App
+        id: deploy-to-webapp
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: 'ohs-online-web'
+          slot-name: 'Production'
+          package: dist
