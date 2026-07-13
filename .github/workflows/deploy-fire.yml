@@ -1,0 +1,59 @@
+name: Build and deploy Flask app to Azure Web App - ohs-online-fire
+
+on:
+  push:
+    branches:
+      - sherq_online_fire
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Upload Flask application
+        uses: actions/upload-artifact@v4
+        with:
+          name: fire-app
+          path: .
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - name: Download Flask application
+        uses: actions/download-artifact@v4
+        with:
+          name: fire-app
+
+      - name: Login to Azure
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_569DA98B2AB544D7A1583C8E6C5FE36F }}
+          tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_CFF8425451B24816A1EDEF004AE8B38E }}
+          subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_B6CF08C669C743148C8EA1A7A86343BE }}
+
+      - name: Deploy to Azure Web App
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: 'ohs-online-fire'
+          slot-name: 'Production'
+          package: .
