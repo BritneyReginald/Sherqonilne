@@ -19,6 +19,7 @@ import {
   Bell,
   ChevronDown,
   ChevronRight,
+  Flame,
 } from "lucide-react";
 import { Dashboard } from "@/app/components/dashboard";
 import { Workforce } from "@/app/components/workforce";
@@ -51,6 +52,7 @@ interface NavigationItem {
   label: string;
   icon: React.ReactNode;
   children?: NavigationItem[];
+  externalUrl?: string;
 }
 
 const navigationItems: NavigationItem[] = [
@@ -100,6 +102,13 @@ const navigationItems: NavigationItem[] = [
         icon: <ShieldCheck className="size-4" />,
       },
     ],
+  },
+  {
+    id: "fire-equipment",
+    label: "Fire Equipment",
+    icon: <Flame className="size-5" />,
+    externalUrl:
+      "https://ohs-online-fire-a2a2duhchxd2cjcg.southafricanorth-01.azurewebsites.net/",
   },
   {
     id: "risk-assessments",
@@ -665,6 +674,11 @@ function NavItem({
   const hasChildren = item.children && item.children.length > 0;
 
   const handleClick = () => {
+    if (item.externalUrl) {
+      window.location.href = item.externalUrl;
+      return;
+    }
+
     if (hasChildren) {
       onToggleExpand(item.id);
     } else {
