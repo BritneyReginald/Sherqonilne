@@ -155,9 +155,9 @@
                     <p class="mb-4 text-dark"><strong>Is this unit in the correct place?</strong></p>
                     
                     <div class="d-grid gap-3">
-                        <a href="/questionnaire/{{ unit.qr_code_id }}" class="btn btn-confirm btn-lg shadow-sm d-flex align-items-center justify-content-center">YES, CONFIRMED</a>
+                        <a href="{{ url_for('load_questionnaire', qr_code_id=unit.qr_code_id) }}" class="btn btn-confirm btn-lg shadow-sm d-flex align-items-center justify-content-center">YES, CONFIRMED</a>
                         
-                        <a href="/recovery/{{ unit.qr_code_id }}" class="btn btn-outline-blue btn-lg d-flex align-items-center justify-content-center">NO, MISPLACED</a>
+                        <a href="{{ url_for('load_recovery', qr_code_id=unit.qr_code_id) }}" class="btn btn-outline-blue btn-lg d-flex align-items-center justify-content-center">NO, MISPLACED</a>
                     </div>
                 </div>
             </div>
