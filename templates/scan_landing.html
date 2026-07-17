@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Scanner | Reginald SHERQ</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Added FontAwesome for the icon -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        body { background-color: #f4f6f9; font-family: Arial, sans-serif; }
+        .btn-scan { 
+            background-color: #1a365d; 
+            color: white; 
+            font-weight: bold; 
+            padding: 20px; 
+            border-radius: 12px; 
+            border: none;
+            transition: 0.2s;
+            display: block; width: 100%; margin-bottom: 10px;
+        }
+        .btn-scan:hover { background-color: #2d5a94; color: white; }
+        .header-box { background-color: #1a365d; color: white; padding: 30px; border-bottom: 4px solid #99cc33; }
+        #reader-container { display: none; margin-top: 20px; }
+    </style>
+</head>
+<body>
+
+    <div class="header-box text-center">
+        <h4>REGINALD<span style="color: #99cc33;">SHERQ</span></h4>
+        <small>INSPECTION</small>
+    </div>
+
+    <div class="container py-4" id="selection-container">
+        <!-- Added Dashboard Button -->
+        <div class="text-center mb-3">
+            <a href="{{ url_for('admin_dashboard') }}" style="text-decoration: none; color: #1a365d; font-weight: bold;">
+                <i class="fas fa-tachometer-alt"></i> Dashboard
+            </a>
+        </div>
+        
+        <p class="text-center text-muted mb-4">Select equipment to scan:</p>
+        
+        <div class="d-grid gap-3">
+            <button class="btn btn-scan" onclick="startScanner()">Scan Fire Extinguisher</button>
+            <button class="btn btn-scan" onclick="startScanner()">Scan Fire Hose Reel</button>
+            <button class="btn btn-scan" onclick="startScanner()">Scan Fire Hydrant</button>
+        </div>
+    </div>
+
+    <!-- Camera reader hidden by default -->
+    <div class="container" id="reader-container">
+        <div id="reader" style="width: 100%;"></div>
+        <button class="btn btn-secondary mt-3 w-100" onclick="location.reload()">Cancel</button>
+    </div>
+
+    <script src="https://unpkg.com/html5-qrcode"></script>
+    <script>
+        function startScanner() {
+            // Hide selection, show camera
+            document.getElementById('selection-container').style.display = 'none';
+            document.getElementById('reader-container').style.display = 'block';
+
+            function onScanSuccess(decodedText) {
+                // Redirect to details page
+                window.location.href = "/details/" + decodedText;
+            }
+
+            let html5QrcodeScanner = new Html5QrcodeScanner(
+                "reader", { fps: 10, qrbox: {width: 250, height: 250} });
+            html5QrcodeScanner.render(onScanSuccess);
+        }
+    </script>
+</body>
+</html>

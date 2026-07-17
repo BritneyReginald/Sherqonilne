@@ -81,16 +81,8 @@
           {% endif %}
         {% endwith %}
 
-       <form method="POST" action="{{ url_for('login', next=request.args.get('next')) }}">
-            <input type="text" name="username" class="form-control" placeholder="Username" required>
-            <input type="password" name="password" class="form-control" placeholder="Password" required>
-            <button type="submit" class="btn btn-signin">SIGN IN</button>
-        </form>
-        
-        {% if request.args.get('next') %}
-    <a href="{{ url_for('details', qr_code_id=request.args.get('next').split('/')[-1]) }}" class="back-link">Back to Details</a>
-{% endif %}
-    </div>
-
-</body>
-</html>
+        <form method="POST" action="{{ url_for('login_dashboard') }}">
+    <input type="text" name="username" class="form-control" placeholder="Username" required>
+    <input type="password" name="password" class="form-control" placeholder="Password" required>
+    <button type="submit" class="btn btn-signin">SIGN IN</button>
+</form>
