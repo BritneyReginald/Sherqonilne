@@ -1,63 +1,139 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=1200"> <!-- Forces mobile browsers to render at desktop width -->
+    <title>Reginald SHERQ | Dashboard</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        body { display: flex; min-height: 100vh; }
-        #sidebar { width: 250px; background: #0c2461; color: white; padding: 20px; }
-        .nav-link { color: #bdc3c7; margin-bottom: 10px; }
-        #main-content { flex: 1; padding: 20px; background: #f8f9fa; }
-        .card { border: none; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        body { background-color: #f4f7f6; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; overflow-x: auto; }
+        
+        .container-fluid, .row { width: 100%; min-width: 1100px; margin: 0; }
+
+        /* Fixed Desktop Sidebar Layout */
+        .sidebar { background-color: #1a365d; min-height: 100vh; color: white; padding: 20px; position: fixed; top: 0; left: 0; width: 250px; z-index: 1000; }
+        .sidebar .nav-link { color: rgba(255,255,255,0.8); margin: 5px 0; border-radius: 6px; text-decoration: none; display: block; padding: 10px; }
+        .sidebar .nav-link:hover, .sidebar .nav-link.active { background-color: #99cc33; color: #1a365d; font-weight: bold; }
+        .brand-green { color: #99cc33; }
+        
+        /* Main Content Offset to accommodate fixed sidebar */
+        main.dashboard-main { margin-left: 250px; width: calc(100% - 250px); padding: 30px !important; }
+
+        /* Metric Cards Side-by-Side */
+        .metrics-row { display: flex; flex-wrap: nowrap; gap: 15px; margin-bottom: 25px; }
+        .metric-col { flex: 1; min-width: 0; }
+        
+        .stat-card { border: none; border-radius: 12px; background: white; padding: 16px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+        
+        .status-badge { padding: 6px 12px; border-radius: 20px; font-size: 0.85rem; font-weight: 600; }
+        .status-completed { background-color: #e8f5e9; color: #2e7d32; }
+        .status-inprogress { background-color: #fff3e0; color: #ef6c00; }
+        .status-created { background-color: #ffebee; color: #c62828; border: 1px solid #ffcdd2; }
+
+        .table-container { background: white; border-radius: 12px; padding: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
     </style>
 </head>
 <body>
 
-<div id="sidebar">
-    <h4>REGINALD SHERQ</h4>
-    <hr>
-    <nav class="nav flex-column">
-        <a class="nav-link" href="/admin/dashboard">Dashboard</a>
-        <a class="nav-link" href="/admin/register">Asset Register</a>
-        <a class="nav-link" href="/admin/inspection_register">Inspection Register</a>
-        <a class="nav-link" href="/admin/alerts">Alerts</a>
-        <a class="nav-link" href="/admin/employees">Employee Management</a>
-        <a class="nav-link" href="/admin/recycle_bin">Recycle Bin</a>
-        <hr>
-        <a class="nav-link text-danger" href="/logout">Logout</a>
-    </nav>
-</div>
+<div class="container-fluid">
+    <div class="row">
+        <!-- Sidebar / Navigation Menu -->
+        <div class="sidebar d-flex flex-column">
+            <h5 class="text-center fw-bold py-3 border-bottom border-secondary m-0">REGINALD<span class="brand-green">SHERQ</span></h5>
+            <ul class="nav flex-column mt-3 flex-grow-1">
+                <li class="nav-item"><a href="/admin/dashboard" class="nav-link active"><i class="fa-solid fa-gauge me-2"></i> Dashboard</a></li>
+                <li class="nav-item"><a href="/admin/register" class="nav-link"><i class="fa-solid fa-boxes-stacked me-2"></i> Asset Register</a></li>
+                <li class="nav-item"><a href="/admin/inspection_register" class="nav-link"><i class="fa-solid fa-clipboard-list me-2"></i> Inspection Register</a></li>
+                <li class="nav-item"><a href="/admin/alerts" class="nav-link"><i class="fa-solid fa-triangle-exclamation me-2"></i> Alerts</a></li>
+            </ul>
+        </div>
 
-<div id="main-content">
-    <h2>Management Overview</h2>
-    
-    <div class="row mb-4">
-        <div class="col-md-3"><div class="card p-3"><h6>TOTAL INSPECTIONS</h6><h3>{{ total }}</h3></div></div>
-        <div class="col-md-3"><div class="card p-3"><h6>COMPLETED</h6><h3>{{ completed_count }}</h3></div></div>
-        <div class="col-md-3"><div class="card p-3"><h6>IN PROGRESS</h6><h3>{{ in_progress_count }}</h3></div></div>
-        <div class="col-md-3"><div class="card p-3"><h6>CREATED</h6><h3>{{ created_count }}</h3></div></div>
+        <!-- Main Content Area -->
+        <main class="dashboard-main">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2 class="fw-bold" style="color: #1a365d;">Management Overview</h2>
+            </div>
+
+            <!-- 4 Metric Cards Forced Side-by-Side -->
+            <div class="metrics-row">
+                <div class="metric-col">
+                    <div class="stat-card">
+                        <div class="text-muted small">Total Inspections</div>
+                        <div class="h3 fw-bold m-0" style="color: #1a365d;">{{ total }}</div>
+                    </div>
+                </div>
+                <div class="metric-col">
+                    <div class="stat-card border-start border-danger border-4">
+                        <div class="text-muted small">Created</div>
+                        <div class="h3 fw-bold text-danger m-0">{{ created_count }}</div>
+                    </div>
+                </div>
+                <div class="metric-col">
+                    <div class="stat-card border-start border-warning border-4">
+                        <div class="text-muted small">In Progress</div>
+                        <div class="h3 fw-bold text-warning m-0">{{ in_progress_count }}</div>
+                    </div>
+                </div>
+                <div class="metric-col">
+                    <div class="stat-card border-start border-success border-4">
+                        <div class="text-muted small">Completed</div>
+                        <div class="h3 fw-bold text-success m-0">{{ completed_count }}</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Table Container -->
+            <div class="table-container shadow-sm">
+                <h4 class="fw-bold mb-3" style="color: #1a365d; font-size: 1.1rem;">Recent Inspection Activity</h4>
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Date</th>
+                                <th>QR ID</th>
+                                <th>Category</th>
+                                <th>Inspector</th>
+                                <th>Status</th>
+                                <th class="text-end">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for report in reports %}
+                            <tr>
+                                <td>{{ report.inspection_date }}</td>
+                                <td><span class="fw-bold" style="color: #1a365d;">{{ report.qr_code_id }}</span></td>
+                                <td>{{ report.category }}</td>
+                                <td>{{ report.inspector_name if report.inspector_name else '---' }}</td>
+                                <td>
+                                    {% if report.report_status == 'Completed' %}
+                                        <span class="status-badge status-completed">Completed</span>
+                                    {% elif report.report_status == 'In Progress' %}
+                                        <span class="status-badge status-inprogress">In Progress</span>
+                                    {% else %}
+                                        <span class="status-badge status-created">Created</span>
+                                    {% endif %}
+                                </td>
+                                <td class="text-end">
+                                    <a href="{{ url_for('view_report', report_id=report.id) }}" class="btn btn-sm btn-outline-primary">
+                                        <i class="bi bi-eye"></i> View Report
+                                    </a>
+                                </td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="6" class="text-center py-4 text-muted">No recent inspection activities found.</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </main>
     </div>
-
-    <h4>Recent Inspection Activity</h4>
-    <table class="table table-hover bg-white shadow-sm">
-        <thead>
-            <tr>
-                <th>Date</th><th>QR ID</th><th>Category</th><th>Inspector</th><th>Status</th><th>Action</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for report in reports %}
-            <tr>
-                <td>{{ report.inspection_date }}</td>
-                <td>{{ report.qr_code_id }}</td>
-                <td>{{ report.category }}</td>
-                <td>{{ report.inspector_name }}</td>
-                <td><span class="badge bg-info">{{ report.report_status }}</span></td>
-                <td><a href="{{ url_for('view_report', report_id=report.id) }}" class="btn btn-sm btn-outline-primary">View Report</a></td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>

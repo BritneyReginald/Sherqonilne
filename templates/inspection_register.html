@@ -2,20 +2,30 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=1200">
     <title>Reginald SHERQ | Inspection Register</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        body { background-color: #f4f7f6; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
-        .sidebar { background-color: #1a365d; min-height: 100vh; color: white; padding: 20px; }
+        body { background-color: #f4f7f6; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; overflow-x: auto; }
+        
+        .container-fluid, .row { width: 100%; min-width: 1100px; margin: 0; }
+
+        /* Fixed Desktop Sidebar Layout */
+        .sidebar { background-color: #1a365d; min-height: 100vh; color: white; padding: 20px; position: fixed; top: 0; left: 0; width: 250px; z-index: 1000; }
         .sidebar .nav-link { color: rgba(255,255,255,0.8); margin: 5px 0; border-radius: 6px; text-decoration: none; display: block; padding: 10px; }
         .sidebar .nav-link:hover, .sidebar .nav-link.active { background-color: #99cc33; color: #1a365d; font-weight: bold; }
-        
         .brand-green { color: #99cc33; }
-        .stat-card { border: none; border-radius: 12px; transition: transform 0.2s; }
-        .stat-card:hover { transform: translateY(-5px); }
+        
+        /* Main Content Offset to accommodate fixed sidebar */
+        main.dashboard-main { margin-left: 250px; width: calc(100% - 250px); padding: 30px !important; }
+
+        /* Metric Cards Side-by-Side */
+        .metrics-row { display: flex; flex-wrap: nowrap; gap: 15px; margin-bottom: 25px; }
+        .metric-col { flex: 1; min-width: 0; }
+        
+        .stat-card { border: none; border-radius: 12px; background: white; padding: 16px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
         
         .status-badge { padding: 6px 12px; border-radius: 20px; font-size: 0.85rem; font-weight: 600; }
         .status-completed { background-color: #e8f5e9; color: #2e7d32; }
@@ -28,11 +38,6 @@
 
         .modal-content { border: none; border-radius: 15px; overflow: hidden; background-color: #ffffff !important; opacity: 1 !important; }
         .modal-header-brand { background-color: #1a365d; color: white; border-bottom: 5px solid #99cc33; padding: 20px; }
-        .delete-icon-circle {
-            width: 80px; height: 80px; background-color: #fff1f0; color: #ff4d4f;
-            border-radius: 50%; display: flex; align-items: center; justify-content: center;
-            font-size: 2.5rem; margin: 0 auto 20px;
-        }
         .btn-confirm-delete { background-color: #d32f2f; color: white; border-radius: 25px; padding: 10px 25px; border: none; transition: 0.3s; }
         .btn-confirm-delete:hover { background-color: #b71c1c; transform: scale(1.05); }
         .btn-cancel-custom { background-color: #f5f5f5; color: #616161; border-radius: 25px; padding: 10px 25px; border: none; }
@@ -42,49 +47,47 @@
 
 <div class="container-fluid">
     <div class="row">
-        <div class="col-md-2 sidebar p-3 d-flex flex-column">
+        <!-- Sidebar / Navigation Menu -->
+        <div class="sidebar d-flex flex-column">
             <h5 class="text-center fw-bold py-3 border-bottom border-secondary m-0">REGINALD<span class="brand-green">SHERQ</span></h5>
             <ul class="nav flex-column mt-3 flex-grow-1">
                 <li class="nav-item"><a href="/admin/dashboard" class="nav-link"><i class="fa-solid fa-gauge me-2"></i> Dashboard</a></li>
                 <li class="nav-item"><a href="/admin/register" class="nav-link"><i class="fa-solid fa-boxes-stacked me-2"></i> Asset Register</a></li>
                 <li class="nav-item"><a href="/admin/inspection_register" class="nav-link active"><i class="fa-solid fa-clipboard-list me-2"></i> Inspection Register</a></li>
-                <li class="nav-item"><a href="/admin/alerts" class="nav-link"><i class="fa-solid fa-triangle-exclamation me-2"></i>  Alerts</a></li>
-                <li class="nav-item"><a href="/admin/employees" class="nav-link"><i class="fa-solid fa-users-gear me-2"></i> Employee Management</a></li>
+                <li class="nav-item"><a href="/admin/alerts" class="nav-link"><i class="fa-solid fa-triangle-exclamation me-2"></i> Alerts</a></li>
             </ul>
-            <a href="/logout" class="btn btn-sm btn-outline-danger mt-auto"><i class="fa-solid fa-right-from-bracket me-2"></i> Logout</a>
         </div>
 
-        <main class="col-md-10 p-4">
+        <!-- Main Content Area -->
+        <main class="dashboard-main">
             <div class="d-flex justify-content-between align-items-center mb-4">
                 <h2 class="fw-bold" style="color: #1a365d;">Inspections / Activity Register</h2>
-                <button class="btn btn-success border-0 shadow-sm text-dark fw-bold" style="background-color: #99cc33;" onclick="window.print()">
-                    <i class="bi bi-printer me-2"></i> Print Report
-                </button>
             </div>
 
-            <div class="row g-3 mb-4">
-                <div class="col-md-3">
-                    <div class="card stat-card shadow-sm p-3">
+            <!-- 4 Metric Cards Forced Side-by-Side -->
+            <div class="metrics-row">
+                <div class="metric-col">
+                    <div class="stat-card">
                         <div class="text-muted small">Total Records</div>
-                        <div class="h3 fw-bold" style="color: #1a365d;">{{ stats.total }}</div>
+                        <div class="h3 fw-bold m-0" style="color: #1a365d;">{{ stats.total }}</div>
                     </div>
                 </div>
-                <div class="col-md-3">
-                    <div class="card stat-card shadow-sm p-3 border-start border-danger border-4">
+                <div class="metric-col">
+                    <div class="stat-card border-start border-danger border-4">
                         <div class="text-muted small">Created</div>
-                        <div class="h3 fw-bold text-danger">{{ stats.created }}</div>
+                        <div class="h3 fw-bold text-danger m-0">{{ stats.created }}</div>
                     </div>
                 </div>
-                <div class="col-md-3">
-                    <div class="card stat-card shadow-sm p-3 border-start border-warning border-4">
+                <div class="metric-col">
+                    <div class="stat-card border-start border-warning border-4">
                         <div class="text-muted small">In Progress</div>
-                        <div class="h3 fw-bold text-warning">{{ stats.in_progress }}</div>
+                        <div class="h3 fw-bold text-warning m-0">{{ stats.in_progress }}</div>
                     </div>
                 </div>
-                <div class="col-md-3">
-                    <div class="card stat-card shadow-sm p-3 border-start border-success border-4">
+                <div class="metric-col">
+                    <div class="stat-card border-start border-success border-4">
                         <div class="text-muted small">Completed</div>
-                        <div class="h3 fw-bold text-success">{{ stats.completed }}</div>
+                        <div class="h3 fw-bold text-success m-0">{{ stats.completed }}</div>
                     </div>
                 </div>
             </div>
