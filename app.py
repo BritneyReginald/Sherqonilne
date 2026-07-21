@@ -11,9 +11,9 @@ from werkzeug.utils import secure_filename
 app = Flask(__name__)
 
 # --- AUTO-LOGIN BYPASS ---
-@app.before_request
-def bypass_login():
-    session['admin_logged_in'] = True
+#@app.before_request
+#def bypass_login():
+    #session['admin_logged_in'] = True
 
 @app.route('/', methods=['GET'])
 def home():
