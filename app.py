@@ -29,10 +29,12 @@ app.config['MAIL_PASSWORD'] = 'vkjtvipazvubycsl'  # Your verified Google App Pas
 mail = Mail(app)
 
 # Database Configuration
-app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get(
-    'DATABASE_URL', 
-    'postgresql+psycopg2://postgres:Simangele21%40@localhost:5433/SHERQ'
-)
+# Database Configuration
+db_url = os.environ.get('DATABASE_URL')
+if not db_url:
+    db_url = 'postgresql+psycopg2://postgres:Simangele21%40@localhost:5433/SHERQ'
+
+app.config['SQLALCHEMY_DATABASE_URI'] = db_url
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 UPLOAD_FOLDER = 'static/uploads'
