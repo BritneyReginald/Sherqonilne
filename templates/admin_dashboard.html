@@ -2,93 +2,138 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login | Reginald SHERQ</title>
+    <meta name="viewport" content="width=1200"> <!-- Forces mobile browsers to render at desktop width -->
+    <title>Reginald SHERQ | Dashboard</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        body {
-            background: linear-gradient(rgba(26, 54, 93, 0.9), rgba(26, 54, 93, 0.9)), 
-                        url('https://images.unsplash.com/photo-1582213706342-998897597f7e?auto=format&fit=crop&q=80&w=2000');
-            background-size: cover;
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 20px;
-        }
-        .login-card {
-            background: rgba(255, 255, 255, 0.98);
-            padding: 2rem;
-            border-radius: 12px;
-            box-shadow: 0 15px 35px rgba(0,0,0,0.4);
-            width: 100%;
-            max-width: 400px;
-            text-align: center;
-        }
-        /* Header Block */
-        .brand-header {
-            background-color: #1a365d;
-            color: white;
-            padding: 15px;
-            border-radius: 8px;
-            margin-bottom: 20px;
-        }
-        .brand-text { font-weight: bold; font-size: 1.1rem; }
+        body { background-color: #f4f7f6; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; overflow-x: auto; }
+        
+        .container-fluid, .row { width: 100%; min-width: 1100px; margin: 0; }
+
+        /* Fixed Desktop Sidebar Layout */
+        .sidebar { background-color: #1a365d; min-height: 100vh; color: white; padding: 20px; position: fixed; top: 0; left: 0; width: 250px; z-index: 1000; }
+        .sidebar .nav-link { color: rgba(255,255,255,0.8); margin: 5px 0; border-radius: 6px; text-decoration: none; display: block; padding: 10px; }
+        .sidebar .nav-link:hover, .sidebar .nav-link.active { background-color: #99cc33; color: #1a365d; font-weight: bold; }
         .brand-green { color: #99cc33; }
-        .sub-text { font-size: 0.6rem; letter-spacing: 1px; color: #cbd5e0; }
+        
+        /* Main Content Offset to accommodate fixed sidebar */
+        main.dashboard-main { margin-left: 250px; width: calc(100% - 250px); padding: 30px !important; }
 
-        /* Input Styles */
-        .form-control { margin-bottom: 15px; border-radius: 6px; }
+        /* Metric Cards Side-by-Side */
+        .metrics-row { display: flex; flex-wrap: nowrap; gap: 15px; margin-bottom: 25px; }
+        .metric-col { flex: 1; min-width: 0; }
+        
+        .stat-card { border: none; border-radius: 12px; background: white; padding: 16px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+        
+        .status-badge { padding: 6px 12px; border-radius: 20px; font-size: 0.85rem; font-weight: 600; }
+        .status-completed { background-color: #e8f5e9; color: #2e7d32; }
+        .status-inprogress { background-color: #fff3e0; color: #ef6c00; }
+        .status-created { background-color: #ffebee; color: #c62828; border: 1px solid #ffcdd2; }
 
-        /* Main Sign In Button */
-        .btn-signin {
-            background-color: #1a365d;
-            color: white;
-            font-weight: 800;
-            width: 100%;
-            padding: 12px;
-            border-radius: 50px;
-            border: none;
-            margin-bottom: 15px;
-        }
-        .btn-signin:hover { background-color: #2c5282; color: white; }
-
-        /* Back to Home Link */
-        .back-link {
-            color: #1a365d;
-            font-size: 0.9rem;
-            text-decoration: underline;
-            cursor: pointer;
-        }
-        h2 { color: #1a365d; font-size: 1.2rem; font-weight: bold; margin-bottom: 1.5rem; }
+        .table-container { background: white; border-radius: 12px; padding: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
     </style>
 </head>
 <body>
 
-    <div class="login-card">
-        <div class="brand-header">
-            <div class="brand-text">REGINALD<span class="brand-green">SHERQ</span>SERVICES</div>
-            <div class="sub-text">SAFETY • HEALTH • ENVIRONMENT • RISK • QUALITY</div>
+<div class="container-fluid">
+    <div class="row">
+        <!-- Sidebar / Navigation Menu -->
+        <div class="sidebar d-flex flex-column">
+            <h5 class="text-center fw-bold py-3 border-bottom border-secondary m-0">REGINALD<span class="brand-green">SHERQ</span></h5>
+            <ul class="nav flex-column mt-3 flex-grow-1">
+                <li class="nav-item"><a href="/admin/dashboard" class="nav-link active"><i class="fa-solid fa-gauge me-2"></i> Dashboard</a></li>
+                <li class="nav-item"><a href="/admin/register" class="nav-link"><i class="fa-solid fa-boxes-stacked me-2"></i> Asset Register</a></li>
+                <li class="nav-item"><a href="/admin/inspection_register" class="nav-link"><i class="fa-solid fa-clipboard-list me-2"></i> Inspection Register</a></li>
+                <li class="nav-item"><a href="/admin/alerts" class="nav-link"><i class="fa-solid fa-triangle-exclamation me-2"></i> Alerts</a></li>
+            </ul>
         </div>
 
-        <h2>SYSTEM LOGIN</h2>
-        
-        {% with messages = get_flashed_messages(with_categories=true) %}
-          {% if messages %}
-            {% for category, message in messages %}
-              <div class="alert alert-danger text-center p-2">{{ message }}</div>
-            {% endfor %}
-          {% endif %}
-        {% endwith %}
+        <!-- Main Content Area -->
+        <main class="dashboard-main">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2 class="fw-bold" style="color: #1a365d;">Management Overview</h2>
+            </div>
 
-        <form method="POST">
-            <input type="text" name="username" class="form-control" placeholder="Username" required>
-            <input type="password" name="password" class="form-control" placeholder="Password" required>
-            <button type="submit" class="btn btn-signin">SIGN IN</button>
-        </form>
-        
-        <a href="{% if request.args.get('next') %}{{ url_for('details', qr_code_id=request.args.get('next').split('/')[-1]) }}{% else %}/{% endif %}" class="back-link">Back to Home</a>
+            <!-- 4 Metric Cards Forced Side-by-Side -->
+            <div class="metrics-row">
+                <div class="metric-col">
+                    <div class="stat-card">
+                        <div class="text-muted small">Total Inspections</div>
+                        <div class="h3 fw-bold m-0" style="color: #1a365d;">{{ total }}</div>
+                    </div>
+                </div>
+                <div class="metric-col">
+                    <div class="stat-card border-start border-danger border-4">
+                        <div class="text-muted small">Created</div>
+                        <div class="h3 fw-bold text-danger m-0">{{ created_count }}</div>
+                    </div>
+                </div>
+                <div class="metric-col">
+                    <div class="stat-card border-start border-warning border-4">
+                        <div class="text-muted small">In Progress</div>
+                        <div class="h3 fw-bold text-warning m-0">{{ in_progress_count }}</div>
+                    </div>
+                </div>
+                <div class="metric-col">
+                    <div class="stat-card border-start border-success border-4">
+                        <div class="text-muted small">Completed</div>
+                        <div class="h3 fw-bold text-success m-0">{{ completed_count }}</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Table Container -->
+            <div class="table-container shadow-sm">
+                <h4 class="fw-bold mb-3" style="color: #1a365d; font-size: 1.1rem;">Recent Inspection Activity</h4>
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Date</th>
+                                <th>QR ID</th>
+                                <th>Category</th>
+                                <th>Inspector</th>
+                                <th>Status</th>
+                                <th class="text-end">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for report in reports %}
+                            <tr>
+                                <td>{{ report.inspection_date }}</td>
+                                <td><span class="fw-bold" style="color: #1a365d;">{{ report.qr_code_id }}</span></td>
+                                <td>{{ report.category }}</td>
+                                <td>{{ report.inspector_name if report.inspector_name else '---' }}</td>
+                                <td>
+                                    {% if report.report_status == 'Completed' %}
+                                        <span class="status-badge status-completed">Completed</span>
+                                    {% elif report.report_status == 'In Progress' %}
+                                        <span class="status-badge status-inprogress">In Progress</span>
+                                    {% else %}
+                                        <span class="status-badge status-created">Created</span>
+                                    {% endif %}
+                                </td>
+                                <td class="text-end">
+                                    <a href="{{ url_for('view_report', report_id=report.id) }}" class="btn btn-sm btn-outline-primary">
+                                        <i class="bi bi-eye"></i> View Report
+                                    </a>
+                                </td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="6" class="text-center py-4 text-muted">No recent inspection activities found.</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </main>
     </div>
+</div>
 
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
