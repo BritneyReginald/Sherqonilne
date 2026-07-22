@@ -11,9 +11,9 @@ from werkzeug.utils import secure_filename
 app = Flask(__name__)
 
 # --- AUTO-LOGIN BYPASS ---
-#@app.before_request
-#def bypass_login():
-    #session['admin_logged_in'] = True
+@app.before_request
+def bypass_login():
+    session['admin_logged_in'] = True
 
 @app.route('/', methods=['GET'])
 def home():
@@ -92,6 +92,9 @@ class Employee(db.Model):
     full_name = db.Column(db.String(150), nullable=False)
     email = db.Column(db.String(100))
     role = db.Column(db.String(50), default='Inspector')
+    
+    # Links the relationship so SQLAlchemy knows the table order
+    users = db.relationship('User', backref='employee_ref', lazy=True)
 
 class User(db.Model):
     __tablename__ = 'users'
