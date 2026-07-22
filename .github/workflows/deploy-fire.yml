@@ -25,11 +25,11 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Upload Flask application
-        uses: actions/upload-artifact@v4
-        with:
-          name: fire-app
-          path: .
+     # - name: Upload Flask application
+      #  uses: actions/upload-artifact@v4
+       # with:
+         # name: fire-app
+         # path: .
 
   deploy:
     runs-on: ubuntu-latest
