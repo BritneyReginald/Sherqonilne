@@ -4,6 +4,10 @@ on:
   push:
     branches: [ sherq_online_fire ]
 
+permissions:
+  id-token: write
+  contents: read
+
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
@@ -18,7 +22,7 @@ jobs:
 
     - name: Zip repository contents
       run: |
-        zip -r release.zip . -x "*.git*" "github/workflows/*"
+        zip -r release.zip . -x "*.git*" ".github/*"
 
     - name: Login to Azure
       uses: azure/login@v2
