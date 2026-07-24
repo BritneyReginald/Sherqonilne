@@ -33,7 +33,7 @@ import { ReportsAnalytics } from "@/app/components/reports-analytics";
 import { SystemAuditLog } from "@/app/components/system-audit-log";
 import { GlobalSearch } from "@/app/components/global-search";
 import { SystemSettings } from "@/app/components/system-settings";
-import { CompanySites } from "@/app/components/company-sites";
+import { CompanySites } from "@/app/components/Company&site/company-sites";
 import { Appointments } from "@/app/components/appointments";
 import { LegalAppointments } from "@/app/components/legal-appointments";
 import { useAlerts } from "@/app/contexts/alert-context";
@@ -44,7 +44,7 @@ import { RiskAssessmentBeforeControls } from "@/app/components/risk-assessment-b
 import { RiskAssessmentAfterControls } from "@/app/components/risk-assessment-after-controls";
 import { RiskAssessmentSummary } from "@/app/components/risk-assessment-summary";
 import Incidents from "@/app/components/incidents/incidents";
-import { useMockAuth } from "../contexts/mock-auth-context";
+import { useAuth } from "@/app/contexts/auth-context";
 import { RecycleBin } from "@/app/components/recycle-bin";
 
 interface NavigationItem {
@@ -172,7 +172,7 @@ const bottomNavigationItems: NavigationItem[] = [
 export function AppShell({ children }: { children?: React.ReactNode }) {
   const { dismissedAlerts } = useAlerts();
   const { theme, colors, brandPrimaryBg, getNavTextColor } = useTheme();
-  const { user, switchUser } = useMockAuth();
+  const { user, logout } = useAuth();
   const [activeItem, setActiveItem] = useState("dashboard");
   const [expandedItems, setExpandedItems] = useState<string[]>([
     "compliance",
@@ -577,15 +577,18 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
                     <p className="font-medium">Admin User</p>
                     <p className="text-sm text-gray-500">admin@sherq.com</p>
 
-                    <select
-                      value={user.role}
-                      onChange={(e) => switchUser(e.target.value)}
-                      className="w-full text-sm px-2 py-1 border rounded"
-                    >
-                      <option value="employee">Employee</option>
-                      <option value="firstAider">First Aider</option>
-                      <option value="safetyOfficer">Safety Officer</option>
-                    </select>
+                    <div className="px-4 py-3 border-b space-y-2">
+                      <p className="font-medium">{user?.email}</p>
+                      <p className="text-sm text-gray-500 capitalize">
+                        {user?.role.replace("_", " ")}
+                      </p>
+                      <button
+                        onClick={logout}
+                        className="w-full text-sm px-2 py-1.5 rounded border text-left hover:bg-gray-50"
+                      >
+                        Log out
+                      </button>
+                    </div>
                   </div>
                 </div>
               )}

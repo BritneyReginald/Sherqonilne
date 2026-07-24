@@ -42,7 +42,65 @@ export async function initializeDatabase() {
       compliance_status TEXT,
       status TEXT DEFAULT 'Active'
     );
+
+    CREATE TABLE IF NOT EXISTS companies (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    registration_number VARCHAR(100),
+    logo TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS sites (
+    id SERIAL PRIMARY KEY,
+    company_id INTEGER NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+    name VARCHAR(255) NOT NULL,
+    location VARCHAR(255),
+    workers_active INTEGER DEFAULT 0,
+    incidents_this_month INTEGER DEFAULT 0,
+    compliance_status VARCHAR(20) DEFAULT 'compliant',
+    has_manager BOOLEAN DEFAULT FALSE,
+    map_image TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS users (
+    id SERIAL PRIMARY KEY,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    role VARCHAR(20) NOT NULL CHECK (role IN ('rss_staff', 'client', 'inspector')),
+    status VARCHAR(20) DEFAULT 'invited' CHECK (status IN ('invited', 'active', 'disabled')),
+    must_change_password BOOLEAN DEFAULT FALSE,
+    created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    last_login_at TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS client_users (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER UNIQUE NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    company_id INTEGER NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS inspector_assignments (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    site_id INTEGER NOT NULL REFERENCES sites(id) ON DELETE CASCADE,
+    assigned_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(user_id, site_id)
+);
+
+CREATE TABLE IF NOT EXISTS credential_issuance_log (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    issued_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    delivery_method VARCHAR(20) DEFAULT 'email',
+    delivery_status VARCHAR(20) DEFAULT 'sent',
+    notes TEXT,
+    issued_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
   `);
 
-  console.log("Employees table ready");
+  // console.log("Employees table ready");
 }
