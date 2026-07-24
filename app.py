@@ -9,9 +9,15 @@ from fpdf import FPDF  # Pure Python PDF generation - works perfectly on Python 
 from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
-@app.route('/')
+
+# --- AUTO-LOGIN BYPASS ---
+@app.before_request
+def bypass_login():
+    session['admin_logged_in'] = True
+
+@app.route('/', methods=['GET'])
 def home():
-    return render_template('admin_dashboard.html')
+    return render_template('scan_landing.html')
 app.secret_key = 'reginald_sherq_secret_key_2026'
 
 # --- EMAIL CONFIGURATION ---
@@ -23,7 +29,12 @@ app.config['MAIL_PASSWORD'] = 'vkjtvipazvubycsl'  # Your verified Google App Pas
 mail = Mail(app)
 
 # Database Configuration
-app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql+psycopg2://postgres:Simangele21%40@localhost:5433/SHERQ'
+# Database Configuration
+db_url = os.environ.get('DATABASE_URL')
+if not db_url:
+    db_url = 'postgresql+psycopg2://postgres:Simangele21%40@localhost:5433/SHERQ'
+
+app.config['SQLALCHEMY_DATABASE_URI'] = db_url
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 UPLOAD_FOLDER = 'static/uploads'
@@ -81,6 +92,9 @@ class Employee(db.Model):
     full_name = db.Column(db.String(150), nullable=False)
     email = db.Column(db.String(100))
     role = db.Column(db.String(50), default='Inspector')
+    
+    # Links the relationship so SQLAlchemy knows the table order
+    users = db.relationship('User', backref='employee_ref', lazy=True)
 
 class User(db.Model):
     __tablename__ = 'users'
@@ -287,7 +301,7 @@ def resolve_alert(report_id):
     flash(f"Asset {report.qr_code_id} has been resolved.", "success")
     return redirect(url_for('admin_alerts'))
 
-@app.route('/admin/dashboard')
+@app.route('/admin/dashboard',methods=['GET', 'POST'])
 def admin_dashboard():
     if not session.get('admin_logged_in'):
         return redirect(url_for('login'))
@@ -477,12 +491,29 @@ def login():
             return redirect(next_url or url_for('admin_dashboard'))
         else:
             flash("Invalid username or password.", "danger")
+            return render_template('log_html.html')
             
     return render_template('log_html.html')
 
 app.add_url_rule('/admin/employees', endpoint='employee_management', view_func=employee_management)
 app.add_url_rule('/admin/register', endpoint='register', view_func=register)
 app.add_url_rule('/admin/inspection_register', endpoint='inspection_register', view_func=inspection_register)
+
+@app.route('/login-dashboard', methods=['GET', 'POST'])
+def login_dashboard():
+    if request.method == 'POST':
+        username = request.form.get('username')
+        password = request.form.get('password')
+        user = User.query.filter_by(username=username).first()
+        
+        if user and user.password_hash == password:
+            session['admin_logged_in'] = True
+            session['username'] = user.username
+            return redirect(url_for('admin_dashboard'))
+        else:
+            flash("Invalid login", "danger")
+            
+    return render_template('log_dashboard.html') # A clean version for the home page
 
 @app.route('/logout')
 def logout():
@@ -501,11 +532,16 @@ def details(qr_code_id):
 
 @app.route('/questionnaire/<string:qr_code_id>')
 def load_questionnaire(qr_code_id):
+    if not session.get('admin_logged_in'):
+        return redirect(url_for('login', next=request.url))
     unit, category = get_unit_and_category(qr_code_id)
     return render_template('questionnaire.html', unit=unit, category=category, today_date=date.today().isoformat(), employees=Employee.query.order_by(Employee.full_name.asc()).all()) if unit else ("Not Found", 404)
 
 @app.route('/recovery/<string:qr_code_id>')
 def load_recovery(qr_code_id):
+    # Only redirect to login if they are NOT logged in
+    if not session.get('admin_logged_in'):
+        return redirect(url_for('login', next=request.url))
     unit, category = get_unit_and_category(qr_code_id)
     return render_template('recovery.html', unit=unit, category=category, employees=Employee.query.order_by(Employee.full_name.asc()).all()) if unit else ("Not Found", 404)
 
@@ -534,6 +570,17 @@ def submit_inspection(qr_code_id):
     db.session.commit()
     return render_template('thank_you.html', unit=unit, category=category, unit_id=qr_code_id, inspector_name=request.form.get('inspector_name'), report_id=new_report.id)
 
+# Add this to your app.py
+@app.route('/admin/print_qr/<qr_code_id>')
+def print_qr(qr_code_id):
+    # This renders a dedicated page just for the sticker
+    return render_template('print_sticker.html', qr_code_id=qr_code_id)
+
+@app.route('/scan_landing')
+def scan_landing():
+    # This serves as the simple landing page for mobile users
+    return render_template('scan_landing.html')
+
 @app.route('/admin/recycle_bin')
 def recycle_bin():
     if not session.get('admin_logged_in'): 
@@ -560,10 +607,13 @@ def restore_item(report_id):
     flash("Report restored successfully!", "success")
     return redirect(url_for('recycle_bin'))
 
+
+
 if __name__ == '__main__':
     with app.app_context():
         db.create_all()
-    app.run(debug=True)
+    
+    app.run(host='0.0.0.0', port=5000, debug=True)
        
         
 

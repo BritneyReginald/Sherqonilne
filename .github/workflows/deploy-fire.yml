@@ -25,11 +25,11 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Upload Flask application
-        uses: actions/upload-artifact@v4
-        with:
-          name: fire-app
-          path: .
+     # - name: Upload Flask application
+      #  uses: actions/upload-artifact@v4
+       # with:
+         # name: fire-app
+         # path: .
 
   deploy:
     runs-on: ubuntu-latest
@@ -39,10 +39,10 @@ jobs:
       contents: read
 
     steps:
-      - name: Download Flask application
-        uses: actions/download-artifact@v4
-        with:
-          name: fire-app
+  #    - name: Download Flask application
+   #     uses: actions/download-artifact@v4
+       # with:
+      #    name: fire-app
 
       - name: Login to Azure
         uses: azure/login@v2
@@ -56,4 +56,4 @@ jobs:
         with:
           app-name: 'ohs-online-fire'
           slot-name: 'Production'
-          package: .
+          package: ./Sherqonline-backend
