@@ -607,7 +607,47 @@ def restore_item(report_id):
     flash("Report restored successfully!", "success")
     return redirect(url_for('recycle_bin'))
 
+@app.route('/choose-method/<category>')
+def choose_method(category):
+    # Renders a page giving them a choice between scanning or choosing manually
+    return render_template('choose_method.html', category=category)
 
+@app.route('/manual-select/<category>')
+def manual_select(category):
+    # Formats 'fire_extinguisher' into 'Fire Extinguisher'
+    formatted_category = category.replace('_', ' ').title()
+    
+    equipment_list = []
+    
+    # Query the correct database model based on the chosen category
+    if formatted_category == 'Fire Extinguisher':
+        raw_items = Extinguisher.query.all()
+        for item in raw_items:
+            equipment_list.append({
+                "id": item.id_extinguishers,  # Note: Extinguisher uses id_extinguishers as primary key
+                "equipment_number": item.qr_code_id,
+                "location": item.authorized_location
+            })
+            
+    elif formatted_category == 'Fire Hose Reel':
+        raw_items = HoseReel.query.all()
+        for item in raw_items:
+            equipment_list.append({
+                "id": item.id,
+                "equipment_number": item.qr_code_id,
+                "location": item.authorized_location
+            })
+            
+    elif formatted_category == 'Fire Hydrant':
+        raw_items = Hydrant.query.all()
+        for item in raw_items:
+            equipment_list.append({
+                "id": item.id,
+                "equipment_number": item.qr_code_id,
+                "location": item.authorized_location
+            })
+    
+    return render_template('manual_select.html', category=formatted_category, equipment_list=equipment_list)
 
 if __name__ == '__main__':
     with app.app_context():
