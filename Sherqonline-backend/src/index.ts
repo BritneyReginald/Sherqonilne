@@ -4,6 +4,9 @@ import dotenv from "dotenv";
 import "./config/db";
 import employeeRoutes from "./routes/employeeRoutes";
 import { initializeDatabase } from "./config/initDatabase";
+import companyRoutes from "./routes/companies";
+import siteRoutes from "./routes/sites";
+import authRoutes from "./routes/auth";
 
 dotenv.config();
 
@@ -29,6 +32,11 @@ app.get("/", (_, res) => {
 
 // Register routes
 app.use("/employees", employeeRoutes);
+
+app.use("/companies", companyRoutes);
+app.use("/sites", siteRoutes);
+app.use("/auth", authRoutes);
+
 
 app.listen(PORT, () => {
   console.log("=================================");

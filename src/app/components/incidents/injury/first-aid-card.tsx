@@ -1,6 +1,6 @@
 import { FirstAidEntry } from "./types";
 import { employees, firstAiders } from "./constants";
-import { useMockAuth } from "@/app/contexts/mock-auth-context";
+import { useAuth } from "@/app/contexts/auth-context";
 // import {
 //   canEmployeeSign,
 //   canFirstAiderSign,
@@ -23,7 +23,7 @@ export function FirstAidCard({
   onEmployeeSign,
   onFirstAiderSign,
 }: Props) {
-  const { user } = useMockAuth();
+  const { user } = useAuth();
   const handleEmployeeSign = (index: number) => {
     handleTableChange(index, "status", "awaitingFirstAider");
   };
