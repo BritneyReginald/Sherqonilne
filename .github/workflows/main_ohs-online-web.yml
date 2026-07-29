@@ -28,7 +28,7 @@ jobs:
       - name: Zip the built site
         run: |
             cd dist
-            zip -r ../release.zip
+            zip -r ../release.zip .
             cd ..
 
       - name: Upload zipped build artifact
