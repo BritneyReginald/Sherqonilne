@@ -26,10 +26,9 @@ jobs:
           npm run build
       
       - name: Zip the built site
-        run: |
-            cd dist
-            zip -r ../release.zip .
-            cd ..
+        run: zip -r ../release.zip .
+        working-directory: ./dist
+            
 
       - name: Upload zipped build artifact
         uses: actions/upload-artifact@v4
