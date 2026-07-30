@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   LayoutDashboard,
   Building2,
@@ -44,8 +44,9 @@ import { RiskAssessmentBeforeControls } from "@/app/components/risk-assessment-b
 import { RiskAssessmentAfterControls } from "@/app/components/risk-assessment-after-controls";
 import { RiskAssessmentSummary } from "@/app/components/risk-assessment-summary";
 import Incidents from "@/app/components/incidents/incidents";
-import { useAuth } from "@/app/contexts/auth-context";
+import { useAuth, Role } from "@/app/contexts/auth-context";
 import { RecycleBin } from "@/app/components/recycle-bin";
+import { getMyCompany } from "@/api/companyAPI";
 
 interface NavigationItem {
   id: string;
@@ -169,11 +170,50 @@ const bottomNavigationItems: NavigationItem[] = [
   },
 ];
 
+const CLIENT_ALLOWED_IDS = new Set([
+  "dashboard",
+  "workforce",
+  "compliance",
+  "appointments",
+  "legal-appointments",
+  "training",
+  "medicals",
+  "ppe",
+  "fire-equipment",
+  "risk-assessments",
+  "incidents",
+  "document-library",
+]);
+
+function filterNavForRole(
+  items: NavigationItem[],
+  role: Role,
+): NavigationItem[] {
+  if (role === "rss_staff") return items;
+
+  return items
+    .filter((item) => CLIENT_ALLOWED_IDS.has(item.id))
+    .map((item) =>
+      item.children
+        ? {
+            ...item,
+            children: item.children.filter((child) =>
+              CLIENT_ALLOWED_IDS.has(child.id),
+            ),
+          }
+        : item,
+    );
+}
+
 export function AppShell({ children }: { children?: React.ReactNode }) {
   const { dismissedAlerts } = useAlerts();
   const { theme, colors, brandPrimaryBg, getNavTextColor } = useTheme();
   const { user, logout } = useAuth();
   const [activeItem, setActiveItem] = useState("dashboard");
+  const [clientCompany, setClientCompany] = useState<{
+    name: string;
+    logo?: string;
+  } | null>(null);
   const [expandedItems, setExpandedItems] = useState<string[]>([
     "compliance",
     "reports",
@@ -184,6 +224,9 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
   const [showSearchResults, setShowSearchResults] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [showAlertHistory, setShowAlertHistory] = useState(false);
+  const visibleNavItems = filterNavForRole(navigationItems, user!.role);
+  const visibleBottomNavItems =
+    user!.role === "rss_staff" ? bottomNavigationItems : [];
 
   const toggleExpanded = (id: string) => {
     setExpandedItems((prev) =>
@@ -192,6 +235,16 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
   };
 
   const navTextColor = getNavTextColor();
+
+  useEffect(() => {
+    if (user?.role === "client") {
+      getMyCompany()
+        .then((company) =>
+          setClientCompany({ name: company.name, logo: company.logo }),
+        )
+        .catch((err) => console.error("Failed to load company:", err));
+    }
+  }, [user]);
 
   return (
     <div
@@ -209,8 +262,9 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
         }}
       >
         {/* Logo */}
+      
         <div
-          className="h-16 px-6 flex items-center border-b"
+          className="h-16 px-6 flex items-center gap-3 border-b"
           style={{
             borderColor:
               colors.background === "#0F172A"
@@ -219,12 +273,40 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
             minWidth: "256px",
           }}
         >
-          <h1
-            className="text-xl font-bold"
-            style={{ color: "var(--brand-blue)" }}
-          >
-            SHERQ Online
-          </h1>
+          {user?.role === "client" && clientCompany ? (
+            <>
+              <div
+                className="size-9 rounded-lg overflow-hidden flex items-center justify-center flex-shrink-0"
+                style={{ backgroundColor: "var(--grey-100)" }}
+              >
+                {clientCompany.logo ? (
+                  <img
+                    src={clientCompany.logo}
+                    alt={clientCompany.name}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <Building2
+                    className="size-5"
+                    style={{ color: colors.subText }}
+                  />
+                )}
+              </div>
+              <h1
+                className="text-lg font-bold truncate"
+                style={{ color: "var(--brand-blue)" }}
+              >
+                {clientCompany.name}
+              </h1>
+            </>
+          ) : (
+            <h1
+              className="text-xl font-bold"
+              style={{ color: "var(--brand-blue)" }}
+            >
+              SHERQ Online
+            </h1>
+          )}
         </div>
 
         {/* Navigation Menu */}
@@ -233,7 +315,7 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
           style={{ minWidth: "256px" }}
         >
           <ul className="space-y-1 px-3">
-            {navigationItems.map((item) => (
+            {visibleNavItems.map((item) => (
               <NavItem
                 key={item.id}
                 item={item}
@@ -258,7 +340,7 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
           }}
         >
           <ul className="space-y-1">
-            {bottomNavigationItems.map((item) => (
+            {visibleBottomNavItems.map((item) => (
               <NavItem
                 key={item.id}
                 item={item}
@@ -273,7 +355,11 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
       </aside>
 
       {/* Main Content Area */}
+
+      {/** Company banner*/}
+
       <div className="flex-1 flex flex-col overflow-hidden">
+        
         {/* Top Header */}
         <header
           className="h-16 flex items-center justify-between px-6"
