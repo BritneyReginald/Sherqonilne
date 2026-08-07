@@ -1,5 +1,0 @@
-       email        |  role  | client_linked_to | client_company_name 
---------------------+--------+------------------+---------------------
- client@sherq.co.za | client |                1 | Test Company
-(1 row)
-
