@@ -5,20 +5,26 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.hashPassword = hashPassword;
 exports.verifyPassword = verifyPassword;
+exports.encryptPassword = encryptPassword;
+exports.decryptPassword = decryptPassword;
 exports.generateTempPassword = generateTempPassword;
 exports.signToken = signToken;
 exports.verifyToken = verifyToken;
 exports.buildTokenForUser = buildTokenForUser;
 exports.getInspectorSites = getInspectorSites;
 exports.issueCredentials = issueCredentials;
-// services/authServices.ts
+exports.createInspectorStaff = createInspectorStaff;
+exports.deleteInspector = deleteInspector;
+// services/authService.ts
 const bcrypt_1 = __importDefault(require("bcrypt"));
 const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
 const crypto_1 = __importDefault(require("crypto"));
 const nodemailer_1 = __importDefault(require("nodemailer"));
 const user_1 = require("../models/user");
+const db_1 = __importDefault(require("../config/db"));
+// import { encryptPassword } from "./authServices";
 const JWT_SECRET = process.env.JWT_SECRET;
-const JWT_EXPIRES_IN = "8h"; // adjust to your session length preference
+// const JWT_EXPIRES_IN : jwt.SignOptions["expiresIn"]= process.env.JWT_EXPIRES_IN || "8h";
 const SALT_ROUNDS = 12;
 if (!JWT_SECRET) {
     throw new Error("JWT_SECRET is not set in environment variables");
@@ -30,6 +36,36 @@ async function hashPassword(plain) {
 async function verifyPassword(plain, hash) {
     return bcrypt_1.default.compare(plain, hash);
 }
+// --- Credential encryption (for admin-retrievable passwords) ---
+const ENCRYPTION_KEY = process.env.CREDENTIAL_ENCRYPTION_KEY; // 32-byte hex string
+const ALGORITHM = "aes-256-gcm";
+if (!ENCRYPTION_KEY) {
+    throw new Error("CREDENTIAL_ENCRYPTION_KEY is not set in environment variables");
+}
+function encryptPassword(plain) {
+    const iv = crypto_1.default.randomBytes(12);
+    const key = Buffer.from(ENCRYPTION_KEY, "hex");
+    const cipher = crypto_1.default.createCipheriv(ALGORITHM, key, iv);
+    const encryptedBuf = Buffer.concat([
+        cipher.update(plain, "utf8"),
+        cipher.final(),
+    ]);
+    const authTag = cipher.getAuthTag();
+    return {
+        encrypted: Buffer.concat([encryptedBuf, authTag]).toString("hex"),
+        iv: iv.toString("hex"),
+    };
+}
+function decryptPassword(encryptedHex, ivHex) {
+    const key = Buffer.from(ENCRYPTION_KEY, "hex");
+    const iv = Buffer.from(ivHex, "hex");
+    const data = Buffer.from(encryptedHex, "hex");
+    const authTag = data.subarray(data.length - 16);
+    const encrypted = data.subarray(0, data.length - 16);
+    const decipher = crypto_1.default.createDecipheriv(ALGORITHM, key, iv);
+    decipher.setAuthTag(authTag);
+    return Buffer.concat([decipher.update(encrypted), decipher.final()]).toString("utf8");
+}
 // --- Temp password generation (for RSS-issued client/inspector accounts) ---
 function generateTempPassword() {
     // 12 random bytes -> readable base64-ish string, trimmed of ambiguous chars
@@ -40,7 +76,9 @@ function generateTempPassword() {
         .slice(0, 12);
 }
 function signToken(payload) {
-    return jsonwebtoken_1.default.sign(payload, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
+    return jsonwebtoken_1.default.sign(payload, JWT_SECRET, {
+        expiresIn: (process.env.JWT_EXPIRES_IN ?? "8h"),
+    });
 }
 function verifyToken(token) {
     return jsonwebtoken_1.default.verify(token, JWT_SECRET);
@@ -77,7 +115,7 @@ const transporter = nodemailer_1.default.createTransport({
     },
 });
 async function issueCredentials(params) {
-    const { email, role, issuedByUserId, companyId, siteIds, companyName, loginUrl } = params;
+    const { email, role, issuedByUserId, companyId, siteIds, companyName, loginUrl, } = params;
     const tempPassword = generateTempPassword();
     const passwordHash = await hashPassword(tempPassword);
     const user = await (0, user_1.createUser)(email, passwordHash, role, issuedByUserId);
@@ -86,14 +124,20 @@ async function issueCredentials(params) {
             throw new Error("companyId is required for client accounts");
         await (0, user_1.linkClientToCompany)(user.id, companyId);
     }
-    if (role === "inspector") {
-        if (!siteIds || siteIds.length === 0)
-            throw new Error("siteIds are required for inspector accounts");
-        await (0, user_1.assignInspectorToSites)(user.id, siteIds);
-    }
+    // if (role === "inspector") {
+    //   if (!siteIds || siteIds.length === 0)
+    //     throw new Error("siteIds are required for inspector accounts");
+    //   await assignInspectorToSites(user.id, siteIds);
+    // }
     let deliveryStatus = "sent";
     try {
-        await sendCredentialsEmail({ email, tempPassword, loginUrl, role, companyName });
+        await sendCredentialsEmail({
+            email,
+            tempPassword,
+            loginUrl,
+            role,
+            companyName,
+        });
     }
     catch (err) {
         console.error("Failed to send credentials email:", err);
@@ -122,4 +166,76 @@ async function sendCredentialsEmail(args) {
         subject,
         html,
     });
+}
+function generateUsername(fullName) {
+    // literal name, trimmed and collapsed to single spaces
+    return fullName.trim().replace(/\s+/g, " ");
+}
+function generateInspectorPassword(employeeNumber, surname) {
+    const capitalizedSurname = surname.charAt(0).toUpperCase() + surname.slice(1).toLowerCase();
+    return `${employeeNumber}${capitalizedSurname}`;
+}
+async function createInspectorStaff(employeeNumber, fullName, surname, siteIds, createdBy) {
+    const client = await db_1.default.connect();
+    try {
+        await client.query("BEGIN");
+        let username = generateUsername(fullName);
+        const existing = await client.query(`SELECT id FROM users WHERE email = $1`, [username]);
+        if (existing.rows.length > 0) {
+            username = `${username} (${employeeNumber})`;
+        }
+        const plainPassword = generateInspectorPassword(employeeNumber, surname);
+        const passwordHash = await hashPassword(plainPassword);
+        const { encrypted, iv } = encryptPassword(plainPassword);
+        const userResult = await client.query(`
+      INSERT INTO users (
+        email,
+        password_hash,
+        role,
+        status,
+        password_encrypted,
+        password_iv,
+        created_by
+      )
+      VALUES ($1,$2,'inspector','active',$3,$4,$5)
+      RETURNING id,email
+      `, [username, passwordHash, encrypted, iv, createdBy]);
+        const user = userResult.rows[0];
+        await client.query(`
+      INSERT INTO inspector_profiles
+      (
+        user_id,
+        employee_number,
+        full_name,
+        surname
+      )
+      VALUES ($1,$2,$3,$4)
+      `, [user.id, employeeNumber, fullName, surname]);
+        // Assign sites
+        for (const siteId of siteIds) {
+            await client.query(`
+        INSERT INTO inspector_assignments
+        (user_id, site_id)
+        VALUES ($1,$2)
+        `, [user.id, siteId]);
+        }
+        await client.query("COMMIT");
+        return {
+            id: user.id,
+            username: user.email,
+            plainPassword,
+        };
+    }
+    catch (error) {
+        await client.query("ROLLBACK");
+        throw error;
+    }
+    finally {
+        client.release();
+    }
+}
+async function deleteInspector(userId) {
+    await db_1.default.query(`DELETE FROM users
+     WHERE id = $1
+       AND role = 'inspector'`, [userId]);
 }

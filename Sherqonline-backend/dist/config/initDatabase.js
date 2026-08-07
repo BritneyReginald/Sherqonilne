@@ -71,13 +71,29 @@ CREATE TABLE IF NOT EXISTS sites (
 
 CREATE TABLE IF NOT EXISTS users (
     id SERIAL PRIMARY KEY,
+
     email VARCHAR(255) UNIQUE NOT NULL,
+
     password_hash VARCHAR(255) NOT NULL,
-    role VARCHAR(20) NOT NULL CHECK (role IN ('rss_staff', 'client', 'inspector')),
-    status VARCHAR(20) DEFAULT 'invited' CHECK (status IN ('invited', 'active', 'disabled')),
+    password_encrypted TEXT,
+    password_iv TEXT,
+
+    role VARCHAR(20) NOT NULL CHECK (
+        role IN ('rss_staff','client','inspector')
+    ),
+
+    status VARCHAR(20)
+        DEFAULT 'invited'
+        CHECK (status IN ('invited','active','disabled')),
+
     must_change_password BOOLEAN DEFAULT FALSE,
+
+    is_super_admin BOOLEAN DEFAULT FALSE,
+
     created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+
     last_login_at TIMESTAMP,
+
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -104,6 +120,22 @@ CREATE TABLE IF NOT EXISTS credential_issuance_log (
     delivery_status VARCHAR(20) DEFAULT 'sent',
     notes TEXT,
     issued_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS inspector_profiles (
+    id SERIAL PRIMARY KEY,
+
+    user_id INTEGER UNIQUE NOT NULL
+        REFERENCES users(id)
+        ON DELETE CASCADE,
+
+    employee_number VARCHAR(50) UNIQUE NOT NULL,
+
+    full_name VARCHAR(255) NOT NULL,
+
+    surname VARCHAR(255) NOT NULL,
+
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
   `);
     // console.log("Employees table ready");
