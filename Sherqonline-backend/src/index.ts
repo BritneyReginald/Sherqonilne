@@ -1,14 +1,16 @@
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
+dotenv.config();
 import "./config/db";
 import employeeRoutes from "./routes/employeeRoutes";
 import { initializeDatabase } from "./config/initDatabase";
 import companyRoutes from "./routes/companies";
 import siteRoutes from "./routes/sites";
 import authRoutes from "./routes/auth";
+import adminRoutes from "./routes/admin";
 
-dotenv.config();
+
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -36,6 +38,7 @@ app.use("/employees", employeeRoutes);
 app.use("/companies", companyRoutes);
 app.use("/sites", siteRoutes);
 app.use("/auth", authRoutes);
+app.use("/admin", adminRoutes);
 
 
 app.listen(PORT, () => {

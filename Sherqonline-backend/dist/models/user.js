@@ -13,6 +13,7 @@ exports.getInspectorSiteIds = getInspectorSiteIds;
 exports.markUserActiveAndLogin = markUserActiveAndLogin;
 exports.updateLastLogin = updateLastLogin;
 exports.logCredentialIssuance = logCredentialIssuance;
+exports.replaceInspectorSites = replaceInspectorSites;
 // models/user.ts
 const db_1 = __importDefault(require("../config/db"));
 // --- Core lookups ---
@@ -67,4 +68,28 @@ async function updateLastLogin(userId) {
 async function logCredentialIssuance(userId, issuedBy, deliveryMethod = "email", deliveryStatus = "sent", notes) {
     await db_1.default.query(`INSERT INTO credential_issuance_log (user_id, issued_by, delivery_method, delivery_status, notes)
      VALUES ($1, $2, $3, $4, $5)`, [userId, issuedBy, deliveryMethod, deliveryStatus, notes ?? null]);
+}
+async function replaceInspectorSites(userId, siteIds) {
+    const client = await db_1.default.connect();
+    try {
+        await client.query("BEGIN");
+        // Remove existing assignments
+        await client.query(`DELETE FROM inspector_assignments
+        WHERE user_id = $1`, [userId]);
+        // Add the new assignments
+        for (const siteId of siteIds) {
+            await client.query(`INSERT INTO inspector_assignments
+   (user_id, site_id)
+   VALUES ($1, $2)
+   ON CONFLICT (user_id, site_id) DO NOTHING`, [userId, siteId]);
+        }
+        await client.query("COMMIT");
+    }
+    catch (err) {
+        await client.query("ROLLBACK");
+        throw err;
+    }
+    finally {
+        client.release();
+    }
 }

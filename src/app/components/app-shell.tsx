@@ -47,6 +47,9 @@ import Incidents from "@/app/components/incidents/incidents";
 import { useAuth, Role } from "@/app/contexts/auth-context";
 import { RecycleBin } from "@/app/components/recycle-bin";
 import { getMyCompany } from "@/api/companyAPI";
+import { MySites } from "@/app/components/my-sites";
+import { InspectorsPage } from "../pages/inspectors";
+import { SecurityPrivacy } from "@/app/pages/security-privacy";
 
 interface NavigationItem {
   id: string;
@@ -105,6 +108,11 @@ const navigationItems: NavigationItem[] = [
     ],
   },
   {
+    id: "inspectors",
+    label: "Inspectors",
+    icon: <ShieldCheck className="size-4" />,
+  },
+  {
     id: "fire-equipment",
     label: "Fire Equipment",
     icon: <Flame className="size-5" />,
@@ -149,6 +157,11 @@ const navigationItems: NavigationItem[] = [
     icon: <Settings className="size-5" />,
     children: [
       {
+        id: "security-privacy",
+        label: "Security & Privacy",
+        icon: <Shield className="size-4" />,
+      },
+      {
         id: "system-settings",
         label: "System Settings",
         icon: <Settings className="size-4" />,
@@ -172,6 +185,7 @@ const bottomNavigationItems: NavigationItem[] = [
 
 const CLIENT_ALLOWED_IDS = new Set([
   "dashboard",
+  "company-sites",
   "workforce",
   "compliance",
   "appointments",
@@ -193,16 +207,19 @@ function filterNavForRole(
 
   return items
     .filter((item) => CLIENT_ALLOWED_IDS.has(item.id))
-    .map((item) =>
-      item.children
+    .map((item) => {
+      const relabeled =
+        item.id === "company-sites" ? { ...item, label: "My Sites" } : item;
+
+      return relabeled.children
         ? {
-            ...item,
-            children: item.children.filter((child) =>
+            ...relabeled,
+            children: relabeled.children.filter((child) =>
               CLIENT_ALLOWED_IDS.has(child.id),
             ),
           }
-        : item,
-    );
+        : relabeled;
+    });
 }
 
 export function AppShell({ children }: { children?: React.ReactNode }) {
@@ -262,7 +279,7 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
         }}
       >
         {/* Logo */}
-      
+
         <div
           className="h-16 px-6 flex items-center gap-3 border-b"
           style={{
@@ -359,7 +376,6 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
       {/** Company banner*/}
 
       <div className="flex-1 flex flex-col overflow-hidden">
-        
         {/* Top Header */}
         <header
           className="h-16 flex items-center justify-between px-6"
@@ -397,39 +413,43 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
               {activeItem === "dashboard"
                 ? "Dashboard"
                 : activeItem === "company-sites"
-                  ? "Company & Sites"
+                  ? user?.role === "client"
+                    ? "My Sites"
+                    : "Company & Sites"
                   : activeItem === "workforce"
                     ? "Workforce"
-                    : activeItem === "training"
-                      ? "Training"
-                      : activeItem === "document-library"
-                        ? "Document Library"
-                        : activeItem === "global-training-matrix"
-                          ? "Global Training Matrix"
-                          : activeItem === "ppe"
-                            ? "PPE Register"
-                            : activeItem === "risk-assessments"
-                              ? "Risk Assessments"
-                              : activeItem === "incidents-main"
-                                ? "Incidents"
-                                : activeItem === "ncr"
-                                  ? "NCR"
-                                  : activeItem === "injuries"
-                                    ? "Injuries"
-                                    : activeItem === "medicals"
-                                      ? "Medical Surveillance"
-                                      : activeItem === "analytics"
-                                        ? "Reports & Analytics"
-                                        : activeItem === "system-audit-log"
-                                          ? "System Audit Log"
-                                          : activeItem === "system-settings"
-                                            ? "System Settings"
-                                            : activeItem
-                                                .charAt(0)
-                                                .toUpperCase() +
-                                              activeItem
-                                                .slice(1)
-                                                .replace("-", " ")}
+                    : activeItem === "inspectors"
+                      ? "InspectorsPage"
+                      : activeItem === "training"
+                        ? "Training"
+                        : activeItem === "document-library"
+                          ? "Document Library"
+                          : activeItem === "global-training-matrix"
+                            ? "Global Training Matrix"
+                            : activeItem === "ppe"
+                              ? "PPE Register"
+                              : activeItem === "risk-assessments"
+                                ? "Risk Assessments"
+                                : activeItem === "incidents-main"
+                                  ? "Incidents"
+                                  : activeItem === "ncr"
+                                    ? "NCR"
+                                    : activeItem === "injuries"
+                                      ? "Injuries"
+                                      : activeItem === "medicals"
+                                        ? "Medical Surveillance"
+                                        : activeItem === "analytics"
+                                          ? "Reports & Analytics"
+                                          : activeItem === "system-audit-log"
+                                            ? "System Audit Log"
+                                            : activeItem === "system-settings"
+                                              ? "System Settings"
+                                              : activeItem
+                                                  .charAt(0)
+                                                  .toUpperCase() +
+                                                activeItem
+                                                  .slice(1)
+                                                  .replace("-", " ")}
             </h2>
           </div>
 
@@ -687,9 +707,15 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
           {activeItem === "dashboard" ? (
             <Dashboard />
           ) : activeItem === "company-sites" ? (
-            <CompanySites />
+            user?.role === "client" ? (
+              <MySites />
+            ) : (
+              <CompanySites />
+            )
           ) : activeItem === "workforce" ? (
             <Workforce />
+          ) : activeItem === "inspectors" ? (
+            <InspectorsPage />
           ) : activeItem === "appointments" ? (
             <Appointments />
           ) : activeItem === "legal-appointments" ? (
@@ -714,6 +740,8 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
             <ReportsAnalytics />
           ) : activeItem === "system-audit-log" ? (
             <SystemAuditLog />
+          ) : activeItem === "security-privacy" ? (
+            <SecurityPrivacy />
           ) : activeItem === "recycle-bin" ? (
             <RecycleBin />
           ) : activeItem === "system-settings" ? (
