@@ -16,14 +16,6 @@ import { useRecycleBin } from "@/app/contexts/recycle-bin-context";
 import { Employee } from "@/app/types";
 import { useSiteFilter } from "@/app/contexts/site-filter-context";
 
-const sites = [
-  "All Sites",
-  "Johannesburg Main",
-  "Cape Town Depot",
-  "Durban Operations",
-  "Pretoria Branch",
-];
-
 const statuses = [
   { value: "all", label: "All Statuses" },
   { value: "compliant", label: "Compliant" },
@@ -32,6 +24,7 @@ const statuses = [
 ];
 
 export function Workforce() {
+  const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
   const { colors } = useTheme();
   const { selectedSite } = useSiteFilter();
   // const [selectedSite, setSelectedSite] = useState("All Sites");
@@ -56,7 +49,7 @@ export function Workforce() {
 
   const fetchEmployees = async () => {
     try {
-      const response = await fetch("http://localhost:3000/employees");
+      const response = await fetch(`${API_URL}/employees`);
 
       if (!response.ok) {
         throw new Error("Failed to fetch employees");
@@ -122,7 +115,7 @@ export function Workforce() {
 
   const handleSaveEmployee = async () => {
     try {
-      const response = await fetch("http://localhost:3000/employees", {
+      const response = await fetch(`${API_URL}/employees`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -182,7 +175,7 @@ export function Workforce() {
     setIsActioning(true);
     try {
       const response = await fetch(
-        `http://localhost:3000/employees/${employee.id}/deactivate`,
+        `${API_URL}/employees/${employee.id}/deactivate`,
         { method: "PATCH", headers: { "Content-Type": "application/json" } },
       );
       if (!response.ok) throw new Error("Failed");
@@ -204,10 +197,9 @@ export function Workforce() {
   const handleDelete = async (employee: any) => {
     setIsActioning(true);
     try {
-      const response = await fetch(
-        `http://localhost:3000/employees/${employee.id}`,
-        { method: "DELETE" },
-      );
+      const response = await fetch(`${API_URL}/employees/${employee.id}`, {
+        method: "DELETE",
+      });
       if (!response.ok) throw new Error("Failed");
 
       // Move to recycle bin BEFORE removing from list
@@ -1094,14 +1086,14 @@ export function Workforce() {
                     />
 
                     <input
-    value={newEmployee.siteLocation}
-    readOnly
-    className={inputClass}
-    style={{
-        ...inputStyle,
-        opacity: 0.8,
-    }}
-/>
+                      value={newEmployee.siteLocation}
+                      readOnly
+                      className={inputClass}
+                      style={{
+                        ...inputStyle,
+                        opacity: 0.8,
+                      }}
+                    />
 
                     <input
                       type="text"
