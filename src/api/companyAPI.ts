@@ -1,5 +1,6 @@
 // companyAPI.ts
-const API_URL = "http://localhost:3000";
+const API_URL =
+  import.meta.env.VITE_API_URL || "http://localhost:3000";
 
 function authHeaders() {
   const stored = localStorage.getItem("sherq_auth");
@@ -17,7 +18,9 @@ export async function getCompanies() {
 }
 
 export async function getMyCompany() {
-  const res = await fetch(`${API_URL}/companies/me`, { headers: authHeaders() });
+  const res = await fetch(`${API_URL}/companies/me`, {
+    headers: authHeaders(),
+  });
   if (!res.ok) throw new Error("Failed to load your company");
   return res.json();
 }
