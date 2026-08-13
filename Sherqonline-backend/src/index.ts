@@ -57,5 +57,4 @@ app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
   console.log("=================================");
 });
-inspectCompaniesTable().catch(console.error);
-initializeDatabase().catch(console.error);
+// initializeDatabase().catch(console.error);

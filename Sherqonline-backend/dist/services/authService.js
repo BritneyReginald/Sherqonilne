@@ -42,6 +42,9 @@ const ALGORITHM = "aes-256-gcm";
 if (!ENCRYPTION_KEY) {
     throw new Error("CREDENTIAL_ENCRYPTION_KEY is not set in environment variables");
 }
+if (!/^[0-9a-fA-F]{64}$/.test(ENCRYPTION_KEY)) {
+    throw new Error("CREDENTIAL_ENCRYPTION_KEY must be exactly 64 hexadecimal characters");
+}
 function encryptPassword(plain) {
     const iv = crypto_1.default.randomBytes(12);
     const key = Buffer.from(ENCRYPTION_KEY, "hex");
