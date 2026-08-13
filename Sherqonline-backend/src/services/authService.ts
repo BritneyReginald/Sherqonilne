@@ -50,6 +50,12 @@ if (!ENCRYPTION_KEY) {
   );
 }
 
+if (!/^[0-9a-fA-F]{64}$/.test(ENCRYPTION_KEY)) {
+  throw new Error(
+    "CREDENTIAL_ENCRYPTION_KEY must be exactly 64 hexadecimal characters",
+  );
+}
+
 export function encryptPassword(plain: string): {
   encrypted: string;
   iv: string;
