@@ -1,16 +1,14 @@
-import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
-dotenv.config();
-import "./config/db";
+dotenv.config({ quiet: true });
+import pool from "./config/db";
+import express from "express";
 import employeeRoutes from "./routes/employeeRoutes";
 import { initializeDatabase } from "./config/initDatabase";
 import companyRoutes from "./routes/companies";
 import siteRoutes from "./routes/sites";
 import authRoutes from "./routes/auth";
 import adminRoutes from "./routes/admin";
-
-
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -40,6 +38,18 @@ app.use("/sites", siteRoutes);
 app.use("/auth", authRoutes);
 app.use("/admin", adminRoutes);
 
+async function inspectCompaniesTable() {
+  const result = await pool.query(`
+    SELECT column_name, data_type
+    FROM information_schema.columns
+    WHERE table_name = 'companies'
+    ORDER BY ordinal_position
+  `);
+
+  console.log("COMPANIES TABLE COLUMNS:", result.rows);
+}
+
+inspectCompaniesTable().catch(console.error);
 
 app.listen(PORT, () => {
   console.log("=================================");
@@ -47,5 +57,5 @@ app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
   console.log("=================================");
 });
-
+inspectCompaniesTable().catch(console.error);
 initializeDatabase().catch(console.error);
