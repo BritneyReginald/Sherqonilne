@@ -1,7 +1,6 @@
 import cors from "cors";
 import dotenv from "dotenv";
 dotenv.config({ quiet: true });
-import pool from "./config/db";
 import express from "express";
 import employeeRoutes from "./routes/employeeRoutes";
 import { initializeDatabase } from "./config/initDatabase";
@@ -38,23 +37,22 @@ app.use("/sites", siteRoutes);
 app.use("/auth", authRoutes);
 app.use("/admin", adminRoutes);
 
-async function inspectCompaniesTable() {
-  const result = await pool.query(`
-    SELECT column_name, data_type
-    FROM information_schema.columns
-    WHERE table_name = 'companies'
-    ORDER BY ordinal_position
-  `);
+async function startServer() {
+  try {
+    await initializeDatabase();
 
-  console.log("COMPANIES TABLE COLUMNS:", result.rows);
+    app.listen(PORT, () => {
+      console.log("=================================");
+      console.log("🚀 NEW VERSION DEPLOYED");
+      console.log(`Server running on port ${PORT}`);
+      console.log("=================================");
+    });
+  } catch (error) {
+    console.error("❌ Failed to initialize database");
+    console.error(error);
+    process.exit(1);
+  }
 }
 
-inspectCompaniesTable().catch(console.error);
+startServer();
 
-app.listen(PORT, () => {
-  console.log("=================================");
-  console.log("🚀 NEW VERSION DEPLOYED");
-  console.log(`Server running on port ${PORT}`);
-  console.log("=================================");
-});
-// initializeDatabase().catch(console.error);
