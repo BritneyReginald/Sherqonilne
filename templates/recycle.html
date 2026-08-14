@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Recycle Bin | REGINALD SHERQ SERVICES</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        body { background-color: #f4f6f9; font-family: Arial, sans-serif; }
+        .header-box { background-color: #1a365d; color: white; padding: 25px; border-bottom: 4px solid #99cc33; text-align: center; }
+    </style>
+</head>
+<body>
+
+    <div class="header-box">
+        <h4>REGINALD<span style="color: #99cc33;">SHERQ</span><span style="color: white;">SERVICES</span></h4>
+        <small>RECYCLE BIN (30-DAY RETENTION)</small>
+    </div>
+
+    <div class="container py-5">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <a href="{{ url_for('admin_dashboard') }}" class="btn btn-secondary">
+                <i class="fas fa-arrow-left"></i> Back to Dashboard
+            </a>
+            <span class="text-muted"><i class="fas fa-info-circle"></i> Items are permanently deleted after 30 days.</span>
+        </div>
+
+        <!-- Flash Messages -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ category }} text-center" role="alert">
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <div class="card shadow-sm p-4">
+            <h5 class="mb-3 text-danger"><i class="fas fa-trash-alt"></i> Deleted Records</h5>
+            
+            {% if trashed %}
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Report ID / Status</th>
+                                <th>QR ID</th>
+                                <th>Deleted Date</th>
+                                <th class="text-end">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for report in trashed %}
+                            <tr>
+                                <td><strong>#{{ report.id }}</strong> - {{ report.report_status }}</td>
+                                <td><span class="fw-bold" style="color: #1a365d;">{{ report.qr_code_id }}</span></td>
+                                <td>{{ report.deleted_at }}</td>
+                                <td class="text-end">
+                                    <!-- View Report Button using standard view_report route -->
+                                    <a href="{{ url_for('view_report', report_id=report.id) }}" class="btn btn-sm btn-primary" title="View Report Details">
+                                        <i class="fas fa-eye"></i> View
+                                    </a>
+
+                                    <!-- Restore Button -->
+                                    <form action="{{ url_for('restore_inspection', report_id=report.id) }}" method="POST" class="d-inline">
+                                        <button type="submit" class="btn btn-sm btn-success" title="Restore Record">
+                                            <i class="fas fa-undo"></i> Restore
+                                        </button>
+                                    </form>
+
+                                    <!-- Permanent Delete Button -->
+                                    <form action="{{ url_for('delete_permanent', report_id=report.id) }}" method="POST" class="d-inline" onsubmit="return confirm('Are you sure you want to permanently delete this record?');">
+                                        <button type="submit" class="btn btn-sm btn-danger" title="Delete Permanently">
+                                            <i class="fas fa-times"></i> Delete
+                                        </button>
+                                    </form>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <div class="text-center py-5 text-muted">
+                    <i class="fas fa-check-circle fa-3x mb-3 text-success"></i>
+                    <p>Your recycle bin is completely empty.</p>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+</body>
+</html>
