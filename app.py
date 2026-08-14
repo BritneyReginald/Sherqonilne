@@ -2,23 +2,26 @@ from flask import Flask, render_template, request, redirect, url_for, session, f
 from flask_sqlalchemy import SQLAlchemy
 from flask_mail import Mail, Message
 from datetime import date, timedelta
+from datetime import datetime, timedelta
 import json
 import os
 import io
 from fpdf import FPDF  # Pure Python PDF generation - works perfectly on Python 3.14
 from werkzeug.utils import secure_filename
+from werkzeug.security import check_password_hash
 
 app = Flask(__name__)
 
 # --- AUTO-LOGIN BYPASS ---
-@app.before_request
-def bypass_login():
-    session['admin_logged_in'] = True
+#@app.before_request
+#def bypass_login():
+#   @ session['admin_logged_in'] = True
 
 @app.route('/', methods=['GET'])
 def home():
     return render_template('scan_landing.html')
 app.secret_key = 'reginald_sherq_secret_key_2026'
+app.config['SESSION_PERMANENT'] = False
 
 # --- EMAIL CONFIGURATION ---
 app.config['MAIL_SERVER'] = 'smtp.gmail.com'
@@ -586,16 +589,23 @@ def recycle_bin():
     if not session.get('admin_logged_in'): 
         return redirect(url_for('login'))
     
-    # 1. Cleanup: Permanently delete anything > 30 days old
-    threshold = date.today() - timedelta(days=30)
-    old_items = InspectionReport.query.filter(InspectionReport.deleted_at < threshold).all()
+    # 1. Cleanup: Permanently delete anything > 30 days old (using current date)
+    threshold = datetime.utcnow().date() - timedelta(days=30)
+    
+    # Ensure we only check items that actually have a deletion date
+    old_items = InspectionReport.query.filter(
+        InspectionReport.deleted_at.isnot(None), 
+        InspectionReport.deleted_at < threshold
+    ).all()
+    
     for item in old_items:
         db.session.delete(item)
     db.session.commit()
 
     # 2. Display items that are in the bin
     trashed = InspectionReport.query.filter(InspectionReport.deleted_at.isnot(None)).all()
-    return render_template('recycle_bin.html', trashed=trashed)
+    
+    return render_template('recycle.html', trashed=trashed)
 
 @app.route('/restore_item/<int:report_id>', methods=['POST'])
 def restore_item(report_id):
@@ -607,7 +617,79 @@ def restore_item(report_id):
     flash("Report restored successfully!", "success")
     return redirect(url_for('recycle_bin'))
 
+@app.route('/choose-method/<category>')
+def choose_method(category):
+    # Renders a page giving them a choice between scanning or choosing manually
+    return render_template('choose_method.html', category=category)
 
+@app.route('/manual-select/<category>')
+def manual_select(category):
+    # Formats 'fire_extinguisher' into 'Fire Extinguisher'
+    formatted_category = category.replace('_', ' ').title()
+    
+    equipment_list = []
+    
+    # Query the correct database model based on the chosen category
+    if formatted_category == 'Fire Extinguisher':
+        raw_items = Extinguisher.query.all()
+        for item in raw_items:
+            equipment_list.append({
+                "id": item.id_extinguishers,  # Note: Extinguisher uses id_extinguishers as primary key
+                "equipment_number": item.qr_code_id,
+                "location": item.authorized_location
+            })
+            
+    elif formatted_category == 'Fire Hose Reel':
+        raw_items = HoseReel.query.all()
+        for item in raw_items:
+            equipment_list.append({
+                "id": item.id,
+                "equipment_number": item.qr_code_id,
+                "location": item.authorized_location
+            })
+            
+    elif formatted_category == 'Fire Hydrant':
+        raw_items = Hydrant.query.all()
+        for item in raw_items:
+            equipment_list.append({
+                "id": item.id,
+                "equipment_number": item.qr_code_id,
+                "location": item.authorized_location
+            })
+    
+    return render_template('manual_select.html', category=formatted_category, equipment_list=equipment_list)
+
+from flask import render_template, request, redirect, url_for, session, flash
+from werkzeug.security import check_password_hash
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        # Get the input from your HTML form (e.g. name="username" or name="email")
+        login_input = request.form.get('username')
+        password_input = request.form.get('password')
+        
+        # Query using Resego's exact 'Email' column name in the User model
+        # (If your User model attribute is uppercase `Email`, use User.Email)
+        user = User.query.filter_by(Email=login_input).first()
+        
+        # Verify the password against her hashed password column
+        if user and check_password_hash(user.password_hash, password_input):
+            session['admin_logged_in'] = True
+            session['username'] = user.Email
+            flash("Logged in successfully!", "success")
+            return redirect(url_for('admin_dashboard'))
+        else:
+            flash("Invalid email or password.", "danger")
+            
+    return render_template('login.html')
+
+@app.route('/logout')
+def logout():
+    session.pop('admin_logged_in', None)
+    session.pop('username', None)
+    flash("You have been logged out.", "info")
+    return redirect(url_for('login'))
 
 if __name__ == '__main__':
     with app.app_context():

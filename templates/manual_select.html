@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manual Selection | REGINALDSHERQSERVICES</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        body { background-color: #f4f6f9; font-family: Arial, sans-serif; }
+        .header-box { background-color: #1a365d; color: white; padding: 30px; border-bottom: 4px solid #99cc33; }
+        .item-card { background: white; border-radius: 10px; padding: 15px; margin-bottom: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+    </style>
+</head>
+<body>
+    <div class="header-box text-center">
+        <h4>REGINALD<span style="color: #99cc33;">SHERQSERVICES</span></h4>
+        <small>MANUAL SELECTION</small>
+    </div>
+
+    <div class="container py-4">
+        <h4 class="mb-3 text-center">Select {{ category }}</h4>
+        <p class="text-center text-muted mb-4">Choose the specific equipment number below:</p>
+
+        <div class="col-md-8 mx-auto">
+            {% for item in equipment_list %}
+            <div class="item-card d-flex justify-content-between align-items-center">
+                <div>
+                    <!-- Displays the specific equipment number -->
+                    <h5 class="mb-1 text-dark">Equipment #: {{ item.equipment_number }}</h5>
+                    <!-- Displays its location -->
+                    <small class="text-muted"><i class="fas fa-map-marker-alt text-danger"></i> Location: {{ item.location }}</small>
+                </div>
+                <!-- Takes user straight to that equipment's details page -->
+                <a href="{{ url_for('details', qr_code_id=item.equipment_number) }}" class="btn btn-sm btn-primary px-4"></a>
+                    Inspect &rarr;
+                </a>
+            </div>
+            {% else %}
+            <div class="text-center py-5">
+                <p class="text-muted">No {{ category.lower() }} items found.</p>
+            </div>
+            {% endfor %}
+        </div>
+
+        <div class="text-center mt-4">
+            <a href="{{ url_for('scan_landing') }}" class="text-decoration-none text-muted">&larr; Back to Categories</a>
+        </div>
+    </div>
+</body>
+</html>
