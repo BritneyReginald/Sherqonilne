@@ -8,6 +8,7 @@ import os
 import io
 from fpdf import FPDF  # Pure Python PDF generation - works perfectly on Python 3.14
 from werkzeug.utils import secure_filename
+from werkzeug.security import check_password_hash
 
 app = Flask(__name__)
 
