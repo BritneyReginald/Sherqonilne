@@ -36,8 +36,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: web-dist
-          path: release.zip
-          retention-days: 1
+          path: dist
 
   deploy:
     runs-on: ubuntu-latest

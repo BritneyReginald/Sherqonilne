@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login | REGINALD SHERQ SERVICES</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        body { background-color: #f4f6f9; font-family: Arial, sans-serif; }
+        .header-box { background-color: #1a365d; color: white; padding: 30px; border-bottom: 4px solid #99cc33; text-align: center; }
+        .btn-custom { 
+            background-color: #1a365d; 
+            color: white; 
+            font-weight: bold; 
+            padding: 15px; 
+            border-radius: 12px; 
+            border: none;
+            transition: 0.2s;
+            width: 100%;
+        }
+        .btn-custom:hover { background-color: #2d5a94; color: white; }
+        .login-card {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+        }
+    </style>
+</head>
+<body>
+
+    <div class="header-box">
+        <h4>REGINALD<span style="color: #99cc33;">SHERQ</span><span style="color: white;">SERVICES</span></h4>
+        <small>PORTAL LOGIN</small>
+    </div>
+
+    <div class="container py-5">
+        <div class="col-md-6 mx-auto">
+            <div class="login-card">
+                <h5 class="text-center mb-4" style="color: #1a365d; font-weight: bold;">
+                    <i class="fas fa-lock"></i> Please Sign In
+                </h5>
+
+                <!-- Optional Flash Error Messages display -->
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                    {% if messages %}
+                        {% for category, message in messages %}
+                            <div class="alert alert-danger text-center" role="alert">
+                                {{ message }}
+                            </div>
+                        {% endfor %}
+                    {% endif %}
+                {% endwith %}
+
+                <form action="{{ url_for('login') }}" method="POST">
+                    <div class="mb-3">
+                        <label for="username" class="form-label text-muted fw-bold"> Username</label>
+                        <div class="input-group">
+                            <span class="input-group-text bg-light"><i class="fas fa-user text-muted"></i></span>
+                            <input type="text" class="form-control" id="username" name="username" required placeholder="Enter your username">
+                        </div>
+                    </div>
+
+                    <div class="mb-4">
+                        <label for="password" class="form-label text-muted fw-bold">Password</label>
+                        <div class="input-group">
+                            <span class="input-group-text bg-light"><i class="fas fa-lock text-muted"></i></span>
+                            <input type="password" class="form-control" id="password" name="password" required placeholder="Enter your password">
+                            <!-- Toggle Password Eye Button -->
+                            <button class="btn btn-light border" type="button" id="togglePasswordBtn" onclick="togglePassword()">
+                                <i class="fas fa-eye" id="eyeIcon"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn btn-custom mb-3">
+                        <i class="fas fa-sign-in-alt"></i> Login
+                    </button>
+                </form>
+
+                <div class="text-center mt-3">
+                    <a href="https://ohs-online-web-hsc0c5a6f2d2ghg8.southafricanorth-01.azurewebsites.net/" style="text-decoration: none; color: #1a365d; font-size: 14px; font-weight: bold;">
+                        &larr; Back to SHERQ Online Dashboard
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- JavaScript to handle showing/hiding password -->
+    <script>
+        function togglePassword() {
+            const passwordInput = document.getElementById('password');
+            const eyeIcon = document.getElementById('eyeIcon');
+            
+            if (passwordInput.type === 'password') {
+                passwordInput.type = 'text';
+                eyeIcon.classList.remove('fa-eye');
+                eyeIcon.classList.add('fa-eye-slash');
+            } else {
+                passwordInput.type = 'password';
+                eyeIcon.classList.remove('fa-eye-slash');
+                eyeIcon.classList.add('fa-eye');
+            }
+        }
+    </script>
+
+</body>
+</html>
