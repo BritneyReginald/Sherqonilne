@@ -65,6 +65,8 @@ const sites = [
   "Pretoria Branch",
 ];
 
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
+
 export function EmployeeProfile({
   employee,
   onBack,
@@ -130,14 +132,11 @@ export function EmployeeProfile({
     setIsSaving(true);
     setSaveError(null);
     try {
-      const response = await fetch(
-        `http://localhost:3000/employees/${localEmployee.id}`,
-        {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(editForm),
-        },
-      );
+      const response = await fetch(`${API_URL}/employees/${localEmployee.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(editForm),
+      });
 
       if (!response.ok) {
         const err = await response.json();
@@ -194,7 +193,7 @@ export function EmployeeProfile({
     setActionError(null);
     try {
       const response = await fetch(
-        `http://localhost:3000/employees/${localEmployee.id}/deactivate`,
+        `${API_URL}/employees/${localEmployee.id}/deactivate`,
         { method: "PATCH", headers: { "Content-Type": "application/json" } },
       );
       if (!response.ok) throw new Error("Deactivation failed");
@@ -211,33 +210,33 @@ export function EmployeeProfile({
   };
 
   const handleDelete = async () => {
-  setIsActioning(true);
-  setActionError(null);
-  try {
-    const response = await fetch(
-      `http://localhost:3000/employees/${localEmployee.id}`,
-      { method: "DELETE" }
-    );
-    if (!response.ok) throw new Error("Delete failed");
+    setIsActioning(true);
+    setActionError(null);
+    try {
+      const response = await fetch(
+        `${API_URL}/employees/${localEmployee.id}`,
+        { method: "DELETE" },
+      );
+      if (!response.ok) throw new Error("Delete failed");
 
-    moveToRecycleBin({
-      id: localEmployee.id,
-      name: localEmployee.fullName,
-      type: "Employee",
-      data: localEmployee,
-      deletedAt: new Date().toISOString(),
-    });
+      moveToRecycleBin({
+        id: localEmployee.id,
+        name: localEmployee.fullName,
+        type: "Employee",
+        data: localEmployee,
+        deletedAt: new Date().toISOString(),
+      });
 
-    // Remove from parent list and navigate back
-    onEmployeeUpdate?.({ ...localEmployee, _deleted: true });
-    setConfirmModal(null);
-    onBack();
-  } catch (err: any) {
-    setActionError(err.message);
-  } finally {
-    setIsActioning(false);
-  }
-};
+      // Remove from parent list and navigate back
+      onEmployeeUpdate?.({ ...localEmployee, _deleted: true });
+      setConfirmModal(null);
+      onBack();
+    } catch (err: any) {
+      setActionError(err.message);
+    } finally {
+      setIsActioning(false);
+    }
+  };
   const inputClass =
     "w-full px-3 py-2 rounded-lg border text-sm outline-none transition-all";
   const inputStyle = {

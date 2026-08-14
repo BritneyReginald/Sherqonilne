@@ -1,11 +1,13 @@
-import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
-import "./config/db";
+dotenv.config({ quiet: true });
+import express from "express";
 import employeeRoutes from "./routes/employeeRoutes";
 import { initializeDatabase } from "./config/initDatabase";
-
-dotenv.config();
+import companyRoutes from "./routes/companies";
+import siteRoutes from "./routes/sites";
+import authRoutes from "./routes/auth";
+import adminRoutes from "./routes/admin";
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -30,11 +32,27 @@ app.get("/", (_, res) => {
 // Register routes
 app.use("/employees", employeeRoutes);
 
-app.listen(PORT, () => {
-  console.log("=================================");
-  console.log("🚀 NEW VERSION DEPLOYED");
-  console.log(`Server running on port ${PORT}`);
-  console.log("=================================");
-});
+app.use("/companies", companyRoutes);
+app.use("/sites", siteRoutes);
+app.use("/auth", authRoutes);
+app.use("/admin", adminRoutes);
 
-initializeDatabase().catch(console.error);
+async function startServer() {
+  try {
+    await initializeDatabase();
+
+    app.listen(PORT, () => {
+      console.log("=================================");
+      console.log("🚀 NEW VERSION DEPLOYED");
+      console.log(`Server running on port ${PORT}`);
+      console.log("=================================");
+    });
+  } catch (error) {
+    console.error("❌ Failed to initialize database");
+    console.error(error);
+    process.exit(1);
+  }
+}
+
+startServer();
+
