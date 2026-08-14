@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   LayoutDashboard,
   Building2,
@@ -33,7 +33,7 @@ import { ReportsAnalytics } from "@/app/components/reports-analytics";
 import { SystemAuditLog } from "@/app/components/system-audit-log";
 import { GlobalSearch } from "@/app/components/global-search";
 import { SystemSettings } from "@/app/components/system-settings";
-import { CompanySites } from "@/app/components/company-sites";
+import { CompanySites } from "@/app/components/Company&site/company-sites";
 import { Appointments } from "@/app/components/appointments";
 import { LegalAppointments } from "@/app/components/legal-appointments";
 import { useAlerts } from "@/app/contexts/alert-context";
@@ -44,8 +44,12 @@ import { RiskAssessmentBeforeControls } from "@/app/components/risk-assessment-b
 import { RiskAssessmentAfterControls } from "@/app/components/risk-assessment-after-controls";
 import { RiskAssessmentSummary } from "@/app/components/risk-assessment-summary";
 import Incidents from "@/app/components/incidents/incidents";
-import { useMockAuth } from "../contexts/mock-auth-context";
+import { useAuth, Role } from "@/app/contexts/auth-context";
 import { RecycleBin } from "@/app/components/recycle-bin";
+import { getMyCompany } from "@/api/companyAPI";
+import { MySites } from "@/app/components/my-sites";
+import { InspectorsPage } from "../pages/inspectors";
+import { SecurityPrivacy } from "@/app/pages/security-privacy";
 
 interface NavigationItem {
   id: string;
@@ -104,6 +108,11 @@ const navigationItems: NavigationItem[] = [
     ],
   },
   {
+    id: "inspectors",
+    label: "Inspectors",
+    icon: <ShieldCheck className="size-4" />,
+  },
+  {
     id: "fire-equipment",
     label: "Fire Equipment",
     icon: <Flame className="size-5" />,
@@ -148,6 +157,11 @@ const navigationItems: NavigationItem[] = [
     icon: <Settings className="size-5" />,
     children: [
       {
+        id: "security-privacy",
+        label: "Security & Privacy",
+        icon: <Shield className="size-4" />,
+      },
+      {
         id: "system-settings",
         label: "System Settings",
         icon: <Settings className="size-4" />,
@@ -169,11 +183,54 @@ const bottomNavigationItems: NavigationItem[] = [
   },
 ];
 
+const CLIENT_ALLOWED_IDS = new Set([
+  "dashboard",
+  "company-sites",
+  "workforce",
+  "compliance",
+  "appointments",
+  "legal-appointments",
+  "training",
+  "medicals",
+  "ppe",
+  "fire-equipment",
+  "risk-assessments",
+  "incidents",
+  "document-library",
+]);
+
+function filterNavForRole(
+  items: NavigationItem[],
+  role: Role,
+): NavigationItem[] {
+  if (role === "rss_staff") return items;
+
+  return items
+    .filter((item) => CLIENT_ALLOWED_IDS.has(item.id))
+    .map((item) => {
+      const relabeled =
+        item.id === "company-sites" ? { ...item, label: "My Sites" } : item;
+
+      return relabeled.children
+        ? {
+            ...relabeled,
+            children: relabeled.children.filter((child) =>
+              CLIENT_ALLOWED_IDS.has(child.id),
+            ),
+          }
+        : relabeled;
+    });
+}
+
 export function AppShell({ children }: { children?: React.ReactNode }) {
   const { dismissedAlerts } = useAlerts();
   const { theme, colors, brandPrimaryBg, getNavTextColor } = useTheme();
-  const { user, switchUser } = useMockAuth();
+  const { user, logout } = useAuth();
   const [activeItem, setActiveItem] = useState("dashboard");
+  const [clientCompany, setClientCompany] = useState<{
+    name: string;
+    logo?: string;
+  } | null>(null);
   const [expandedItems, setExpandedItems] = useState<string[]>([
     "compliance",
     "reports",
@@ -184,6 +241,9 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
   const [showSearchResults, setShowSearchResults] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [showAlertHistory, setShowAlertHistory] = useState(false);
+  const visibleNavItems = filterNavForRole(navigationItems, user!.role);
+  const visibleBottomNavItems =
+    user!.role === "rss_staff" ? bottomNavigationItems : [];
 
   const toggleExpanded = (id: string) => {
     setExpandedItems((prev) =>
@@ -192,6 +252,16 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
   };
 
   const navTextColor = getNavTextColor();
+
+  useEffect(() => {
+    if (user?.role === "client") {
+      getMyCompany()
+        .then((company) =>
+          setClientCompany({ name: company.name, logo: company.logo }),
+        )
+        .catch((err) => console.error("Failed to load company:", err));
+    }
+  }, [user]);
 
   return (
     <div
@@ -209,8 +279,9 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
         }}
       >
         {/* Logo */}
+
         <div
-          className="h-16 px-6 flex items-center border-b"
+          className="h-16 px-6 flex items-center gap-3 border-b"
           style={{
             borderColor:
               colors.background === "#0F172A"
@@ -219,12 +290,40 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
             minWidth: "256px",
           }}
         >
-          <h1
-            className="text-xl font-bold"
-            style={{ color: "var(--brand-blue)" }}
-          >
-            SHERQ Online
-          </h1>
+          {user?.role === "client" && clientCompany ? (
+            <>
+              <div
+                className="size-9 rounded-lg overflow-hidden flex items-center justify-center flex-shrink-0"
+                style={{ backgroundColor: "var(--grey-100)" }}
+              >
+                {clientCompany.logo ? (
+                  <img
+                    src={clientCompany.logo}
+                    alt={clientCompany.name}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <Building2
+                    className="size-5"
+                    style={{ color: colors.subText }}
+                  />
+                )}
+              </div>
+              <h1
+                className="text-lg font-bold truncate"
+                style={{ color: "var(--brand-blue)" }}
+              >
+                {clientCompany.name}
+              </h1>
+            </>
+          ) : (
+            <h1
+              className="text-xl font-bold"
+              style={{ color: "var(--brand-blue)" }}
+            >
+              SHERQ Online
+            </h1>
+          )}
         </div>
 
         {/* Navigation Menu */}
@@ -233,7 +332,7 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
           style={{ minWidth: "256px" }}
         >
           <ul className="space-y-1 px-3">
-            {navigationItems.map((item) => (
+            {visibleNavItems.map((item) => (
               <NavItem
                 key={item.id}
                 item={item}
@@ -258,7 +357,7 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
           }}
         >
           <ul className="space-y-1">
-            {bottomNavigationItems.map((item) => (
+            {visibleBottomNavItems.map((item) => (
               <NavItem
                 key={item.id}
                 item={item}
@@ -273,6 +372,9 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
       </aside>
 
       {/* Main Content Area */}
+
+      {/** Company banner*/}
+
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Top Header */}
         <header
@@ -311,39 +413,43 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
               {activeItem === "dashboard"
                 ? "Dashboard"
                 : activeItem === "company-sites"
-                  ? "Company & Sites"
+                  ? user?.role === "client"
+                    ? "My Sites"
+                    : "Company & Sites"
                   : activeItem === "workforce"
                     ? "Workforce"
-                    : activeItem === "training"
-                      ? "Training"
-                      : activeItem === "document-library"
-                        ? "Document Library"
-                        : activeItem === "global-training-matrix"
-                          ? "Global Training Matrix"
-                          : activeItem === "ppe"
-                            ? "PPE Register"
-                            : activeItem === "risk-assessments"
-                              ? "Risk Assessments"
-                              : activeItem === "incidents-main"
-                                ? "Incidents"
-                                : activeItem === "ncr"
-                                  ? "NCR"
-                                  : activeItem === "injuries"
-                                    ? "Injuries"
-                                    : activeItem === "medicals"
-                                      ? "Medical Surveillance"
-                                      : activeItem === "analytics"
-                                        ? "Reports & Analytics"
-                                        : activeItem === "system-audit-log"
-                                          ? "System Audit Log"
-                                          : activeItem === "system-settings"
-                                            ? "System Settings"
-                                            : activeItem
-                                                .charAt(0)
-                                                .toUpperCase() +
-                                              activeItem
-                                                .slice(1)
-                                                .replace("-", " ")}
+                    : activeItem === "inspectors"
+                      ? "InspectorsPage"
+                      : activeItem === "training"
+                        ? "Training"
+                        : activeItem === "document-library"
+                          ? "Document Library"
+                          : activeItem === "global-training-matrix"
+                            ? "Global Training Matrix"
+                            : activeItem === "ppe"
+                              ? "PPE Register"
+                              : activeItem === "risk-assessments"
+                                ? "Risk Assessments"
+                                : activeItem === "incidents-main"
+                                  ? "Incidents"
+                                  : activeItem === "ncr"
+                                    ? "NCR"
+                                    : activeItem === "injuries"
+                                      ? "Injuries"
+                                      : activeItem === "medicals"
+                                        ? "Medical Surveillance"
+                                        : activeItem === "analytics"
+                                          ? "Reports & Analytics"
+                                          : activeItem === "system-audit-log"
+                                            ? "System Audit Log"
+                                            : activeItem === "system-settings"
+                                              ? "System Settings"
+                                              : activeItem
+                                                  .charAt(0)
+                                                  .toUpperCase() +
+                                                activeItem
+                                                  .slice(1)
+                                                  .replace("-", " ")}
             </h2>
           </div>
 
@@ -577,15 +683,18 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
                     <p className="font-medium">Admin User</p>
                     <p className="text-sm text-gray-500">admin@sherq.com</p>
 
-                    <select
-                      value={user.role}
-                      onChange={(e) => switchUser(e.target.value)}
-                      className="w-full text-sm px-2 py-1 border rounded"
-                    >
-                      <option value="employee">Employee</option>
-                      <option value="firstAider">First Aider</option>
-                      <option value="safetyOfficer">Safety Officer</option>
-                    </select>
+                    <div className="px-4 py-3 border-b space-y-2">
+                      <p className="font-medium">{user?.email}</p>
+                      <p className="text-sm text-gray-500 capitalize">
+                        {user?.role.replace("_", " ")}
+                      </p>
+                      <button
+                        onClick={logout}
+                        className="w-full text-sm px-2 py-1.5 rounded border text-left hover:bg-gray-50"
+                      >
+                        Log out
+                      </button>
+                    </div>
                   </div>
                 </div>
               )}
@@ -598,9 +707,15 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
           {activeItem === "dashboard" ? (
             <Dashboard />
           ) : activeItem === "company-sites" ? (
-            <CompanySites />
+            user?.role === "client" ? (
+              <MySites />
+            ) : (
+              <CompanySites />
+            )
           ) : activeItem === "workforce" ? (
             <Workforce />
+          ) : activeItem === "inspectors" ? (
+            <InspectorsPage />
           ) : activeItem === "appointments" ? (
             <Appointments />
           ) : activeItem === "legal-appointments" ? (
@@ -625,6 +740,8 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
             <ReportsAnalytics />
           ) : activeItem === "system-audit-log" ? (
             <SystemAuditLog />
+          ) : activeItem === "security-privacy" ? (
+            <SecurityPrivacy />
           ) : activeItem === "recycle-bin" ? (
             <RecycleBin />
           ) : activeItem === "system-settings" ? (

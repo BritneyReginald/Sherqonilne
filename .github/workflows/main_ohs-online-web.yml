@@ -18,18 +18,26 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: '24.x'
+          node-version: '22.x'
 
       - name: Install and build the frontend
+        env:
+            VITE_API_URL: https://ohs-online-api-b7arh7fdgphbc9e5.southafricanorth-01.azurewebsites.net
         run: |
           npm install
           npm run build
+      
+      - name: Zip the built site
+        run: zip -r ../release.zip .
+        working-directory: ./dist
+            
 
-      - name: Upload ONLY the built site (dist folder)
+      - name: Upload zipped build artifact
         uses: actions/upload-artifact@v4
         with:
           name: web-dist
-          path: dist
+          path: release.zip
+          retention-days: 1
 
   deploy:
     runs-on: ubuntu-latest
@@ -38,11 +46,11 @@ jobs:
       id-token: write
       contents: read
     steps:
-      - name: Download the built site
+      - name: Download the zipped  build artifact
         uses: actions/download-artifact@v4
         with:
           name: web-dist
-          path: dist
+          # path: dist
 
       - name: Login to Azure
         uses: azure/login@v2
@@ -57,4 +65,4 @@ jobs:
         with:
           app-name: 'ohs-online-web'
           slot-name: 'Production'
-          package: dist
+          package: release.zip

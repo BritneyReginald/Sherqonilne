@@ -14,14 +14,7 @@ import { EmployeeProfile } from "@/app/components/employee-profile";
 import { useTheme } from "@/app/contexts/theme-context";
 import { useRecycleBin } from "@/app/contexts/recycle-bin-context";
 import { Employee } from "@/app/types";
-
-const sites = [
-  "All Sites",
-  "Johannesburg Main",
-  "Cape Town Depot",
-  "Durban Operations",
-  "Pretoria Branch",
-];
+import { useSiteFilter } from "@/app/contexts/site-filter-context";
 
 const statuses = [
   { value: "all", label: "All Statuses" },
@@ -31,8 +24,10 @@ const statuses = [
 ];
 
 export function Workforce() {
+  const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
   const { colors } = useTheme();
-  const [selectedSite, setSelectedSite] = useState("All Sites");
+  const { selectedSite } = useSiteFilter();
+  // const [selectedSite, setSelectedSite] = useState("All Sites");
   const [selectedStatus, setSelectedStatus] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedEmployee, setSelectedEmployee] = useState<any | null>(null);
@@ -54,7 +49,7 @@ export function Workforce() {
 
   const fetchEmployees = async () => {
     try {
-      const response = await fetch("http://localhost:3000/employees");
+      const response = await fetch(`${API_URL}/employees`);
 
       if (!response.ok) {
         throw new Error("Failed to fetch employees");
@@ -106,7 +101,7 @@ export function Workforce() {
 
   const filteredEmployees = employeeList.filter((employee) => {
     const matchesSite =
-      selectedSite === "All Sites" || employee.siteLocation === selectedSite;
+      !selectedSite || employee.siteLocation === selectedSite.name;
     const matchesStatus =
       selectedStatus === "all" || employee.complianceStatus === selectedStatus;
     const matchesSearch =
@@ -120,7 +115,7 @@ export function Workforce() {
 
   const handleSaveEmployee = async () => {
     try {
-      const response = await fetch("http://localhost:3000/employees", {
+      const response = await fetch(`${API_URL}/employees`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -180,7 +175,7 @@ export function Workforce() {
     setIsActioning(true);
     try {
       const response = await fetch(
-        `http://localhost:3000/employees/${employee.id}/deactivate`,
+        `${API_URL}/employees/${employee.id}/deactivate`,
         { method: "PATCH", headers: { "Content-Type": "application/json" } },
       );
       if (!response.ok) throw new Error("Failed");
@@ -202,10 +197,9 @@ export function Workforce() {
   const handleDelete = async (employee: any) => {
     setIsActioning(true);
     try {
-      const response = await fetch(
-        `http://localhost:3000/employees/${employee.id}`,
-        { method: "DELETE" },
-      );
+      const response = await fetch(`${API_URL}/employees/${employee.id}`, {
+        method: "DELETE",
+      });
       if (!response.ok) throw new Error("Failed");
 
       // Move to recycle bin BEFORE removing from list
@@ -259,7 +253,7 @@ export function Workforce() {
 
     // Employment Details
     jobTitle: "",
-    siteLocation: "Johannesburg Main",
+    siteLocation: selectedSite?.name ?? "",
     employmentType: "",
 
     // Timeline
@@ -342,22 +336,15 @@ export function Workforce() {
           {/* Filter Section */}
           <div className="flex items-center gap-3 mb-6">
             <Filter className="size-5" style={{ color: colors.subText }} />
-            <select
-              value={selectedSite}
-              onChange={(e) => setSelectedSite(e.target.value)}
-              className="px-4 py-2.5 rounded-lg text-sm appearance-none cursor-pointer"
+            <div
+              className="px-4 py-2.5 rounded-lg text-sm font-medium"
               style={{
                 backgroundColor: colors.surface,
                 color: colors.primaryText,
-                border: "none",
               }}
             >
-              {sites.map((site) => (
-                <option key={site} value={site}>
-                  {site}
-                </option>
-              ))}
-            </select>
+              Site: {selectedSite?.name ?? "All Sites"}
+            </div>
             <select
               value={selectedStatus}
               onChange={(e) => setSelectedStatus(e.target.value)}
@@ -423,7 +410,7 @@ export function Workforce() {
                 className="text-3xl font-bold"
                 style={{ color: colors.primaryText }}
               >
-                {employeeList.length}
+                {filteredEmployees.length}
               </p>
             </div>
             <div
@@ -690,7 +677,7 @@ export function Workforce() {
 
           {/* Results Count */}
           <div className="mt-4 text-sm" style={{ color: colors.subText }}>
-            Showing {filteredEmployees.length} of {employeeList.length}{" "}
+            Showing {filteredEmployees.length} of {filteredEmployees.length}{" "}
             employees
           </div>
         </div>
@@ -1098,23 +1085,15 @@ export function Workforce() {
                       style={inputStyle}
                     />
 
-                    <select
+                    <input
                       value={newEmployee.siteLocation}
-                      onChange={(e) =>
-                        setNewEmployee({
-                          ...newEmployee,
-                          siteLocation: e.target.value,
-                        })
-                      }
+                      readOnly
                       className={inputClass}
-                      style={inputStyle}
-                    >
-                      {sites
-                        .filter((site) => site !== "All Sites")
-                        .map((site) => (
-                          <option key={site}>{site}</option>
-                        ))}
-                    </select>
+                      style={{
+                        ...inputStyle,
+                        opacity: 0.8,
+                      }}
+                    />
 
                     <input
                       type="text"
