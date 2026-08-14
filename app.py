@@ -476,27 +476,7 @@ def delete_inspection(report_id):
     flash("Report moved to Recycle Bin.", "warning")
     return redirect(url_for('inspection_register'))
 
-@app.route('/login', methods=['GET', 'POST'])
-def login():
-    # Capture the 'next' URL parameter if it exists (e.g., /questionnaire/EQ-001)
-    next_url = request.args.get('next')
-    
-    if request.method == 'POST':
-        username = request.form.get('username')
-        password = request.form.get('password')
-        user = User.query.filter_by(username=username).first()
-        
-        if user and user.password_hash == password:
-            session['admin_logged_in'] = True
-            session['username'] = user.username
-            
-            # Redirect to the intended page (next_url) or fallback to dashboard
-            return redirect(next_url or url_for('admin_dashboard'))
-        else:
-            flash("Invalid username or password.", "danger")
-            return render_template('log_html.html')
-            
-    return render_template('log_html.html')
+     
 
 app.add_url_rule('/admin/employees', endpoint='employee_management', view_func=employee_management)
 app.add_url_rule('/admin/register', endpoint='register', view_func=register)
@@ -518,10 +498,6 @@ def login_dashboard():
             
     return render_template('log_dashboard.html') # A clean version for the home page
 
-@app.route('/logout')
-def logout():
-    session.pop('admin_logged_in', None)
-    return redirect(url_for('login'))
 
 @app.route('/scan/<string:qr_code_id>')
 def scan_asset(qr_code_id):
