@@ -1,3 +1,5 @@
+// routes/sites.ts
+
 import express from "express";
 import pool from "../config/db";
 import { authenticate, authorize } from "../middleware/authMiddleware";
@@ -5,10 +7,14 @@ import { authenticate, authorize } from "../middleware/authMiddleware";
 const router = express.Router();
 
 /*
+ * ============================================================
  * GET ALL SITES
+ * ============================================================
  *
- * RSS staff can see all sites that RSS is responsible for inspecting.
+ * RSS staff can see all sites they are responsible for
+ * inspecting.
  */
+
 router.get(
   "/",
   authenticate,
@@ -31,6 +37,7 @@ router.get(
       res.json(result.rows);
     } catch (err) {
       console.error("Get sites error:", err);
+
       res.status(500).json({
         error: "Failed to fetch sites",
       });
@@ -38,17 +45,15 @@ router.get(
   }
 );
 
+
 /*
+ * ============================================================
  * CREATE SITE
+ * ============================================================
  *
- * RSS staff creates/registers the client site.
- *
- * Example:
- *   name = "Secunda"
- *   email = "contact@example.com"
- *   contact_person = "John Doe"
- *   contact_number = "0123456789"
+ * RSS staff creates/registers the client inspection site.
  */
+
 router.post(
   "/",
   authenticate,
@@ -63,15 +68,9 @@ router.post(
         contact_number,
       } = req.body;
 
-      if (
-        !name ||
-        !email ||
-        !contact_person ||
-        !contact_number
-      ) {
+      if (!name) {
         return res.status(400).json({
-          error:
-            "Site name, email, contact person and contact number are required",
+          error: "Site name is required",
         });
       }
 
@@ -90,9 +89,9 @@ router.post(
         [
           name,
           logo ?? null,
-          email,
-          contact_person,
-          contact_number,
+          email ?? null,
+          contact_person ?? null,
+          contact_number ?? null,
         ]
       );
 
