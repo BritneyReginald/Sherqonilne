@@ -28,16 +28,14 @@ jobs:
           npm run build
       
       - name: Zip the built site
-        run: zip -r ../release.zip .
+        run: zip -r release.zip .
         working-directory: ./dist
             
-
       - name: Upload zipped build artifact
         uses: actions/upload-artifact@v4
         with:
           name: web-dist
-          path: release.zip
-          retention-days: 1
+          path: ./dist/release.zip
 
   deploy:
     runs-on: ubuntu-latest
@@ -50,7 +48,6 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: web-dist
-          # path: dist
 
       - name: Login to Azure
         uses: azure/login@v2

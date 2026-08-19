@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Select Method | Reginald SHERQ</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { background-color: #f4f6f9; font-family: Arial, sans-serif; }
+        .header-box { background-color: #1a365d; color: white; padding: 30px; border-bottom: 4px solid #99cc33; }
+        .choice-btn { background-color: #1a365d; color: white; padding: 20px; border-radius: 12px; font-weight: bold; }
+        .choice-btn:hover { background-color: #2d5a94; color: white; }
+    </style>
+</head>
+<body>
+    <div class="header-box text-center">
+        <h4>REGINALD<span style="color: #99cc33;">SHERQ</span></h4>
+        <small>INSPECTION METHOD</small>
+    </div>
+
+    <div class="container py-5 text-center">
+        <h3 class="mb-3">Choose Inspection Method</h3>
+        <p class="text-muted mb-4">Category: {{ category.replace('_', ' ').title() }}</p>
+
+        <div class="d-grid gap-3 col-md-6 mx-auto">
+            <!-- Option 1: Use camera scanner -->
+            <a href="{{ url_for('scan_landing') }}" class="btn choice-btn btn-lg">
+                <i class="fas fa-camera"></i> Scan QR Code (Camera)
+            </a>
+            
+            <!-- Option 2: Choose manually from Claremont list -->
+            <a href="#" class="btn btn-secondary btn-lg py-3">
+                <i class="fas fa-list"></i> Choose Manually from List
+            </a>
+        </div>
+        
+        <div class="mt-4">
+            <a href="{{ url_for('scan_landing') }}" class="text-decoration-none text-muted">&larr; Back to Categories</a>
+        </div>
+    </div>
+</body>
+</html>
