@@ -1,7 +1,11 @@
 // routes/companies.ts
 import express from "express";
 import pool from "../config/db"; // adjust path to match your project
-import { authenticate, authorize, scopeClient } from "../middleware/authMiddleware";
+import {
+  authenticate,
+  authorize,
+  scopeClient,
+} from "../middleware/authMiddleware";
 
 const router = express.Router();
 
@@ -28,19 +32,56 @@ router.get(
   scopeClient,
   async (req, res) => {
     try {
-      const result = await pool.query(
-        `SELECT * FROM companies WHERE id = $1`,
-        [req.user!.companyId]
-      );
+      const result = await pool.query(`SELECT * FROM companies WHERE id = $1`, [
+        req.user!.companyId,
+      ]);
       if (result.rows.length === 0) {
-        return res.status(404).json({ error: "No company linked to this account" });
+        return res
+          .status(404)
+          .json({ error: "No company linked to this account" });
       }
       res.json(result.rows[0]);
     } catch (err) {
       console.error("Get own company error:", err);
       res.status(500).json({ error: "Failed to fetch company" });
     }
-  }
+  },
 );
+
+router.post("/", authenticate, authorize("rss_staff"), async (req, res) => {
+  try {
+    const { name, email, logo, contactPerson, contactNumber } = req.body;
+
+    if (!name || !email || !contactPerson || !contactNumber) {
+      return res.status(400).json({
+        error:
+          "Client name, email, contact person and contact number are required",
+      });
+    }
+
+    const result = await pool.query(
+      `
+        INSERT INTO companies (
+          name,
+          email,
+          logo,
+          contact_person,
+          contact_number
+        )
+        VALUES ($1, $2, $3, $4, $5)
+        RETURNING *
+        `,
+      [name, email, logo || null, contactPerson, contactNumber],
+    );
+
+    res.status(201).json(result.rows[0]);
+  } catch (err) {
+    console.error("Create company error:", err);
+
+    res.status(500).json({
+      error: "Failed to create company",
+    });
+  }
+});
 
 export default router;

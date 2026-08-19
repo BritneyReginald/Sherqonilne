@@ -6,9 +6,9 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const cors_1 = __importDefault(require("cors"));
 const dotenv_1 = __importDefault(require("dotenv"));
 dotenv_1.default.config({ quiet: true });
-const db_1 = __importDefault(require("./config/db"));
 const express_1 = __importDefault(require("express"));
 const employeeRoutes_1 = __importDefault(require("./routes/employeeRoutes"));
+const initDatabase_1 = require("./config/initDatabase");
 const companies_1 = __importDefault(require("./routes/companies"));
 const sites_1 = __importDefault(require("./routes/sites"));
 const auth_1 = __importDefault(require("./routes/auth"));
@@ -35,20 +35,20 @@ app.use("/companies", companies_1.default);
 app.use("/sites", sites_1.default);
 app.use("/auth", auth_1.default);
 app.use("/admin", admin_1.default);
-async function inspectCompaniesTable() {
-    const result = await db_1.default.query(`
-    SELECT column_name, data_type
-    FROM information_schema.columns
-    WHERE table_name = 'companies'
-    ORDER BY ordinal_position
-  `);
-    console.log("COMPANIES TABLE COLUMNS:", result.rows);
+async function startServer() {
+    try {
+        await (0, initDatabase_1.initializeDatabase)();
+        app.listen(PORT, () => {
+            console.log("=================================");
+            console.log("🚀 NEW VERSION DEPLOYED");
+            console.log(`Server running on port ${PORT}`);
+            console.log("=================================");
+        });
+    }
+    catch (error) {
+        console.error("❌ Failed to initialize database");
+        console.error(error);
+        process.exit(1);
+    }
 }
-inspectCompaniesTable().catch(console.error);
-app.listen(PORT, () => {
-    console.log("=================================");
-    console.log("🚀 NEW VERSION DEPLOYED");
-    console.log(`Server running on port ${PORT}`);
-    console.log("=================================");
-});
-// initializeDatabase().catch(console.error);
+startServer();

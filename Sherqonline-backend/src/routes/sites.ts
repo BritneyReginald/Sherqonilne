@@ -1,62 +1,110 @@
-// routes/sites.ts
 import express from "express";
-import pool from "../config/db"; // adjust path to match your project
-import { authenticate, authorize, scopeClient } from "../middleware/authMiddleware";
+import pool from "../config/db";
+import { authenticate, authorize } from "../middleware/authMiddleware";
 
 const router = express.Router();
 
-// GET all sites — RSS staff only.
-router.get("/", authenticate, authorize("rss_staff"), async (req, res) => {
-  try {
-    const result = await pool.query(`SELECT * FROM sites ORDER BY name`);
-    res.json(result.rows);
-  } catch (err) {
-    console.error("Get sites error:", err);
-    res.status(500).json({ error: "Failed to fetch sites" });
-  }
-});
-
-// GET only the logged-in client's own sites (via their linked company).
+/*
+ * GET ALL SITES
+ *
+ * RSS staff can see all sites that RSS is responsible for inspecting.
+ */
 router.get(
-  "/me",
+  "/",
   authenticate,
-  authorize("client"),
-  scopeClient,
-  async (req, res) => {
+  authorize("rss_staff"),
+  async (_req, res) => {
     try {
-      const result = await pool.query(
-        `SELECT * FROM sites WHERE company_id = $1 ORDER BY name`,
-        [req.user!.companyId]
-      );
+      const result = await pool.query(`
+        SELECT
+          id,
+          name,
+          logo,
+          email,
+          contact_person,
+          contact_number,
+          created_at
+        FROM sites
+        ORDER BY name
+      `);
+
       res.json(result.rows);
     } catch (err) {
-      console.error("Get own sites error:", err);
-      res.status(500).json({ error: "Failed to fetch sites" });
+      console.error("Get sites error:", err);
+      res.status(500).json({
+        error: "Failed to fetch sites",
+      });
     }
   }
 );
 
-// POST create a new site — RSS staff only (RSS registers client sites,
-// clients don't create their own, per your earlier requirement).
-router.post("/", authenticate, authorize("rss_staff"), async (req, res) => {
-  try {
-    const { companyId, name, location } = req.body;
-    if (!companyId || !name) {
-      return res.status(400).json({ error: "companyId and name are required" });
+/*
+ * CREATE SITE
+ *
+ * RSS staff creates/registers the client site.
+ *
+ * Example:
+ *   name = "Secunda"
+ *   email = "contact@example.com"
+ *   contact_person = "John Doe"
+ *   contact_number = "0123456789"
+ */
+router.post(
+  "/",
+  authenticate,
+  authorize("rss_staff"),
+  async (req, res) => {
+    try {
+      const {
+        name,
+        logo,
+        email,
+        contact_person,
+        contact_number,
+      } = req.body;
+
+      if (
+        !name ||
+        !email ||
+        !contact_person ||
+        !contact_number
+      ) {
+        return res.status(400).json({
+          error:
+            "Site name, email, contact person and contact number are required",
+        });
+      }
+
+      const result = await pool.query(
+        `
+        INSERT INTO sites (
+          name,
+          logo,
+          email,
+          contact_person,
+          contact_number
+        )
+        VALUES ($1, $2, $3, $4, $5)
+        RETURNING *
+        `,
+        [
+          name,
+          logo ?? null,
+          email,
+          contact_person,
+          contact_number,
+        ]
+      );
+
+      res.status(201).json(result.rows[0]);
+    } catch (err) {
+      console.error("Create site error:", err);
+
+      res.status(500).json({
+        error: "Failed to create site",
+      });
     }
-
-    const result = await pool.query(
-      `INSERT INTO sites (company_id, name, location)
-       VALUES ($1, $2, $3)
-       RETURNING *`,
-      [companyId, name, location ?? null]
-    );
-
-    res.status(201).json(result.rows[0]);
-  } catch (err) {
-    console.error("Create site error:", err);
-    res.status(500).json({ error: "Failed to create site" });
   }
-});
+);
 
 export default router;

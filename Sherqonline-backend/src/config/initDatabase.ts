@@ -71,23 +71,60 @@ export async function initializeDatabase() {
      * ============================================================
      * SITES
      * ============================================================
+     *
+     * Sites are client locations that RSS is responsible for
+     * inspecting.
+     *
+     * A site is NOT a company.
+     *
+     * Example:
+     *   RSS = our company
+     *   Secunda = site/client location we inspect
      */
 
     await client.query(`
-      CREATE TABLE IF NOT EXISTS sites (
-        id SERIAL PRIMARY KEY,
-        company_id INTEGER NOT NULL
-          REFERENCES companies(id) ON DELETE CASCADE,
-        name VARCHAR(255) NOT NULL,
-        location VARCHAR(255),
-        workers_active INTEGER DEFAULT 0,
-        incidents_this_month INTEGER DEFAULT 0,
-        compliance_status VARCHAR(20) DEFAULT 'compliant',
-        has_manager BOOLEAN DEFAULT FALSE,
-        map_image TEXT,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      );
-    `);
+  CREATE TABLE IF NOT EXISTS sites (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    logo TEXT,
+    email VARCHAR(255),
+    contact_person VARCHAR(255),
+    contact_number VARCHAR(50)
+  );
+`);
+
+    /*
+     * ============================================================
+     * SITES MIGRATION
+     * ============================================================
+     *
+     * Remove the old company/site structure if it exists.
+     */
+
+    await client.query(`
+  ALTER TABLE sites
+    DROP COLUMN IF EXISTS company_id,
+    DROP COLUMN IF EXISTS location,
+    DROP COLUMN IF EXISTS workers_active,
+    DROP COLUMN IF EXISTS incidents_this_month,
+    DROP COLUMN IF EXISTS compliance_status,
+    DROP COLUMN IF EXISTS has_manager,
+    DROP COLUMN IF EXISTS map_image;
+`);
+
+    /*
+     * Add the new site/client fields to an existing Azure table.
+     */
+
+    await client.query(`
+  ALTER TABLE sites
+    ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    ADD COLUMN IF NOT EXISTS logo TEXT,
+    ADD COLUMN IF NOT EXISTS email VARCHAR(255),
+    ADD COLUMN IF NOT EXISTS contact_person VARCHAR(255),
+    ADD COLUMN IF NOT EXISTS contact_number VARCHAR(50);
+`);
 
     /*
      * ============================================================
@@ -111,14 +148,9 @@ export async function initializeDatabase() {
         AND table_name = 'users'
     `);
 
-    const existingUserColumns = usersColumns.rows.map(
-      (row) => row.column_name
-    );
+    const existingUserColumns = usersColumns.rows.map((row) => row.column_name);
 
-    if (
-      existingUserColumns.length > 0 &&
-      !existingUserColumns.includes("id")
-    ) {
+    if (existingUserColumns.length > 0 && !existingUserColumns.includes("id")) {
       await client.query(`DROP TABLE users CASCADE`);
     }
 

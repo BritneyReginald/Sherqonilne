@@ -10,11 +10,11 @@ import {
   Trash2,
   UserX,
 } from "lucide-react";
-import { EmployeeProfile } from "@/app/components/employee-profile";
-import { useTheme } from "@/app/contexts/theme-context";
-import { useRecycleBin } from "@/app/contexts/recycle-bin-context";
+import { EmployeeProfile } from "../components/employee-profile";
+import { useTheme } from "../contexts/theme-context";
+import { useRecycleBin } from "../contexts/recycle-bin-context";
 import { Employee } from "@/app/types";
-import { useSiteFilter } from "@/app/contexts/site-filter-context";
+import { useSiteFilter } from "../contexts/site-filter-context";
 
 const statuses = [
   { value: "all", label: "All Statuses" },

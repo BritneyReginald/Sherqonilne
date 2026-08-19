@@ -257,8 +257,11 @@ function generateInspectorPassword(
   employeeNumber: string,
   surname: string,
 ): string {
+  const cleanSurname = surname.trim();
+
   const capitalizedSurname =
-    surname.charAt(0).toUpperCase() + surname.slice(1).toLowerCase();
+    cleanSurname.charAt(0).toUpperCase() + cleanSurname.slice(1).toLowerCase();
+
   return `${employeeNumber}${capitalizedSurname}`;
 }
 

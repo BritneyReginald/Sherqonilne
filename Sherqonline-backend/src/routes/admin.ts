@@ -51,16 +51,29 @@ router.get(
       ORDER BY p.full_name
     `);
 
-      const inspectors = result.rows.map((row) => ({
-        id: row.id,
-        username: row.username,
-        employeeNumber: row.employee_number,
-        fullName: row.full_name,
-        surname: row.surname,
-        status: row.status,
-        sites: row.sites,
-        password: decryptPassword(row.password_encrypted, row.password_iv),
-      }));
+      const inspectors = result.rows.map((row) => {
+        let password: string | null = null;
+
+        try {
+          password = decryptPassword(row.password_encrypted, row.password_iv);
+        } catch (error) {
+          console.error(
+            `Could not decrypt password for inspector ${row.username}:`,
+            error,
+          );
+        }
+
+        return {
+          id: row.id,
+          username: row.username,
+          employeeNumber: row.employee_number,
+          fullName: row.full_name,
+          surname: row.surname,
+          status: row.status,
+          sites: row.sites,
+          password,
+        };
+      });
 
       res.json(inspectors);
     } catch (err) {
@@ -178,55 +191,55 @@ router.patch(
   },
 );
 
-router.delete(
-  "/inspectors/:id",
-  authenticate,
-  authorize("rss_staff"),
-  requireSuperAdmin,
-  async (req, res) => {
-    const client = await pool.connect();
+// router.delete(
+//   "/inspectors/:id",
+//   authenticate,
+//   authorize("rss_staff"),
+//   requireSuperAdmin,
+//   async (req, res) => {
+//     const client = await pool.connect();
 
-    try {
-      await client.query("BEGIN");
+//     try {
+//       await client.query("BEGIN");
 
-      const userId = req.params.id;
+//       const userId = req.params.id;
 
-      await client.query(
-        `DELETE FROM inspector_assignments
-         WHERE user_id = $1`,
-        [userId],
-      );
+//       await client.query(
+//         `DELETE FROM inspector_assignments
+//          WHERE user_id = $1`,
+//         [userId],
+//       );
 
-      await client.query(
-        `DELETE FROM inspector_profiles
-         WHERE user_id = $1`,
-        [userId],
-      );
+//       await client.query(
+//         `DELETE FROM inspector_profiles
+//          WHERE user_id = $1`,
+//         [userId],
+//       );
 
-      await client.query(
-        `DELETE FROM users
-         WHERE id = $1`,
-        [userId],
-      );
+//       await client.query(
+//         `DELETE FROM users
+//          WHERE id = $1`,
+//         [userId],
+//       );
 
-      await client.query("COMMIT");
+//       await client.query("COMMIT");
 
-      res.json({
-        message: "Inspector deleted successfully",
-      });
-    } catch (err) {
-      await client.query("ROLLBACK");
+//       res.json({
+//         message: "Inspector deleted successfully",
+//       });
+//     } catch (err) {
+//       await client.query("ROLLBACK");
 
-      console.error(err);
+//       console.error(err);
 
-      res.status(500).json({
-        error: "Failed to delete inspector",
-      });
-    } finally {
-      client.release();
-    }
-  },
-);
+//       res.status(500).json({
+//         error: "Failed to delete inspector",
+//       });
+//     } finally {
+//       client.release();
+//     }
+//   },
+// );
 
 router.delete(
   "/inspectors/:id",
