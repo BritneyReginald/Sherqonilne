@@ -4,7 +4,7 @@ import { useTheme } from "@/app/contexts/theme-context";
 import { useSiteFilter } from "@/app/contexts/site-filter-context";
 import { ImageWithFallback } from "@/app/components/figma/ImageWithFallback";
 import { toast } from "sonner";
-import { getMySites } from "@/api/siteAPI";
+import { getSites } from "@/api/siteAPI";
 
 interface Site {
   id: string;
@@ -30,7 +30,7 @@ export function MySites() {
 
   const loadSites = async () => {
     try {
-      const siteData = await getMySites();
+      const siteData = await getSites();
       setSites(
         siteData.map((site: any) => ({
           id: String(site.id),
