@@ -2,90 +2,118 @@ import pool from "../config/db";
 
 export interface Site {
   id?: number;
-  companyId: number;
   name: string;
-  location?: string;
-  workersActive?: number;
-  incidentsThisMonth?: number;
-  complianceStatus?: string;
-  hasManager?: boolean;
-  mapImage?: string;
+  logo?: string;
+  email?: string;
+  contactPerson?: string;
+  contactNumber?: string;
 }
+
+/*
+ * ============================================================
+ * CREATE SITE
+ * ============================================================
+ *
+ * A site represents the client/company in SHERQ Online.
+ *
+ * There is NO companyId.
+ */
 
 export const createSite = async (site: Site) => {
   const result = await pool.query(
     `
-    INSERT INTO sites
-    (
-      company_id,
+    INSERT INTO sites (
       name,
-      location,
-      workers_active,
-      incidents_this_month,
-      compliance_status,
-      has_manager,
-      map_image
+      logo,
+      email,
+      contact_person,
+      contact_number
     )
-    VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+    VALUES ($1, $2, $3, $4, $5)
     RETURNING *;
     `,
     [
-      site.companyId,
       site.name,
-      site.location,
-      site.workersActive ?? 0,
-      site.incidentsThisMonth ?? 0,
-      site.complianceStatus ?? "compliant",
-      site.hasManager ?? false,
-      site.mapImage,
-    ]
+      site.logo ?? null,
+      site.email ?? null,
+      site.contactPerson ?? null,
+      site.contactNumber ?? null,
+    ],
   );
 
   return result.rows[0];
 };
 
+/*
+ * ============================================================
+ * GET ALL SITES
+ * ============================================================
+ *
+ * RSS staff can see all client sites they are responsible
+ * for inspecting.
+ */
+
 export const getSites = async () => {
-  const result = await pool.query(`
+  const result = await pool.query(
+    `
     SELECT
-      s.*,
-      c.name AS company_name
-    FROM sites s
-    JOIN companies c
-      ON s.company_id = c.id
-    ORDER BY c.name, s.name;
-  `);
+      id,
+      name,
+      logo,
+      email,
+      contact_person,
+      contact_number,
+      created_at
+    FROM sites
+    ORDER BY name;
+    `,
+  );
 
   return result.rows;
 };
 
+/*
+ * ============================================================
+ * GET SITE BY ID
+ * ============================================================
+ */
 
 export const getSiteById = async (id: number) => {
   const result = await pool.query(
     `
-    SELECT *
+    SELECT
+      id,
+      name,
+      logo,
+      email,
+      contact_person,
+      contact_number,
+      created_at
     FROM sites
     WHERE id = $1;
     `,
-    [id]
+    [id],
   );
 
   return result.rows[0];
 };
 
+/*
+ * ============================================================
+ * UPDATE SITE
+ * ============================================================
+ */
+
 export const updateSite = async (
   id: number,
-  site: Partial<Site>
+  site: Partial<Site>,
 ) => {
-
-  const fieldMap: Record<string,string> = {
-    companyId: "company_id",
+  const fieldMap: Record<string, string> = {
     name: "name",
-    location: "location",
-    workersActive: "workers_active",
-    incidentsThisMonth: "incidents_this_month",
-    complianceStatus: "compliance_status",
-    hasManager: "has_manager",
-    mapImage: "map_image",
+    logo: "logo",
+    email: "email",
+    contactPerson: "contact_person",
+    contactNumber: "contact_number",
   };
 
   const updates: string[] = [];
@@ -114,11 +142,17 @@ export const updateSite = async (
     WHERE id = $${index}
     RETURNING *;
     `,
-    values
+    values,
   );
 
   return result.rows[0];
 };
+
+/*
+ * ============================================================
+ * DELETE SITE
+ * ============================================================
+ */
 
 export const deleteSite = async (id: number) => {
   const result = await pool.query(
@@ -127,7 +161,7 @@ export const deleteSite = async (id: number) => {
     WHERE id = $1
     RETURNING id;
     `,
-    [id]
+    [id],
   );
 
   return result.rows[0];

@@ -21,35 +21,29 @@ import {
   ChevronRight,
   Flame,
 } from "lucide-react";
-import { Dashboard } from "@/app/components/dashboard";
-import { Workforce } from "@/app/components/workforce";
-import { TrainingMatrix } from "@/app/components/training-matrix";
-import { DocumentLibrary } from "@/app/components/document-library";
-import { GlobalTrainingMatrix } from "@/app/components/global-training-matrix";
-import { PPERegister } from "@/app/components/ppe-register";
-import { RiskAssessmentRegisterEnhanced } from "@/app/components/risk-assessment-register-enhanced";
-import { MedicalSurveillanceEnhanced } from "@/app/components/medical-surveillance-enhanced";
-import { ReportsAnalytics } from "@/app/components/reports-analytics";
-import { SystemAuditLog } from "@/app/components/system-audit-log";
-import { GlobalSearch } from "@/app/components/global-search";
-import { SystemSettings } from "@/app/components/system-settings";
-import { CompanySites } from "@/app/components/Company&site/company-sites";
-import { Appointments } from "@/app/components/appointments";
-import { LegalAppointments } from "@/app/components/legal-appointments";
-import { useAlerts } from "@/app/contexts/alert-context";
-import { useTheme } from "@/app/contexts/theme-context";
-import { NewRiskAssessment } from "@/app/components/new-risk-assessment";
-import { RiskMethodology } from "@/app/components/risk-methodology";
-import { RiskAssessmentBeforeControls } from "@/app/components/risk-assessment-before-controls";
-import { RiskAssessmentAfterControls } from "@/app/components/risk-assessment-after-controls";
-import { RiskAssessmentSummary } from "@/app/components/risk-assessment-summary";
-import Incidents from "@/app/components/incidents/incidents";
-import { useAuth, Role } from "@/app/contexts/auth-context";
-import { RecycleBin } from "@/app/components/recycle-bin";
-import { getMyCompany } from "@/api/companyAPI";
-import { MySites } from "@/app/components/my-sites";
+import { Dashboard } from "../components/dashboard";
+import { Workforce } from "../components/workforce";
+import { TrainingMatrix } from "../components/training-matrix";
+import { DocumentLibrary } from "../components/document-library";
+import { GlobalTrainingMatrix } from "../components/global-training-matrix";
+import { PPERegister } from "../components/ppe-register";
+import { RiskAssessmentRegisterEnhanced } from "../components/risk-assessment-register-enhanced";
+import { MedicalSurveillanceEnhanced } from "../components/medical-surveillance-enhanced";
+import { ReportsAnalytics } from "../components/reports-analytics";
+import { SystemAuditLog } from "../components/system-audit-log";
+import { GlobalSearch } from "../components/global-search";
+import { SystemSettings } from "../components/system-settings";
+import { CompanySites } from "../components/Company&site/company-sites";
+import { Appointments } from "../components/appointments";
+import { LegalAppointments } from "../components/legal-appointments";
+import { useAlerts } from "../contexts/alert-context";
+import { useTheme } from "../contexts/theme-context";
+import { NewRiskAssessment } from "../components/new-risk-assessment";
+import Incidents from "../components/incidents/incidents";
+import { useAuth, Role } from "../contexts/auth-context";
+import { RecycleBin } from "../components/recycle-bin";
 import { InspectorsPage } from "../pages/inspectors";
-import { SecurityPrivacy } from "@/app/pages/security-privacy";
+import { SecurityPrivacy } from "../pages/security-privacy";
 
 interface NavigationItem {
   id: string;
@@ -184,9 +178,6 @@ const bottomNavigationItems: NavigationItem[] = [
 ];
 
 const CLIENT_ALLOWED_IDS = new Set([
-  "dashboard",
-  "company-sites",
-  "workforce",
   "compliance",
   "appointments",
   "legal-appointments",
@@ -196,46 +187,59 @@ const CLIENT_ALLOWED_IDS = new Set([
   "fire-equipment",
   "risk-assessments",
   "incidents",
-  "document-library",
 ]);
 
 function filterNavForRole(
   items: NavigationItem[],
   role: Role,
 ): NavigationItem[] {
-  if (role === "rss_staff") return items;
+  if (role === "rss_staff") {
+    return items;
+  }
 
-  return items
-    .filter((item) => CLIENT_ALLOWED_IDS.has(item.id))
-    .map((item) => {
-      const relabeled =
-        item.id === "company-sites" ? { ...item, label: "My Sites" } : item;
+  if (role === "client") {
+    return items
+      .filter((item) => CLIENT_ALLOWED_IDS.has(item.id))
+      .map((item) => {
+        if (!item.children) {
+          return item;
+        }
 
-      return relabeled.children
-        ? {
-            ...relabeled,
-            children: relabeled.children.filter((child) =>
-              CLIENT_ALLOWED_IDS.has(child.id),
-            ),
-          }
-        : relabeled;
-    });
+        return {
+          ...item,
+          children: item.children.filter((child) =>
+            CLIENT_ALLOWED_IDS.has(child.id),
+          ),
+        };
+      });
+  }
+
+  return [];
 }
 
 export function AppShell({ children }: { children?: React.ReactNode }) {
   const { dismissedAlerts } = useAlerts();
   const { theme, colors, brandPrimaryBg, getNavTextColor } = useTheme();
   const { user, logout } = useAuth();
-  const [activeItem, setActiveItem] = useState("dashboard");
-  const [clientCompany, setClientCompany] = useState<{
-    name: string;
-    logo?: string;
-  } | null>(null);
-  const [expandedItems, setExpandedItems] = useState<string[]>([
-    "compliance",
-    "reports",
-    "settings",
-  ]);
+  const [activeItem, setActiveItem] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!user) return;
+
+    setActiveItem(user.role === "client" ? "appointments" : "dashboard");
+  }, [user]);
+
+  const [expandedItems, setExpandedItems] = useState<string[]>([]);
+  useEffect(() => {
+    if (!user) return;
+
+    if (user.role === "client") {
+      setExpandedItems(["compliance"]);
+    } else {
+      setExpandedItems(["compliance", "reports", "settings"]);
+    }
+  }, [user]);
+
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [showSearchResults, setShowSearchResults] = useState(false);
@@ -252,16 +256,6 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
   };
 
   const navTextColor = getNavTextColor();
-
-  useEffect(() => {
-    if (user?.role === "client") {
-      getMyCompany()
-        .then((company) =>
-          setClientCompany({ name: company.name, logo: company.logo }),
-        )
-        .catch((err) => console.error("Failed to load company:", err));
-    }
-  }, [user]);
 
   return (
     <div
@@ -290,7 +284,7 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
             minWidth: "256px",
           }}
         >
-          {user?.role === "client" && clientCompany ? (
+          {/* {user?.role === "client" && clientCompany ? (
             <>
               <div
                 className="size-9 rounded-lg overflow-hidden flex items-center justify-center flex-shrink-0"
@@ -316,14 +310,14 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
                 {clientCompany.name}
               </h1>
             </>
-          ) : (
-            <h1
-              className="text-xl font-bold"
-              style={{ color: "var(--brand-blue)" }}
-            >
-              SHERQ Online
-            </h1>
-          )}
+          ) : ( */}
+          <h1
+            className="text-xl font-bold"
+            style={{ color: "var(--brand-blue)" }}
+          >
+            SHERQ Online
+          </h1>
+          {/* )} */}
         </div>
 
         {/* Navigation Menu */}
@@ -707,11 +701,7 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
           {activeItem === "dashboard" ? (
             <Dashboard />
           ) : activeItem === "company-sites" ? (
-            user?.role === "client" ? (
-              <MySites />
-            ) : (
-              <CompanySites />
-            )
+            <CompanySites />
           ) : activeItem === "workforce" ? (
             <Workforce />
           ) : activeItem === "inspectors" ? (
@@ -786,7 +776,9 @@ function NavItem({
   level = 0,
 }: NavItemProps) {
   const { colors } = useTheme();
-  const isActive = activeItem === item.id;
+  const isChildActive = item.children?.some((child) => child.id === activeItem);
+
+  const isActive = activeItem === item.id || isChildActive;
   const isExpanded = expandedItems.includes(item.id);
   const hasChildren = item.children && item.children.length > 0;
 

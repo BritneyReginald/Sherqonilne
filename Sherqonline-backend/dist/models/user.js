@@ -6,9 +6,9 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.findUserByEmailAndRole = findUserByEmailAndRole;
 exports.findUserById = findUserById;
 exports.createUser = createUser;
-exports.linkClientToCompany = linkClientToCompany;
+exports.linkClientToSite = linkClientToSite;
 exports.assignInspectorToSites = assignInspectorToSites;
-exports.getClientCompanyId = getClientCompanyId;
+exports.getClientSiteId = getClientSiteId;
 exports.getInspectorSiteIds = getInspectorSiteIds;
 exports.markUserActiveAndLogin = markUserActiveAndLogin;
 exports.updateLastLogin = updateLastLogin;
@@ -35,8 +35,8 @@ async function createUser(email, passwordHash, role, createdBy) {
      RETURNING *`, [email, passwordHash, role, createdBy]);
     return result.rows[0];
 }
-async function linkClientToCompany(userId, companyId) {
-    await db_1.default.query(`INSERT INTO client_users (user_id, company_id) VALUES ($1, $2)`, [userId, companyId]);
+async function linkClientToSite(userId, siteId) {
+    await db_1.default.query(`INSERT INTO client_users (user_id, site_id) VALUES ($1, $2)`, [userId, siteId]);
 }
 async function assignInspectorToSites(userId, siteIds) {
     if (siteIds.length === 0)
@@ -47,9 +47,9 @@ async function assignInspectorToSites(userId, siteIds) {
      ON CONFLICT (user_id, site_id) DO NOTHING`, [userId, ...siteIds]);
 }
 // --- Scoping lookups (used by auth middleware on every request) ---
-async function getClientCompanyId(userId) {
-    const result = await db_1.default.query(`SELECT company_id FROM client_users WHERE user_id = $1`, [userId]);
-    return result.rows[0]?.company_id ?? null;
+async function getClientSiteId(userId) {
+    const result = await db_1.default.query(`SELECT site_id FROM client_users WHERE user_id = $1`, [userId]);
+    return result.rows[0]?.site_id ?? null;
 }
 async function getInspectorSiteIds(userId) {
     const result = await db_1.default.query(`SELECT site_id FROM inspector_assignments WHERE user_id = $1`, [userId]);

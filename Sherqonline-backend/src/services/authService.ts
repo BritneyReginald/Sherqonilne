@@ -7,12 +7,12 @@ import {
   User,
   UserRole,
   createUser,
-  linkClientToCompany,
+  linkClientToSite,
   assignInspectorToSites,
   logCredentialIssuance,
   markUserActiveAndLogin,
   updateLastLogin,
-  getClientCompanyId,
+  getClientSiteId,
   getInspectorSiteIds,
 } from "../models/user";
 import pool from "../config/db";
@@ -108,7 +108,7 @@ export function generateTempPassword(): string {
 export interface AuthTokenPayload {
   userId: number;
   role: UserRole;
-  companyId?: number; // present only for 'client'
+  siteId?: number; // present only for 'client'
 }
 
 export function signToken(payload: AuthTokenPayload): string {
@@ -124,11 +124,17 @@ export function verifyToken(token: string): AuthTokenPayload {
 // --- Login (shared logic used by all 3 role-specific controllers) ---
 
 export async function buildTokenForUser(user: User): Promise<string> {
-  const payload: AuthTokenPayload = { userId: user.id, role: user.role };
+  const payload: AuthTokenPayload = {
+    userId: user.id,
+    role: user.role,
+  };
 
   if (user.role === "client") {
-    const companyId = await getClientCompanyId(user.id);
-    if (companyId) payload.companyId = companyId;
+    const siteId = await getClientSiteId(user.id);
+
+    if (siteId) {
+      payload.siteId = siteId;
+    }
   }
 
   // status/last_login bookkeeping
@@ -163,22 +169,15 @@ interface IssueCredentialsParams {
   email: string;
   role: "client" | "inspector";
   issuedByUserId: number;
-  companyId?: number; // required if role = client
+  siteId?: number; // required if role = client
   siteIds?: number[]; // required if role = inspector
-  companyName?: string; // for the email copy
+  siteName?: string; // for the email copy
   loginUrl: string; // e.g. https://yourapp.com/login/client
 }
 
 export async function issueCredentials(params: IssueCredentialsParams) {
-  const {
-    email,
-    role,
-    issuedByUserId,
-    companyId,
-    siteIds,
-    companyName,
-    loginUrl,
-  } = params;
+  const { email, role, issuedByUserId, siteId, siteIds, siteName, loginUrl } =
+    params;
 
   const tempPassword = generateTempPassword();
   const passwordHash = await hashPassword(tempPassword);
@@ -186,16 +185,12 @@ export async function issueCredentials(params: IssueCredentialsParams) {
   const user = await createUser(email, passwordHash, role, issuedByUserId);
 
   if (role === "client") {
-    if (!companyId)
-      throw new Error("companyId is required for client accounts");
-    await linkClientToCompany(user.id, companyId);
-  }
+    if (!siteId) {
+      throw new Error("siteId is required for client accounts");
+    }
 
-  // if (role === "inspector") {
-  //   if (!siteIds || siteIds.length === 0)
-  //     throw new Error("siteIds are required for inspector accounts");
-  //   await assignInspectorToSites(user.id, siteIds);
-  // }
+    await linkClientToSite(user.id, siteId);
+  }
 
   let deliveryStatus = "sent";
   try {
@@ -204,7 +199,7 @@ export async function issueCredentials(params: IssueCredentialsParams) {
       tempPassword,
       loginUrl,
       role,
-      companyName,
+      siteName,
     });
   } catch (err) {
     console.error("Failed to send credentials email:", err);
@@ -222,13 +217,13 @@ async function sendCredentialsEmail(args: {
   tempPassword: string;
   loginUrl: string;
   role: "client" | "inspector";
-  companyName?: string;
+  siteName?: string;
 }) {
-  const { email, tempPassword, loginUrl, role, companyName } = args;
+  const { email, tempPassword, loginUrl, role, siteName } = args;
 
   const subject =
     role === "client"
-      ? `Your ${companyName ?? "company"} portal login`
+      ? `Your ${siteName ?? "client"} portal login`
       : `Your Fire Equipment Inspector login`;
 
   const html = `

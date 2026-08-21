@@ -11,13 +11,28 @@ const router = express.Router();
 
 // GET all companies — RSS staff only. Clients should never hit this one;
 // it returns every company in the system.
-router.get("/", authenticate, authorize("rss_staff"), async (req, res) => {
+router.get("/", authenticate, authorize("rss_staff"), async (_req, res) => {
   try {
-    const result = await pool.query(`SELECT * FROM companies ORDER BY name`);
+    const result = await pool.query(`
+      SELECT
+        id,
+        name,
+        logo,
+        email,
+        contact_person,
+        contact_number,
+        created_at
+      FROM sites
+      ORDER BY name
+    `);
+
     res.json(result.rows);
   } catch (err) {
-    console.error("Get companies error:", err);
-    res.status(500).json({ error: "Failed to fetch companies" });
+    console.error("Get clients error:", err);
+
+    res.status(500).json({
+      error: "Failed to fetch clients",
+    });
   }
 });
 
@@ -32,18 +47,35 @@ router.get(
   scopeClient,
   async (req, res) => {
     try {
-      const result = await pool.query(`SELECT * FROM companies WHERE id = $1`, [
-        req.user!.companyId,
-      ]);
+      const result = await pool.query(
+        `
+        SELECT
+          id,
+          name,
+          logo,
+          email,
+          contact_person,
+          contact_number,
+          created_at
+        FROM sites
+        WHERE id = $1
+        `,
+        [req.user!.siteId],
+      );
+
       if (result.rows.length === 0) {
-        return res
-          .status(404)
-          .json({ error: "No company linked to this account" });
+        return res.status(404).json({
+          error: "No site linked to this account",
+        });
       }
+
       res.json(result.rows[0]);
     } catch (err) {
-      console.error("Get own company error:", err);
-      res.status(500).json({ error: "Failed to fetch company" });
+      console.error("Get own site error:", err);
+
+      res.status(500).json({
+        error: "Failed to fetch client site",
+      });
     }
   },
 );
@@ -61,7 +93,7 @@ router.post("/", authenticate, authorize("rss_staff"), async (req, res) => {
 
     const result = await pool.query(
       `
-        INSERT INTO companies (
+        INSERT INTO sites (
           name,
           email,
           logo,
@@ -76,10 +108,10 @@ router.post("/", authenticate, authorize("rss_staff"), async (req, res) => {
 
     res.status(201).json(result.rows[0]);
   } catch (err) {
-    console.error("Create company error:", err);
+    console.error("Create client site error:", err);
 
     res.status(500).json({
-      error: "Failed to create company",
+      error: "Failed to create client site",
     });
   }
 });

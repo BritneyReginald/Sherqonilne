@@ -54,13 +54,13 @@ export async function createUser(
   return result.rows[0];
 }
 
-export async function linkClientToCompany(
+export async function linkClientToSite(
   userId: number,
-  companyId: number,
+  siteId: number,
 ): Promise<void> {
   await pool.query(
-    `INSERT INTO client_users (user_id, company_id) VALUES ($1, $2)`,
-    [userId, companyId],
+    `INSERT INTO client_users (user_id, site_id) VALUES ($1, $2)`,
+    [userId, siteId],
   );
 }
 
@@ -80,14 +80,15 @@ export async function assignInspectorToSites(
 
 // --- Scoping lookups (used by auth middleware on every request) ---
 
-export async function getClientCompanyId(
+export async function getClientSiteId(
   userId: number,
 ): Promise<number | null> {
   const result = await pool.query(
-    `SELECT company_id FROM client_users WHERE user_id = $1`,
+    `SELECT site_id FROM client_users WHERE user_id = $1`,
     [userId],
   );
-  return result.rows[0]?.company_id ?? null;
+
+  return result.rows[0]?.site_id ?? null;
 }
 
 export async function getInspectorSiteIds(userId: number): Promise<number[]> {

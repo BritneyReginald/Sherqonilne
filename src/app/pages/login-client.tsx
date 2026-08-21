@@ -2,9 +2,9 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Building2 } from "lucide-react";
-import { useAuth } from "@/app/contexts/auth-context";
-import { LoginLayout } from "@/app/components/login-layout";
-import { useTheme } from "@/app/contexts/theme-context";
+import { useAuth } from "../contexts/auth-context";
+import { LoginLayout } from "../components/login-layout";
+import { useTheme } from "../contexts/theme-context";
 
 export function LoginClient() {
   const { loginClient } = useAuth();

@@ -1,17 +1,12 @@
 import { useEffect, useState } from "react";
-import {
-  Building2,
-  Users,
-  Plus,
-  Edit,
-  Search,
-} from "lucide-react";
+import { Building2, Users, Plus, Edit, Search } from "lucide-react";
 import { useTheme } from "../../contexts/theme-context";
 import { useSiteFilter } from "../../contexts/site-filter-context";
 import { ImageWithFallback } from "../../components/figma/ImageWithFallback";
 import { AddClientModal } from "../add-client-modal";
 import { toast } from "sonner";
 import { getSites, createSite } from "../../../api/siteAPI";
+import { SiteDetails } from "./site-details";
 
 interface Site {
   id: string;
@@ -29,6 +24,9 @@ export function CompanySites() {
   const [sites, setSites] = useState<Site[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [showAddClientModal, setShowAddClientModal] = useState(false);
+  const [selectedSiteDetails, setSelectedSiteDetails] = useState<Site | null>(
+    null,
+  );
 
   /*
    * Load all sites that RSS is responsible for inspecting.
@@ -101,6 +99,12 @@ export function CompanySites() {
       id: site.id,
       name: site.name,
     });
+
+    setSelectedSiteDetails(site);
+  };
+
+  const handleBackToSites = () => {
+    setSelectedSiteDetails(null);
   };
 
   return (
@@ -108,6 +112,21 @@ export function CompanySites() {
       className="min-h-full p-6"
       style={{ backgroundColor: colors.background }}
     >
+
+      {selectedSiteDetails ? (
+  <SiteDetails
+    site={selectedSiteDetails}
+    onBack={handleBackToSites}
+    onDeleted={async () => {
+      setSelectedSiteDetails(null);
+      setSelectedSite(null);
+      await loadSites();
+    }}
+  />
+) : (
+<>
+
+      
       {/* =========================================================
           RSS COMPANY PROFILE
           ========================================================= */}
@@ -149,10 +168,7 @@ export function CompanySites() {
                 RSS
               </h1>
 
-              <p
-                className="text-sm"
-                style={{ color: colors.subText }}
-              >
+              <p className="text-sm" style={{ color: colors.subText }}>
                 SHERQ Consulting & Compliance
               </p>
 
@@ -162,10 +178,7 @@ export function CompanySites() {
                   style={{ color: colors.subText }}
                 />
 
-                <span
-                  className="text-sm"
-                  style={{ color: colors.subText }}
-                >
+                <span className="text-sm" style={{ color: colors.subText }}>
                   {sites.length} Registered Sites
                 </span>
               </div>
@@ -186,17 +199,14 @@ export function CompanySites() {
                 "0 4px 12px rgba(59, 130, 246, 0.4)";
             }}
             onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor =
-                "var(--brand-blue)";
+              e.currentTarget.style.backgroundColor = "var(--brand-blue)";
               e.currentTarget.style.transform = "translateY(0)";
               e.currentTarget.style.boxShadow = "none";
             }}
           >
             <Edit className="size-4" />
 
-            <span className="text-sm font-medium">
-              Edit Company Details
-            </span>
+            <span className="text-sm font-medium">Edit Company Details</span>
           </button>
         </div>
       </div>
@@ -213,7 +223,6 @@ export function CompanySites() {
           }}
         >
           <Building2 className="size-4" />
-
           Active Site: {selectedSite.name}
         </div>
       )}
@@ -230,10 +239,7 @@ export function CompanySites() {
             Sites We Inspect
           </h2>
 
-          <p
-            className="text-sm mt-1"
-            style={{ color: colors.subText }}
-          >
+          <p className="text-sm mt-1" style={{ color: colors.subText }}>
             Manage the client sites responsible for SHERQ inspections.
           </p>
         </div>
@@ -251,8 +257,7 @@ export function CompanySites() {
               "0 4px 12px rgba(59, 130, 246, 0.4)";
           }}
           onMouseLeave={(e) => {
-            e.currentTarget.style.backgroundColor =
-              "var(--brand-blue)";
+            e.currentTarget.style.backgroundColor = "var(--brand-blue)";
             e.currentTarget.style.transform = "translateY(0)";
             e.currentTarget.style.boxShadow = "none";
           }}
@@ -345,10 +350,7 @@ export function CompanySites() {
                     }}
                   >
                     <ImageWithFallback
-                      src={
-                        site.logo ||
-                        "https://placehold.co/200x200"
-                      }
+                      src={site.logo || "https://placehold.co/200x200"}
                       alt={`${site.name} logo`}
                       className="w-full h-full object-cover"
                     />
@@ -362,10 +364,7 @@ export function CompanySites() {
                       {site.name}
                     </h3>
 
-                    <p
-                      className="text-sm"
-                      style={{ color: colors.subText }}
-                    >
+                    <p className="text-sm" style={{ color: colors.subText }}>
                       Inspection Site
                     </p>
                   </div>
@@ -443,13 +442,15 @@ export function CompanySites() {
       {/* =========================================================
           ADD NEW SITE MODAL
           ========================================================= */}
-      {showAddClientModal && (
+            {showAddClientModal && (
         <AddClientModal
           isOpen={showAddClientModal}
           onClose={() => setShowAddClientModal(false)}
           onSave={handleAddSite}
         />
       )}
-    </div>
-  );
+    </>
+  )}
+</div>
+);
 }

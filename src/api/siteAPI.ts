@@ -1,7 +1,6 @@
 // siteAPI.ts
 
-const API_URL =
-  import.meta.env.VITE_API_URL || "http://localhost:3000";
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
 
 function authHeaders() {
   const stored = localStorage.getItem("sherq_auth");
@@ -52,4 +51,17 @@ export async function createSite(site: {
   }
 
   return data;
+}
+
+export async function deleteSite(siteId: string) {
+  const res = await fetch(`${API_URL}/sites/${siteId}`, {
+    method: "DELETE",
+    headers: authHeaders(),
+  });
+
+  if (!res.ok) {
+    throw new Error("Failed to delete site");
+  }
+
+  return res.json();
 }

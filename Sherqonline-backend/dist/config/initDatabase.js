@@ -1,27 +1,25 @@
 "use strict";
-var __importDefault =
-  (this && this.__importDefault) ||
-  function (mod) {
-    return mod && mod.__esModule ? mod : { default: mod };
-  };
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.initializeDatabase = initializeDatabase;
 const db_1 = __importDefault(require("./db"));
 async function initializeDatabase() {
-  const client = await db_1.default.connect();
-  try {
-    await client.query("BEGIN");
-    /*
-     * ============================================================
-     * EMPLOYEES
-     * ============================================================
-     */
-    await client.query(`
+    const client = await db_1.default.connect();
+    try {
+        await client.query("BEGIN");
+        /*
+         * ============================================================
+         * EMPLOYEES
+         * ============================================================
+         */
+        await client.query(`
       CREATE TABLE IF NOT EXISTS employees (
         id SERIAL PRIMARY KEY
       );
     `);
-    await client.query(`
+        await client.query(`
       ALTER TABLE employees
         ADD COLUMN IF NOT EXISTS employee_number VARCHAR(20),
         ADD COLUMN IF NOT EXISTS full_name TEXT,
@@ -53,65 +51,84 @@ async function initializeDatabase() {
         ADD COLUMN IF NOT EXISTS compliance_status TEXT,
         ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'Active';
     `);
-    /*
-     * ============================================================
-     * COMPANIES
-     * ============================================================
-     */
-    await client.query(`
-      CREATE TABLE IF NOT EXISTS companies (
-        id SERIAL PRIMARY KEY,
-        name VARCHAR(255) NOT NULL,
-        registration_number VARCHAR(100),
-        logo TEXT,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      );
-    `);
-    /*
-     * ============================================================
-     * SITES
-     * ============================================================
-     */
-    await client.query(`
-      CREATE TABLE IF NOT EXISTS sites (
-        id SERIAL PRIMARY KEY,
-        company_id INTEGER NOT NULL
-          REFERENCES companies(id) ON DELETE CASCADE,
-        name VARCHAR(255) NOT NULL,
-        location VARCHAR(255),
-        workers_active INTEGER DEFAULT 0,
-        incidents_this_month INTEGER DEFAULT 0,
-        compliance_status VARCHAR(20) DEFAULT 'compliant',
-        has_manager BOOLEAN DEFAULT FALSE,
-        map_image TEXT,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      );
-    `);
-    /*
-     * ============================================================
-     * USERS
-     * ============================================================
-     *
-     * The old Azure users table has:
-     *
-     * user_id
-     * employee_number
-     * username
-     * password_hash
-     *
-     * It is currently EMPTY, so we can migrate its structure.
-     */
-    const usersColumns = await client.query(`
+        /*
+         * ============================================================
+         * SITES
+         * ============================================================
+         *
+         * Sites are client locations that RSS is responsible for
+         * inspecting.
+         *
+         * A site is NOT a company.
+         *
+         * Example:
+         *   RSS = our company
+         *   Secunda = site/client location we inspect
+         */
+        await client.query(`
+  CREATE TABLE IF NOT EXISTS sites (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    logo TEXT,
+    email VARCHAR(255),
+    contact_person VARCHAR(255),
+    contact_number VARCHAR(50)
+  );
+`);
+        /*
+         * ============================================================
+         * SITES MIGRATION
+         * ============================================================
+         *
+         * Remove the old company/site structure if it exists.
+         */
+        await client.query(`
+  ALTER TABLE sites
+    DROP COLUMN IF EXISTS company_id,
+    DROP COLUMN IF EXISTS location,
+    DROP COLUMN IF EXISTS workers_active,
+    DROP COLUMN IF EXISTS incidents_this_month,
+    DROP COLUMN IF EXISTS compliance_status,
+    DROP COLUMN IF EXISTS has_manager,
+    DROP COLUMN IF EXISTS map_image;
+`);
+        /*
+         * Add the new site/client fields to an existing Azure table.
+         */
+        await client.query(`
+  ALTER TABLE sites
+    ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    ADD COLUMN IF NOT EXISTS logo TEXT,
+    ADD COLUMN IF NOT EXISTS email VARCHAR(255),
+    ADD COLUMN IF NOT EXISTS contact_person VARCHAR(255),
+    ADD COLUMN IF NOT EXISTS contact_number VARCHAR(50);
+`);
+        /*
+         * ============================================================
+         * USERS
+         * ============================================================
+         *
+         * The old Azure users table has:
+         *
+         * user_id
+         * employee_number
+         * username
+         * password_hash
+         *
+         * It is currently EMPTY, so we can migrate its structure.
+         */
+        const usersColumns = await client.query(`
       SELECT column_name
       FROM information_schema.columns
       WHERE table_schema = 'public'
         AND table_name = 'users'
     `);
-    const existingUserColumns = usersColumns.rows.map((row) => row.column_name);
-    if (existingUserColumns.length > 0 && !existingUserColumns.includes("id")) {
-      await client.query(`DROP TABLE users CASCADE`);
-    }
-    await client.query(`
+        const existingUserColumns = usersColumns.rows.map((row) => row.column_name);
+        if (existingUserColumns.length > 0 && !existingUserColumns.includes("id")) {
+            await client.query(`DROP TABLE users CASCADE`);
+        }
+        await client.query(`
       CREATE TABLE IF NOT EXISTS users (
         id SERIAL PRIMARY KEY,
 
@@ -141,30 +158,43 @@ async function initializeDatabase() {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
     `);
-    /*
-     * ============================================================
-     * CLIENT USERS
-     * ============================================================
-     */
-    await client.query(`
-      CREATE TABLE IF NOT EXISTS client_users (
-        id SERIAL PRIMARY KEY,
+        /*
+         * ============================================================
+         * CLIENT USERS
+         * ============================================================
+         *
+         * A client user belongs directly to a site.
+         *
+         * The site itself represents the client/company in SHERQ Online.
+         *
+         * Example:
+         *   Site: ABC Manufacturing
+         *   Client login: client@abc.co.za
+         *
+         * The client user is linked directly to the ABC Manufacturing site.
+         */
+        await client.query(`
+  DROP TABLE IF EXISTS client_users;
+`);
+        await client.query(`
+  CREATE TABLE client_users (
+    id SERIAL PRIMARY KEY,
 
-        user_id INTEGER UNIQUE NOT NULL
-          REFERENCES users(id) ON DELETE CASCADE,
+    user_id INTEGER UNIQUE NOT NULL
+      REFERENCES users(id) ON DELETE CASCADE,
 
-        company_id INTEGER NOT NULL
-          REFERENCES companies(id) ON DELETE CASCADE,
+    site_id INTEGER UNIQUE NOT NULL
+      REFERENCES sites(id) ON DELETE CASCADE,
 
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      );
-    `);
-    /*
-     * ============================================================
-     * INSPECTOR ASSIGNMENTS
-     * ============================================================
-     */
-    await client.query(`
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  );
+`);
+        /*
+         * ============================================================
+         * INSPECTOR ASSIGNMENTS
+         * ============================================================
+         */
+        await client.query(`
       CREATE TABLE IF NOT EXISTS inspector_assignments (
         id SERIAL PRIMARY KEY,
 
@@ -179,12 +209,12 @@ async function initializeDatabase() {
         UNIQUE(user_id, site_id)
       );
     `);
-    /*
-     * ============================================================
-     * CREDENTIAL ISSUANCE LOG
-     * ============================================================
-     */
-    await client.query(`
+        /*
+         * ============================================================
+         * CREDENTIAL ISSUANCE LOG
+         * ============================================================
+         */
+        await client.query(`
       CREATE TABLE IF NOT EXISTS credential_issuance_log (
         id SERIAL PRIMARY KEY,
 
@@ -204,12 +234,12 @@ async function initializeDatabase() {
         issued_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
     `);
-    /*
-     * ============================================================
-     * INSPECTOR PROFILES
-     * ============================================================
-     */
-    await client.query(`
+        /*
+         * ============================================================
+         * INSPECTOR PROFILES
+         * ============================================================
+         */
+        await client.query(`
       CREATE TABLE IF NOT EXISTS inspector_profiles (
         id SERIAL PRIMARY KEY,
 
@@ -226,14 +256,16 @@ async function initializeDatabase() {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
     `);
-    await client.query("COMMIT");
-    console.log("✅ Database initialization/migration successful");
-  } catch (error) {
-    await client.query("ROLLBACK");
-    console.error("❌ Database initialization failed");
-    console.error(error);
-    throw error;
-  } finally {
-    client.release();
-  }
+        await client.query("COMMIT");
+        console.log("✅ Database initialization/migration successful");
+    }
+    catch (error) {
+        await client.query("ROLLBACK");
+        console.error("❌ Database initialization failed");
+        console.error(error);
+        throw error;
+    }
+    finally {
+        client.release();
+    }
 }

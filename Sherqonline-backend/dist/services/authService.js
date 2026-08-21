@@ -88,11 +88,15 @@ function verifyToken(token) {
 }
 // --- Login (shared logic used by all 3 role-specific controllers) ---
 async function buildTokenForUser(user) {
-    const payload = { userId: user.id, role: user.role };
+    const payload = {
+        userId: user.id,
+        role: user.role,
+    };
     if (user.role === "client") {
-        const companyId = await (0, user_1.getClientCompanyId)(user.id);
-        if (companyId)
-            payload.companyId = companyId;
+        const siteId = await (0, user_1.getClientSiteId)(user.id);
+        if (siteId) {
+            payload.siteId = siteId;
+        }
     }
     // status/last_login bookkeeping
     if (user.status === "invited") {
@@ -118,20 +122,16 @@ const transporter = nodemailer_1.default.createTransport({
     },
 });
 async function issueCredentials(params) {
-    const { email, role, issuedByUserId, companyId, siteIds, companyName, loginUrl, } = params;
+    const { email, role, issuedByUserId, siteId, siteIds, siteName, loginUrl } = params;
     const tempPassword = generateTempPassword();
     const passwordHash = await hashPassword(tempPassword);
     const user = await (0, user_1.createUser)(email, passwordHash, role, issuedByUserId);
     if (role === "client") {
-        if (!companyId)
-            throw new Error("companyId is required for client accounts");
-        await (0, user_1.linkClientToCompany)(user.id, companyId);
+        if (!siteId) {
+            throw new Error("siteId is required for client accounts");
+        }
+        await (0, user_1.linkClientToSite)(user.id, siteId);
     }
-    // if (role === "inspector") {
-    //   if (!siteIds || siteIds.length === 0)
-    //     throw new Error("siteIds are required for inspector accounts");
-    //   await assignInspectorToSites(user.id, siteIds);
-    // }
     let deliveryStatus = "sent";
     try {
         await sendCredentialsEmail({
@@ -139,7 +139,7 @@ async function issueCredentials(params) {
             tempPassword,
             loginUrl,
             role,
-            companyName,
+            siteName,
         });
     }
     catch (err) {
@@ -151,9 +151,9 @@ async function issueCredentials(params) {
     return { user, deliveryStatus };
 }
 async function sendCredentialsEmail(args) {
-    const { email, tempPassword, loginUrl, role, companyName } = args;
+    const { email, tempPassword, loginUrl, role, siteName } = args;
     const subject = role === "client"
-        ? `Your ${companyName ?? "company"} portal login`
+        ? `Your ${siteName ?? "client"} portal login`
         : `Your Fire Equipment Inspector login`;
     const html = `
     <p>Hello,</p>
@@ -175,7 +175,8 @@ function generateUsername(fullName) {
     return fullName.trim().replace(/\s+/g, " ");
 }
 function generateInspectorPassword(employeeNumber, surname) {
-    const capitalizedSurname = surname.charAt(0).toUpperCase() + surname.slice(1).toLowerCase();
+    const cleanSurname = surname.trim();
+    const capitalizedSurname = cleanSurname.charAt(0).toUpperCase() + cleanSurname.slice(1).toLowerCase();
     return `${employeeNumber}${capitalizedSurname}`;
 }
 async function createInspectorStaff(employeeNumber, fullName, surname, siteIds, createdBy) {

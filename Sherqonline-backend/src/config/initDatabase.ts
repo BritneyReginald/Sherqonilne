@@ -53,22 +53,6 @@ export async function initializeDatabase() {
 
     /*
      * ============================================================
-     * COMPANIES
-     * ============================================================
-     */
-
-    await client.query(`
-      CREATE TABLE IF NOT EXISTS companies (
-        id SERIAL PRIMARY KEY,
-        name VARCHAR(255) NOT NULL,
-        registration_number VARCHAR(100),
-        logo TEXT,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      );
-    `);
-
-    /*
-     * ============================================================
      * SITES
      * ============================================================
      *
@@ -184,27 +168,39 @@ export async function initializeDatabase() {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
     `);
-
     /*
      * ============================================================
      * CLIENT USERS
      * ============================================================
+     *
+     * A client user belongs directly to a site.
+     *
+     * The site itself represents the client/company in SHERQ Online.
+     *
+     * Example:
+     *   Site: ABC Manufacturing
+     *   Client login: client@abc.co.za
+     *
+     * The client user is linked directly to the ABC Manufacturing site.
      */
 
     await client.query(`
-      CREATE TABLE IF NOT EXISTS client_users (
-        id SERIAL PRIMARY KEY,
+  DROP TABLE IF EXISTS client_users;
+`);
 
-        user_id INTEGER UNIQUE NOT NULL
-          REFERENCES users(id) ON DELETE CASCADE,
+    await client.query(`
+  CREATE TABLE client_users (
+    id SERIAL PRIMARY KEY,
 
-        company_id INTEGER NOT NULL
-          REFERENCES companies(id) ON DELETE CASCADE,
+    user_id INTEGER UNIQUE NOT NULL
+      REFERENCES users(id) ON DELETE CASCADE,
 
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      );
-    `);
+    site_id INTEGER UNIQUE NOT NULL
+      REFERENCES sites(id) ON DELETE CASCADE,
 
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  );
+`);
     /*
      * ============================================================
      * INSPECTOR ASSIGNMENTS

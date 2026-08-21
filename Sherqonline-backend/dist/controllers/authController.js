@@ -1,4 +1,7 @@
 "use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.loginStaff = loginStaff;
 exports.loginClient = loginClient;
@@ -7,6 +10,7 @@ exports.issueClientCredentials = issueClientCredentials;
 exports.issueInspectorCredentials = issueInspectorCredentials;
 const user_1 = require("../models/user");
 const authService_1 = require("../services/authService");
+const db_1 = __importDefault(require("../config/db"));
 // --- 3 separate login endpoints, one per role ---
 async function loginStaff(req, res) {
     return handleLogin(req, res, "rss_staff");
@@ -44,41 +48,59 @@ async function handleLogin(req, res, role) {
     }
     catch (err) {
         console.error("Login error:", err);
-        return res.status(500).json({ error: "Something went wrong. Please try again." });
+        return res
+            .status(500)
+            .json({ error: "Something went wrong. Please try again." });
     }
 }
 // --- RSS-only: issue credentials for a client or inspector ---
 async function issueClientCredentials(req, res) {
     try {
-        const { email, companyId, companyName } = req.body;
-        if (!email || !companyId) {
-            return res.status(400).json({ error: "email and companyId are required" });
+        const { email, siteId } = req.body;
+        if (!email || !siteId) {
+            return res.status(400).json({
+                error: "email and siteId are required",
+            });
         }
-        const issuedByUserId = req.user.id; // set by authenticate middleware
+        const siteResult = await db_1.default.query(`SELECT name FROM sites WHERE id = $1`, [siteId]);
+        if (siteResult.rows.length === 0) {
+            return res.status(404).json({
+                error: "Site not found",
+            });
+        }
+        const siteName = siteResult.rows[0].name;
+        const issuedByUserId = req.user.id;
         const { user, deliveryStatus } = await (0, authService_1.issueCredentials)({
             email,
             role: "client",
             issuedByUserId,
-            companyId,
-            companyName,
-            loginUrl: `${process.env.CLIENT_LOGIN_URL}`, // e.g. https://yourapp.com/login/client
+            siteId,
+            siteName,
+            loginUrl: `${process.env.CLIENT_LOGIN_URL}`,
         });
         return res.status(201).json({
             message: "Client account created",
-            user: { id: user.id, email: user.email },
+            user: {
+                id: user.id,
+                email: user.email,
+            },
             deliveryStatus,
         });
     }
     catch (err) {
         console.error("Issue client credentials error:", err);
-        return res.status(500).json({ error: "Failed to create client account" });
+        return res.status(500).json({
+            error: "Failed to create client account",
+        });
     }
 }
 async function issueInspectorCredentials(req, res) {
     try {
         const { email, siteIds } = req.body;
         if (!email || !Array.isArray(siteIds) || siteIds.length === 0) {
-            return res.status(400).json({ error: "email and a non-empty siteIds array are required" });
+            return res
+                .status(400)
+                .json({ error: "email and a non-empty siteIds array are required" });
         }
         const issuedByUserId = req.user.id;
         const { user, deliveryStatus } = await (0, authService_1.issueCredentials)({
@@ -96,6 +118,8 @@ async function issueInspectorCredentials(req, res) {
     }
     catch (err) {
         console.error("Issue inspector credentials error:", err);
-        return res.status(500).json({ error: "Failed to create inspector account" });
+        return res
+            .status(500)
+            .json({ error: "Failed to create inspector account" });
     }
 }
