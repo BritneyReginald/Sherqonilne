@@ -221,7 +221,7 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
   const { dismissedAlerts } = useAlerts();
   const { theme, colors, brandPrimaryBg, getNavTextColor } = useTheme();
   const { user, logout } = useAuth();
-  const [activeItem, setActiveItem] = useState<string | null>(null);
+  const [activeItem, setActiveItem] = useState<string>("dashboard");
 
   useEffect(() => {
     if (!user) return;
@@ -743,8 +743,8 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
                   className="text-2xl mb-2"
                   style={{ color: "var(--grey-700)" }}
                 >
-                  {activeItem.charAt(0).toUpperCase() +
-                    activeItem.slice(1).replace("-", " ")}
+                  activeItem ? activeItem.charAt(0).toUpperCase() +
+                  activeItem.slice(1).replace("-", " ") : ""
                 </h2>
                 <p style={{ color: "var(--grey-500)" }}>
                   This section is under development
