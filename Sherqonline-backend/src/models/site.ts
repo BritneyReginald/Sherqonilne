@@ -155,14 +155,56 @@ export const updateSite = async (
  */
 
 export const deleteSite = async (id: number) => {
-  const result = await pool.query(
-    `
-    DELETE FROM sites
-    WHERE id = $1
-    RETURNING id;
-    `,
-    [id],
-  );
+  const client = await pool.connect();
 
-  return result.rows[0];
+  try {
+    await client.query("BEGIN");
+
+    // Find the client user linked to this site
+    const clientUserResult = await client.query(
+      `
+      SELECT user_id
+      FROM client_users
+      WHERE site_id = $1
+      `,
+      [id],
+    );
+
+    const clientUserIds = clientUserResult.rows.map(
+      (row) => row.user_id,
+    );
+
+    // Delete the client users first
+    // This will also cascade to:
+    // - client_users
+    // - credential_issuance_log
+    await client.query(
+      `
+      DELETE FROM users
+      WHERE id = ANY($1::int[])
+      AND role = 'client'
+      `,
+      [clientUserIds],
+    );
+
+    // Now delete the site
+    const siteResult = await client.query(
+      `
+      DELETE FROM sites
+      WHERE id = $1
+      RETURNING id;
+      `,
+      [id],
+    );
+
+    await client.query("COMMIT");
+
+    return siteResult.rows[0];
+
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
 };

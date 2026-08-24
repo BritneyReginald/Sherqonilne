@@ -45,13 +45,108 @@ export async function createUser(
   role: UserRole,
   createdBy: number,
 ): Promise<User> {
-  const result = await pool.query(
-    `INSERT INTO users (email, password_hash, role, status, created_by)
-     VALUES ($1, $2, $3, 'invited', $4)
-     RETURNING *`,
-    [email, passwordHash, role, createdBy],
+  const normalizedEmail = email.trim().toLowerCase();
+
+  /*
+   * Find an existing account with this email.
+   *
+   * We also check whether the account is currently linked
+   * to a client site.
+   */
+  const existingResult = await pool.query(
+    `
+    SELECT
+      u.*,
+      cu.site_id
+    FROM users u
+    LEFT JOIN client_users cu
+      ON cu.user_id = u.id
+    WHERE LOWER(u.email) = LOWER($1)
+    LIMIT 1
+    `,
+    [normalizedEmail],
   );
-  return result.rows[0];
+
+  const existingUser = existingResult.rows[0];
+
+  /*
+   * ============================================================
+   * NO EXISTING USER
+   * ============================================================
+   */
+
+  if (!existingUser) {
+    const result = await pool.query(
+      `
+      INSERT INTO users (
+        email,
+        password_hash,
+        role,
+        status,
+        created_by
+      )
+      VALUES ($1, $2, $3, 'invited', $4)
+      RETURNING *
+      `,
+      [normalizedEmail, passwordHash, role, createdBy],
+    );
+
+    return result.rows[0];
+  }
+
+  /*
+   * ============================================================
+   * REUSE OLD CLIENT ACCOUNT
+   * ============================================================
+   *
+   * We allow this when:
+   *
+   * 1. It is a client account
+   * 2. The new account being created is also a client
+   * 3. The old account is disabled
+   *
+   * OR:
+   *
+   * 4. The old client account no longer has a site attached.
+   *
+   * The second condition handles clients that were deleted
+   * before we introduced the new disabled-account behaviour.
+   */
+
+  const isReusableClient =
+    existingUser.role === "client" &&
+    role === "client" &&
+    (existingUser.status === "disabled" || existingUser.site_id === null);
+
+  if (isReusableClient) {
+    const result = await pool.query(
+      `
+      UPDATE users
+      SET
+        password_hash = $1,
+        role = 'client',
+        status = 'invited',
+        must_change_password = TRUE,
+        created_by = $2,
+        last_login_at = NULL
+      WHERE id = $3
+      RETURNING *
+      `,
+      [passwordHash, createdBy, existingUser.id],
+    );
+
+    return result.rows[0];
+  }
+
+  /*
+   * ============================================================
+   * EXISTING ACTIVE ACCOUNT
+   * ============================================================
+   *
+   * Do not overwrite a real active account.
+   */
+
+  throw new Error(`A user with email ${normalizedEmail} already exists.`);
 }
 
 export async function linkClientToSite(
@@ -80,9 +175,7 @@ export async function assignInspectorToSites(
 
 // --- Scoping lookups (used by auth middleware on every request) ---
 
-export async function getClientSiteId(
-  userId: number,
-): Promise<number | null> {
+export async function getClientSiteId(userId: number): Promise<number | null> {
   const result = await pool.query(
     `SELECT site_id FROM client_users WHERE user_id = $1`,
     [userId],
