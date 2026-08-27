@@ -228,7 +228,7 @@ async function sendCredentialsEmail(args: {
 
   const html = `
     <p>Hello,</p>
-    <p>A new ${role} account was created on the SHERQ Online platform.</p>
+    <p>A new ${role} account for ${siteName} was created on the SHERQ Online platform.</p>
     <p><strong>Client email:</strong> ${email}</p>
     <p><strong>Login link:</strong> <a href="${loginUrl}">${loginUrl}</a></p>
     <p><strong>Password:</strong> ${tempPassword}</p>
