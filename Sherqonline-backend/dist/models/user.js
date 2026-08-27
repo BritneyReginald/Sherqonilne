@@ -14,6 +14,7 @@ exports.markUserActiveAndLogin = markUserActiveAndLogin;
 exports.updateLastLogin = updateLastLogin;
 exports.logCredentialIssuance = logCredentialIssuance;
 exports.replaceInspectorSites = replaceInspectorSites;
+exports.getClientCompany = getClientCompany;
 // models/user.ts
 const db_1 = __importDefault(require("../config/db"));
 // --- Core lookups ---
@@ -30,10 +31,87 @@ async function findUserById(id) {
 }
 // --- Creation (RSS-only actions) ---
 async function createUser(email, passwordHash, role, createdBy) {
-    const result = await db_1.default.query(`INSERT INTO users (email, password_hash, role, status, created_by)
-     VALUES ($1, $2, $3, 'invited', $4)
-     RETURNING *`, [email, passwordHash, role, createdBy]);
-    return result.rows[0];
+    const normalizedEmail = email.trim().toLowerCase();
+    /*
+     * Find an existing account with this email.
+     *
+     * We also check whether the account is currently linked
+     * to a client site.
+     */
+    const existingResult = await db_1.default.query(`
+    SELECT
+      u.*,
+      cu.site_id
+    FROM users u
+    LEFT JOIN client_users cu
+      ON cu.user_id = u.id
+    WHERE LOWER(u.email) = LOWER($1)
+    LIMIT 1
+    `, [normalizedEmail]);
+    const existingUser = existingResult.rows[0];
+    /*
+     * ============================================================
+     * NO EXISTING USER
+     * ============================================================
+     */
+    if (!existingUser) {
+        const result = await db_1.default.query(`
+      INSERT INTO users (
+        email,
+        password_hash,
+        role,
+        status,
+        created_by
+      )
+      VALUES ($1, $2, $3, 'invited', $4)
+      RETURNING *
+      `, [normalizedEmail, passwordHash, role, createdBy]);
+        return result.rows[0];
+    }
+    /*
+     * ============================================================
+     * REUSE OLD CLIENT ACCOUNT
+     * ============================================================
+     *
+     * We allow this when:
+     *
+     * 1. It is a client account
+     * 2. The new account being created is also a client
+     * 3. The old account is disabled
+     *
+     * OR:
+     *
+     * 4. The old client account no longer has a site attached.
+     *
+     * The second condition handles clients that were deleted
+     * before we introduced the new disabled-account behaviour.
+     */
+    const isReusableClient = existingUser.role === "client" &&
+        role === "client" &&
+        (existingUser.status === "disabled" || existingUser.site_id === null);
+    if (isReusableClient) {
+        const result = await db_1.default.query(`
+      UPDATE users
+      SET
+        password_hash = $1,
+        role = 'client',
+        status = 'invited',
+        must_change_password = TRUE,
+        created_by = $2,
+        last_login_at = NULL
+      WHERE id = $3
+      RETURNING *
+      `, [passwordHash, createdBy, existingUser.id]);
+        return result.rows[0];
+    }
+    /*
+     * ============================================================
+     * EXISTING ACTIVE ACCOUNT
+     * ============================================================
+     *
+     * Do not overwrite a real active account.
+     */
+    throw new Error(`A user with email ${normalizedEmail} already exists.`);
 }
 async function linkClientToSite(userId, siteId) {
     await db_1.default.query(`INSERT INTO client_users (user_id, site_id) VALUES ($1, $2)`, [userId, siteId]);
@@ -92,4 +170,20 @@ async function replaceInspectorSites(userId, siteIds) {
     finally {
         client.release();
     }
+}
+async function getClientCompany(userId) {
+    const result = await db_1.default.query(`
+    SELECT
+      s.id,
+      s.name,
+      s.logo,
+      s.email,
+      s.contact_person,
+      s.contact_number
+    FROM client_users cu
+    INNER JOIN sites s
+      ON s.id = cu.site_id
+    WHERE cu.user_id = $1
+    `, [userId]);
+    return result.rows[0] ?? null;
 }

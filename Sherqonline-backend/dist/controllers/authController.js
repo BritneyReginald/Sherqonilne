@@ -25,32 +25,58 @@ async function handleLogin(req, res, role) {
     try {
         const { email, password } = req.body;
         if (!email || !password) {
-            return res.status(400).json({ error: "Email and password are required" });
+            return res.status(400).json({
+                error: "Email and password are required",
+            });
         }
         const user = await (0, user_1.findUserByEmailAndRole)(email, role);
         if (!user) {
-            // Same generic message whether the email doesn't exist or the role
-            // doesn't match — don't reveal which one to an attacker.
-            return res.status(401).json({ error: "Invalid email or password" });
+            return res.status(401).json({
+                error: "Invalid email or password",
+            });
         }
         if (user.status === "disabled") {
-            return res.status(403).json({ error: "This account has been disabled" });
+            return res.status(403).json({
+                error: "This account has been disabled",
+            });
         }
         const validPassword = await (0, authService_1.verifyPassword)(password, user.password_hash);
         if (!validPassword) {
-            return res.status(401).json({ error: "Invalid email or password" });
+            return res.status(401).json({
+                error: "Invalid email or password",
+            });
+        }
+        // Get company information for client users
+        let company = null;
+        if (role === "client") {
+            const companyResult = await db_1.default.query(`
+    SELECT
+      s.id,
+      s.name,
+      s.logo
+    FROM client_users cu
+    JOIN sites s ON s.id = cu.site_id
+    WHERE cu.user_id = $1
+    LIMIT 1
+    `, [user.id]);
+            company = companyResult.rows[0] ?? null;
         }
         const token = await (0, authService_1.buildTokenForUser)(user);
         return res.status(200).json({
             token,
-            user: { id: user.id, email: user.email, role: user.role },
+            user: {
+                id: user.id,
+                email: user.email,
+                role: user.role,
+                company,
+            },
         });
     }
     catch (err) {
         console.error("Login error:", err);
-        return res
-            .status(500)
-            .json({ error: "Something went wrong. Please try again." });
+        return res.status(500).json({
+            error: "Something went wrong. Please try again.",
+        });
     }
 }
 // --- RSS-only: issue credentials for a client or inspector ---

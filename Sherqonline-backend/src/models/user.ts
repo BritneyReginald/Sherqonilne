@@ -255,3 +255,24 @@ export async function replaceInspectorSites(userId: number, siteIds: number[]) {
     client.release();
   }
 }
+
+export async function getClientCompany(userId: number) {
+  const result = await pool.query(
+    `
+    SELECT
+      s.id,
+      s.name,
+      s.logo,
+      s.email,
+      s.contact_person,
+      s.contact_number
+    FROM client_users cu
+    INNER JOIN sites s
+      ON s.id = cu.site_id
+    WHERE cu.user_id = $1
+    `,
+    [userId],
+  );
+
+  return result.rows[0] ?? null;
+}

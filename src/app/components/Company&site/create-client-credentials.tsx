@@ -46,7 +46,7 @@ export function CreateClientCredentials({
       console.log("Client credentials created:", result);
 
       toast.success(
-        "Client login created successfully. The credentials have been sent to the client.",
+        `Login details for ${site.name} have been sent to milly.reginald@gmail.com.`,
       );
 
       onBack();
@@ -176,8 +176,9 @@ export function CreateClientCredentials({
               </p>
 
               <p>
-                The client will receive their login details by email and will
-                only have access to information associated with{" "}
+                The login details for <strong>{site.name}</strong> will be sent
+                to <strong>milly.reginald@sherq.co.za</strong>. The client's
+                account will only have access to information associated with{" "}
                 <strong>{site.name}</strong>.
               </p>
             </div>

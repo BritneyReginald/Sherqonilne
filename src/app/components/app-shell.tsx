@@ -221,6 +221,8 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
   const { dismissedAlerts } = useAlerts();
   const { theme, colors, brandPrimaryBg, getNavTextColor } = useTheme();
   const { user, logout } = useAuth();
+  const clientCompany =
+  user?.role === "client" ? user.company : null;
   const [activeItem, setActiveItem] = useState<string>("dashboard");
 
   useEffect(() => {
@@ -284,7 +286,7 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
             minWidth: "256px",
           }}
         >
-          {/* {user?.role === "client" && clientCompany ? (
+          {user?.role === "client" && clientCompany ? (
             <>
               <div
                 className="size-9 rounded-lg overflow-hidden flex items-center justify-center flex-shrink-0"
@@ -303,6 +305,7 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
                   />
                 )}
               </div>
+
               <h1
                 className="text-lg font-bold truncate"
                 style={{ color: "var(--brand-blue)" }}
@@ -310,14 +313,14 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
                 {clientCompany.name}
               </h1>
             </>
-          ) : ( */}
-          <h1
-            className="text-xl font-bold"
-            style={{ color: "var(--brand-blue)" }}
-          >
-            SHERQ Online
-          </h1>
-          {/* )} */}
+          ) : (
+            <h1
+              className="text-xl font-bold"
+              style={{ color: "var(--brand-blue)" }}
+            >
+              SHERQ Online
+            </h1>
+          )}
         </div>
 
         {/* Navigation Menu */}

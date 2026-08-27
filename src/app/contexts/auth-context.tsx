@@ -9,10 +9,17 @@ import {
 
 export type Role = "rss_staff" | "client" | "inspector";
 
+export interface ClientCompany {
+  id: number;
+  name: string;
+  logo: string | null;
+}
+
 export interface AuthUser {
   id: number;
   email: string;
   role: Role;
+  company?: ClientCompany | null;
 }
 
 interface AuthContextType {
