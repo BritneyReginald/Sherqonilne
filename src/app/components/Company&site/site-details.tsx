@@ -7,11 +7,13 @@ import {
   Trash2,
   KeyRound,
   Building2,
+  Edit,
 } from "lucide-react";
 import { useTheme } from "../../contexts/theme-context";
 import { ImageWithFallback } from "../../components/figma/ImageWithFallback";
 import { toast } from "sonner";
-import { deleteSite } from "../../../api/siteAPI";
+import { deleteSite, updateSite } from "../../../api/siteAPI";
+import { AddClientModal } from "../add-client-modal";
 import { CreateClientCredentials } from "./create-client-credentials";
 
 interface Site {
@@ -29,15 +31,12 @@ interface SiteDetailsProps {
   onDeleted: () => void;
 }
 
-export function SiteDetails({
-  site,
-  onBack,
-  onDeleted,
-}: SiteDetailsProps) {
+export function SiteDetails({ site, onBack, onDeleted }: SiteDetailsProps) {
   const { colors } = useTheme();
 
   const [showCredentials, setShowCredentials] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
 
   const handleDeleteSite = async () => {
     const confirmed = window.confirm(
@@ -106,10 +105,7 @@ export function SiteDetails({
             }}
           >
             <ImageWithFallback
-              src={
-                site.logo ||
-                "https://placehold.co/200x200"
-              }
+              src={site.logo || "https://placehold.co/200x200"}
               alt={`${site.name} logo`}
               className="w-full h-full object-cover"
             />
@@ -124,10 +120,7 @@ export function SiteDetails({
               {site.name}
             </h1>
 
-            <p
-              className="text-sm mt-1"
-              style={{ color: colors.subText }}
-            >
+            <p className="text-sm mt-1" style={{ color: colors.subText }}>
               Client Inspection Site
             </p>
           </div>
@@ -145,21 +138,29 @@ export function SiteDetails({
               : "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
         }}
       >
-        <h2
-          className="text-lg font-semibold mb-5"
-          style={{ color: colors.primaryText }}
-        >
-          Client Details
-        </h2>
+        <div className="flex items-center justify-between mb-5">
+          <h2
+            className="text-lg font-semibold"
+            style={{ color: colors.primaryText }}
+          >
+            Client Details
+          </h2>
+
+          <button
+            onClick={() => setShowEditModal(true)}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium"
+            style={{ color: "var(--brand-blue)" }}
+          >
+            <Edit className="size-4" />
+            Edit
+          </button>
+        </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
           {/* Email */}
           <div>
             <div className="flex items-center gap-2 mb-1">
-              <Mail
-                className="size-4"
-                style={{ color: colors.subText }}
-              />
+              <Mail className="size-4" style={{ color: colors.subText }} />
 
               <span
                 className="text-xs font-medium"
@@ -169,10 +170,7 @@ export function SiteDetails({
               </span>
             </div>
 
-            <p
-              className="text-sm"
-              style={{ color: colors.primaryText }}
-            >
+            <p className="text-sm" style={{ color: colors.primaryText }}>
               {site.email || "Not provided"}
             </p>
           </div>
@@ -180,10 +178,7 @@ export function SiteDetails({
           {/* Contact person */}
           <div>
             <div className="flex items-center gap-2 mb-1">
-              <User
-                className="size-4"
-                style={{ color: colors.subText }}
-              />
+              <User className="size-4" style={{ color: colors.subText }} />
 
               <span
                 className="text-xs font-medium"
@@ -193,10 +188,7 @@ export function SiteDetails({
               </span>
             </div>
 
-            <p
-              className="text-sm"
-              style={{ color: colors.primaryText }}
-            >
+            <p className="text-sm" style={{ color: colors.primaryText }}>
               {site.contactPerson || "Not provided"}
             </p>
           </div>
@@ -204,10 +196,7 @@ export function SiteDetails({
           {/* Contact number */}
           <div>
             <div className="flex items-center gap-2 mb-1">
-              <Phone
-                className="size-4"
-                style={{ color: colors.subText }}
-              />
+              <Phone className="size-4" style={{ color: colors.subText }} />
 
               <span
                 className="text-xs font-medium"
@@ -217,10 +206,7 @@ export function SiteDetails({
               </span>
             </div>
 
-            <p
-              className="text-sm"
-              style={{ color: colors.primaryText }}
-            >
+            <p className="text-sm" style={{ color: colors.primaryText }}>
               {site.contactNumber || "Not provided"}
             </p>
           </div>
@@ -252,12 +238,9 @@ export function SiteDetails({
           </h2>
         </div>
 
-        <p
-          className="text-sm mb-5"
-          style={{ color: colors.subText }}
-        >
-          Create login credentials so the client can access their
-          SHERQ Online portal.
+        <p className="text-sm mb-5" style={{ color: colors.subText }}>
+          Create login credentials so the client can access their SHERQ
+          Online portal.
         </p>
 
         <button
@@ -288,12 +271,8 @@ export function SiteDetails({
           Danger Zone
         </h2>
 
-        <p
-          className="text-sm mb-5"
-          style={{ color: colors.subText }}
-        >
-          Deleting this site will remove it from the sites managed by
-          RSS.
+        <p className="text-sm mb-5" style={{ color: colors.subText }}>
+          Deleting this site will remove it from the sites managed by RSS.
         </p>
 
         <button
@@ -311,6 +290,33 @@ export function SiteDetails({
           {deleting ? "Deleting..." : "Delete Site"}
         </button>
       </div>
+
+      {/* Edit Site Modal */}
+      {showEditModal && (
+        <AddClientModal
+          isOpen={showEditModal}
+          onClose={() => setShowEditModal(false)}
+          initialData={{
+            name: site.name,
+            logo: site.logo,
+            email: site.email,
+            contactPerson: site.contactPerson,
+            contactNumber: site.contactNumber,
+          }}
+          onSave={async (updated) => {
+            try {
+              await updateSite(site.id, updated);
+              toast.success("Site updated successfully");
+              setShowEditModal(false);
+              onDeleted(); // refreshes the sites list and returns to the grid
+            } catch (error) {
+              console.error("Update site error:", error);
+              toast.error("Failed to update site.");
+              throw error; // keeps the modal open so the user can retry
+            }
+          }}
+        />
+      )}
     </div>
   );
 }

@@ -65,3 +65,34 @@ export async function deleteSite(siteId: string) {
 
   return res.json();
 }
+
+export async function updateSite(
+  siteId: string,
+  site: {
+    name: string;
+    logo: string;
+    email: string;
+    contactPerson: string;
+    contactNumber: string;
+  },
+) {
+  const res = await fetch(`${API_URL}/sites/${siteId}`, {
+    method: "PATCH",
+    headers: authHeaders(),
+    body: JSON.stringify({
+      name: site.name,
+      logo: site.logo,
+      email: site.email,
+      contact_person: site.contactPerson,
+      contact_number: site.contactNumber,
+    }),
+  });
+
+  const data = await res.json().catch(() => ({}));
+
+  if (!res.ok) {
+    throw new Error(data.error || "Failed to update site");
+  }
+
+  return data;
+}

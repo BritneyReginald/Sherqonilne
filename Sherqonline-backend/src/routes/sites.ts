@@ -15,13 +15,9 @@ const router = express.Router();
  * inspecting.
  */
 
-router.get(
-  "/",
-  authenticate,
-  authorize("rss_staff"),
-  async (_req, res) => {
-    try {
-      const result = await pool.query(`
+router.get("/", authenticate, authorize("rss_staff"), async (_req, res) => {
+  try {
+    const result = await pool.query(`
         SELECT
           id,
           name,
@@ -34,17 +30,15 @@ router.get(
         ORDER BY name
       `);
 
-      res.json(result.rows);
-    } catch (err) {
-      console.error("Get sites error:", err);
+    res.json(result.rows);
+  } catch (err) {
+    console.error("Get sites error:", err);
 
-      res.status(500).json({
-        error: "Failed to fetch sites",
-      });
-    }
+    res.status(500).json({
+      error: "Failed to fetch sites",
+    });
   }
-);
-
+});
 
 /*
  * ============================================================
@@ -54,28 +48,18 @@ router.get(
  * RSS staff creates/registers the client inspection site.
  */
 
-router.post(
-  "/",
-  authenticate,
-  authorize("rss_staff"),
-  async (req, res) => {
-    try {
-      const {
-        name,
-        logo,
-        email,
-        contact_person,
-        contact_number,
-      } = req.body;
+router.post("/", authenticate, authorize("rss_staff"), async (req, res) => {
+  try {
+    const { name, logo, email, contact_person, contact_number } = req.body;
 
-      if (!name) {
-        return res.status(400).json({
-          error: "Site name is required",
-        });
-      }
+    if (!name) {
+      return res.status(400).json({
+        error: "Site name is required",
+      });
+    }
 
-      const result = await pool.query(
-        `
+    const result = await pool.query(
+      `
         INSERT INTO sites (
           name,
           logo,
@@ -86,25 +70,24 @@ router.post(
         VALUES ($1, $2, $3, $4, $5)
         RETURNING *
         `,
-        [
-          name,
-          logo ?? null,
-          email ?? null,
-          contact_person ?? null,
-          contact_number ?? null,
-        ]
-      );
+      [
+        name,
+        logo ?? null,
+        email ?? null,
+        contact_person ?? null,
+        contact_number ?? null,
+      ],
+    );
 
-      res.status(201).json(result.rows[0]);
-    } catch (err) {
-      console.error("Create site error:", err);
+    res.status(201).json(result.rows[0]);
+  } catch (err) {
+    console.error("Create site error:", err);
 
-      res.status(500).json({
-        error: "Failed to create site",
-      });
-    }
+    res.status(500).json({
+      error: "Failed to create site",
+    });
   }
-);
+});
 
 router.delete(
   "/:id",
@@ -140,5 +123,63 @@ router.delete(
     }
   },
 );
+
+/*
+ * ============================================================
+ * UPDATE SITE
+ * ============================================================
+ *
+ * RSS staff edits an existing client inspection site's details.
+ */
+
+router.patch("/:id", authenticate, authorize("rss_staff"), async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const { name, logo, email, contact_person, contact_number } = req.body;
+
+    if (!name) {
+      return res.status(400).json({
+        error: "Site name is required",
+      });
+    }
+
+    const result = await pool.query(
+      `
+        UPDATE sites
+        SET
+          name = $1,
+          logo = $2,
+          email = $3,
+          contact_person = $4,
+          contact_number = $5
+        WHERE id = $6
+        RETURNING *
+        `,
+      [
+        name,
+        logo ?? null,
+        email ?? null,
+        contact_person ?? null,
+        contact_number ?? null,
+        id,
+      ],
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({
+        error: "Site not found",
+      });
+    }
+
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error("Update site error:", err);
+
+    res.status(500).json({
+      error: "Failed to update site",
+    });
+  }
+});
 
 export default router;

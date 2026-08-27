@@ -13,17 +13,35 @@ interface AddSiteModalProps {
     contactPerson: string;
     contactNumber: string;
   }) => Promise<void> | void;
+  initialData?: {
+    name: string;
+    logo?: string;
+    email?: string;
+    contactPerson?: string;
+    contactNumber?: string;
+  };
 }
 
-export function AddClientModal({ isOpen, onClose, onSave }: AddSiteModalProps) {
+export function AddClientModal({
+  isOpen,
+  onClose,
+  onSave,
+  initialData,
+}: AddSiteModalProps) {
   const { colors } = useTheme();
 
-  const [name, setName] = useState("");
-  const [logo, setLogo] = useState("");
-  const [email, setEmail] = useState("");
-  const [contactPerson, setContactPerson] = useState("");
-  const [contactNumber, setContactNumber] = useState("");
+  const [name, setName] = useState(initialData?.name ?? "");
+  const [logo, setLogo] = useState(initialData?.logo ?? "");
+  const [email, setEmail] = useState(initialData?.email ?? "");
+  const [contactPerson, setContactPerson] = useState(
+    initialData?.contactPerson ?? "",
+  );
+  const [contactNumber, setContactNumber] = useState(
+    initialData?.contactNumber ?? "",
+  );
   const [saving, setSaving] = useState(false);
+
+  const isEditMode = Boolean(initialData);
 
   if (!isOpen) return null;
 
@@ -69,14 +87,13 @@ export function AddClientModal({ isOpen, onClose, onSave }: AddSiteModalProps) {
 
       await onSave({
         name: name.trim(),
-
         logo,
         email: email.trim(),
         contactPerson: contactPerson.trim(),
         contactNumber: contactNumber.trim(),
       });
 
-      // Reset form
+      // Reset form (harmless in edit mode too, since the modal unmounts on close)
       setName("");
       setLogo("");
       setEmail("");
@@ -140,11 +157,13 @@ export function AddClientModal({ isOpen, onClose, onSave }: AddSiteModalProps) {
                 className="text-xl font-semibold"
                 style={{ color: colors.primaryText }}
               >
-                Add New Site
+                {isEditMode ? "Edit Site" : "Add New Site"}
               </h2>
 
               <p className="text-sm mt-1" style={{ color: colors.subText }}>
-                Create a client/company profile
+                {isEditMode
+                  ? "Update the client/company profile"
+                  : "Create a client/company profile"}
               </p>
             </div>
           </div>
@@ -166,7 +185,7 @@ export function AddClientModal({ isOpen, onClose, onSave }: AddSiteModalProps) {
               className="text-sm font-semibold uppercase tracking-wider mb-4"
               style={{ color: colors.subText }}
             >
-              Client Information
+              {isEditMode ? "Client Details" : "Client Information"}
             </h3>
 
             <div className="grid grid-cols-2 gap-4">
@@ -360,7 +379,13 @@ export function AddClientModal({ isOpen, onClose, onSave }: AddSiteModalProps) {
               color: "white",
             }}
           >
-            {saving ? "Creating Client..." : "Create Client"}
+            {saving
+              ? isEditMode
+                ? "Saving..."
+                : "Creating Client..."
+              : isEditMode
+                ? "Save Changes"
+                : "Create Client"}
           </button>
         </div>
       </div>
