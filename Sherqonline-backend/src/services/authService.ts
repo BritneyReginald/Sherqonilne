@@ -100,7 +100,7 @@ export function generateTempPassword(): string {
     .randomBytes(9)
     .toString("base64")
     .replace(/[+/=]/g, "")
-    .slice(0, 12);
+    .slice(0, 6);
 }
 
 // --- JWT ---
