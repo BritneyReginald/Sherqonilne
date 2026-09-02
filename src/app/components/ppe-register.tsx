@@ -1,374 +1,201 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Plus,
   Settings,
   CheckCircle2,
   Clock,
-  Package,
   Filter,
   ShieldCheck,
+  AlertTriangle,
+  Loader2,
 } from "lucide-react";
-import {
-  IssuePPEModal,
-  PPECatalogueItem,
-} from "@/app/components/issue-ppe-modal";
+import { IssuePPEModal, PPECatalogueItem, EmployeeOption } from "@/app/components/issue-ppe-modal";
 import { PPECatalogue } from "../components/ppe-catalogue";
 import { AlertBanner } from "../components/alert-banner";
 import { useAlerts } from "../contexts/alert-context";
 
 interface PPETransaction {
-  id: string;
+  id: number;
   employeeName: string;
-  employeeId: string;
-  jobTitle: string;
-  ppeType: string;
-  ppeBrand: string;
-  ppeSize: string;
+  jobTitle: string | null;
+  siteLocation: string | null;
+  ppeItemName: string;
+  ppeBrand: string | null;
+  ppeSize: string | null;
   ppeCategory: string;
   issueDate: string;
   condition: "new" | "re-issued-good";
   replacementDue: string;
   signOffStatus: "signed" | "pending";
-  signOffDate?: string;
+  signOffDate: string | null;
 }
 
-const ppeCategories = [
-  "All PPE Types",
-  "Footwear",
-  "Head Protection",
-  "Eye Protection",
-  "Visibility",
-  "Fall Protection",
-  "Hearing Protection",
-  "Hand Protection",
-  "Respiratory Protection",
-];
-
-const sites = [
-  "All Sites",
-  "Johannesburg Main",
-  "Cape Town Depot",
-  "Durban Operations",
-  "Pretoria Branch",
-];
-
-const employees = [
-  { id: "EMP001", name: "Sarah Jenkins", jobTitle: "Welder" },
-  { id: "EMP002", name: "Michael Chen", jobTitle: "Construction Supervisor" },
-  { id: "EMP003", name: "John Smith", jobTitle: "Electrician" },
-  { id: "EMP004", name: "Emma Thompson", jobTitle: "Environmental Officer" },
-  { id: "EMP005", name: "David van der Merwe", jobTitle: "Operations Manager" },
-  { id: "EMP006", name: "Lisa Botha", jobTitle: "Rigger / Scaffolder" },
-  { id: "EMP007", name: "James Ndlovu", jobTitle: "Plant Operator" },
-  { id: "EMP008", name: "Peter van Zyl", jobTitle: "Mechanical Technician" },
-  { id: "EMP009", name: "Thandi Mkhize", jobTitle: "Quality Inspector" },
-  { id: "EMP010", name: "Robert Malan", jobTitle: "Safety Representative" },
-];
-
-const catalogueItems: PPECatalogueItem[] = [
-  {
-    id: "ppe-001",
-    name: "Safety Boots",
-    category: "Footwear",
-    requiresSize: true,
-    sizes: ["6", "7", "8", "9", "10", "11", "12"],
-  },
-  {
-    id: "ppe-002",
-    name: "Hard Hat",
-    category: "Head Protection",
-    requiresSize: false,
-  },
-  {
-    id: "ppe-003",
-    name: "Safety Goggles",
-    category: "Eye Protection",
-    requiresSize: false,
-  },
-  {
-    id: "ppe-004",
-    name: "High-Vis Vest",
-    category: "Visibility",
-    requiresSize: true,
-    sizes: ["S", "M", "L", "XL", "XXL"],
-  },
-  {
-    id: "ppe-005",
-    name: "Safety Harness",
-    category: "Fall Protection",
-    requiresSize: true,
-    sizes: ["S", "M", "L", "XL"],
-  },
-  {
-    id: "ppe-006",
-    name: "Ear Plugs",
-    category: "Hearing Protection",
-    requiresSize: false,
-  },
-  {
-    id: "ppe-007",
-    name: "Leather Gloves",
-    category: "Hand Protection",
-    requiresSize: true,
-    sizes: ["S", "M", "L", "XL"],
-  },
-  {
-    id: "ppe-008",
-    name: "Dust Mask FFP2",
-    category: "Respiratory Protection",
-    requiresSize: true,
-    sizes: ["S", "M", "L"],
-  },
-];
-
 export function PPERegister({ employeeId }: { employeeId?: string }) {
-  const [transactions, setTransactions] = useState<PPETransaction[]>([
-    {
-      id: "PPE-24-089",
-      employeeName: "Sarah Jenkins",
-      employeeId: "EMP001",
-      jobTitle: "Welder",
-      ppeType: "Safety Boots",
-      ppeBrand: "Bova Maverick",
-      ppeSize: "Size 8",
-      ppeCategory: "Footwear",
-      issueDate: "2024-01-15",
-      condition: "new",
-      replacementDue: "2024-07-15",
-      signOffStatus: "signed",
-      signOffDate: "2024-01-15T14:30:00",
-    },
-    {
-      id: "PPE-24-088",
-      employeeName: "Michael Chen",
-      employeeId: "EMP002",
-      jobTitle: "Construction Supervisor",
-      ppeType: "Hard Hat",
-      ppeBrand: "3M SecureFit",
-      ppeSize: "Universal",
-      ppeCategory: "Head Protection",
-      issueDate: "2024-01-14",
-      condition: "new",
-      replacementDue: "2025-01-14",
-      signOffStatus: "signed",
-      signOffDate: "2024-01-14T09:15:00",
-    },
-    {
-      id: "PPE-24-087",
-      employeeName: "John Smith",
-      employeeId: "EMP003",
-      jobTitle: "Electrician",
-      ppeType: "Safety Goggles",
-      ppeBrand: "Honeywell Uvex",
-      ppeSize: "One Size",
-      ppeCategory: "Eye Protection",
-      issueDate: "2024-01-12",
-      condition: "re-issued-good",
-      replacementDue: "2024-03-12",
-      signOffStatus: "pending",
-    },
-    {
-      id: "PPE-24-086",
-      employeeName: "Emma Thompson",
-      employeeId: "EMP004",
-      jobTitle: "Environmental Officer",
-      ppeType: "High-Vis Vest",
-      ppeBrand: "ProChoice Safety Gear",
-      ppeSize: "Medium",
-      ppeCategory: "Visibility",
-      issueDate: "2024-01-10",
-      condition: "new",
-      replacementDue: "2024-07-10",
-      signOffStatus: "signed",
-      signOffDate: "2024-01-10T11:20:00",
-    },
-    {
-      id: "PPE-24-085",
-      employeeName: "David van der Merwe",
-      employeeId: "EMP005",
-      jobTitle: "Operations Manager",
-      ppeType: "Safety Boots",
-      ppeBrand: "Caterpillar Holton",
-      ppeSize: "Size 10",
-      ppeCategory: "Footwear",
-      issueDate: "2024-01-08",
-      condition: "new",
-      replacementDue: "2024-07-08",
-      signOffStatus: "signed",
-      signOffDate: "2024-01-08T08:45:00",
-    },
-    {
-      id: "PPE-24-084",
-      employeeName: "Lisa Botha",
-      employeeId: "EMP006",
-      jobTitle: "Rigger / Scaffolder",
-      ppeType: "Safety Harness",
-      ppeBrand: "Miller Titan",
-      ppeSize: "Large",
-      ppeCategory: "Fall Protection",
-      issueDate: "2024-01-05",
-      condition: "new",
-      replacementDue: "2025-01-05",
-      signOffStatus: "signed",
-      signOffDate: "2024-01-05T13:10:00",
-    },
-    {
-      id: "PPE-24-083",
-      employeeName: "James Ndlovu",
-      employeeId: "EMP007",
-      jobTitle: "Plant Operator",
-      ppeType: "Ear Plugs",
-      ppeBrand: "3M E-A-R Classic",
-      ppeSize: "Universal",
-      ppeCategory: "Hearing Protection",
-      issueDate: "2024-01-03",
-      condition: "new",
-      replacementDue: "2024-02-15",
-      signOffStatus: "pending",
-    },
-    {
-      id: "PPE-24-082",
-      employeeName: "Peter van Zyl",
-      employeeId: "EMP008",
-      jobTitle: "Mechanical Technician",
-      ppeType: "Leather Gloves",
-      ppeBrand: "Tillman TrueFit",
-      ppeSize: "Large",
-      ppeCategory: "Hand Protection",
-      issueDate: "2023-12-28",
-      condition: "re-issued-good",
-      replacementDue: "2024-02-10",
-      signOffStatus: "signed",
-      signOffDate: "2023-12-28T10:30:00",
-    },
-    {
-      id: "PPE-24-081",
-      employeeName: "Thandi Mkhize",
-      employeeId: "EMP009",
-      jobTitle: "Quality Inspector",
-      ppeType: "Safety Boots",
-      ppeBrand: "Bova Classics",
-      ppeSize: "Size 6",
-      ppeCategory: "Footwear",
-      issueDate: "2023-12-20",
-      condition: "new",
-      replacementDue: "2024-06-20",
-      signOffStatus: "signed",
-      signOffDate: "2023-12-20T15:00:00",
-    },
-    {
-      id: "PPE-24-080",
-      employeeName: "Robert Malan",
-      employeeId: "EMP010",
-      jobTitle: "Safety Representative",
-      ppeType: "Dust Mask FFP2",
-      ppeBrand: "Respirex",
-      ppeSize: "Medium",
-      ppeCategory: "Respiratory Protection",
-      issueDate: "2023-12-15",
-      condition: "new",
-      replacementDue: "2024-01-30",
-      signOffStatus: "pending",
-    },
-  ]);
+  const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
   const { dismissAlert } = useAlerts();
+
+  const [transactions, setTransactions] = useState<PPETransaction[]>([]);
+  const [employees, setEmployees] = useState<EmployeeOption[]>([]);
+  const [catalogueItems, setCatalogueItems] = useState<PPECatalogueItem[]>([]);
+
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
   const [showIssueModal, setShowIssueModal] = useState(false);
   const [showCatalogue, setShowCatalogue] = useState(false);
   const [selectedSite, setSelectedSite] = useState("All Sites");
   const [selectedCategory, setSelectedCategory] = useState("All PPE Types");
-  const [selectedEmployee, setSelectedEmployee] = useState("All Employees");
+  const [selectedEmployeeFilter, setSelectedEmployeeFilter] = useState("All Employees");
 
-  const handleIssuePPE = (data: any) => {
-    console.log("PPE Issued:", data);
+  useEffect(() => {
+    fetchAll();
+  }, []);
 
-    const employee = employees.find((e) => e.id === data.employee);
+  const fetchAll = async () => {
+    setIsLoading(true);
+    setLoadError(null);
+    try {
+      await Promise.all([fetchTransactions(), fetchEmployees(), fetchCatalogueItems()]);
+    } catch (error) {
+      console.error("Error loading PPE register:", error);
+      setLoadError("Couldn't load the PPE register. Check your connection and try again.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
-    if (!employee) return;
+  const fetchTransactions = async () => {
+    const response = await fetch(`${API_URL}/ppe/transactions`);
+    if (!response.ok) throw new Error("Failed to fetch PPE transactions");
+    const data = await response.json();
 
-    const newTransactions: PPETransaction[] = Array.from(
-      data.items.entries(),
-    ).map(([itemId, itemDetails]: any, index) => {
-      const item = catalogueItems.find((c) => c.id === itemId);
+    const formatted: PPETransaction[] = data.map((t: any) => ({
+      id: t.id,
+      employeeName: t.employee_name,
+      jobTitle: t.job_title,
+      siteLocation: t.site_location,
+      ppeItemName: t.ppe_item_name,
+      ppeBrand: t.ppe_brand,
+      ppeSize: t.ppe_size,
+      ppeCategory: t.ppe_category,
+      issueDate: t.issue_date,
+      condition: t.condition,
+      replacementDue: t.replacement_due,
+      signOffStatus: t.sign_off_status,
+      signOffDate: t.sign_off_date,
+    }));
 
-      const today = new Date();
-      const replacement = new Date();
-      replacement.setMonth(replacement.getMonth() + 6);
+    setTransactions(formatted);
+  };
 
-      return {
-        id: `PPE-${Date.now()}-${index}`,
-        employeeName: employee.name,
-        employeeId: employee.id,
-        jobTitle: employee.jobTitle,
-        ppeType: item?.name || "",
-        ppeBrand: "Standard Issue",
-        ppeSize: itemDetails.size || "N/A",
-        ppeCategory: item?.category || "",
-        issueDate: today.toISOString(),
-        condition: itemDetails.condition,
-        replacementDue: replacement.toISOString(),
-        signOffStatus: "signed",
-        signOffDate: today.toISOString(),
-      };
+  const fetchEmployees = async () => {
+    const response = await fetch(`${API_URL}/employees`);
+    if (!response.ok) throw new Error("Failed to fetch employees");
+    const data = await response.json();
+
+    const formatted: EmployeeOption[] = data
+      .filter((e: any) => e.status !== "Inactive")
+      .map((e: any) => ({
+        id: e.id,
+        name: e.full_name,
+        jobTitle: e.job_title,
+        siteLocation: e.site_location,
+      }));
+
+    setEmployees(formatted);
+  };
+
+  const fetchCatalogueItems = async () => {
+    const response = await fetch(`${API_URL}/ppe/catalogue`);
+    if (!response.ok) throw new Error("Failed to fetch PPE catalogue");
+    const data = await response.json();
+
+    const formatted: PPECatalogueItem[] = data.map((item: any) => ({
+      id: item.id,
+      name: item.item_name,
+      category: item.category,
+      requiresSize: item.requires_size,
+      sizes: item.sizes || undefined,
+    }));
+
+    setCatalogueItems(formatted);
+  };
+
+  const handleIssuePPE = async (data: {
+    employee: EmployeeOption;
+    items: Map<string, { condition: string; size?: string }>;
+    signatureData: string;
+  }) => {
+    const response = await fetch(`${API_URL}/ppe/transactions`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        employeeId: data.employee.id,
+        employeeName: data.employee.name,
+        jobTitle: data.employee.jobTitle,
+        siteLocation: data.employee.siteLocation,
+        items: Array.from(data.items.entries()).map(([itemId, details]) => ({
+          itemId: Number(itemId),
+          condition: details.condition,
+          size: details.size,
+        })),
+        signatureData: data.signatureData,
+      }),
     });
 
-    setTransactions((prev) => [...newTransactions, ...prev]);
+    if (!response.ok) {
+      const errBody = await response.json().catch(() => ({}));
+      throw new Error(errBody.error || "Failed to issue PPE");
+    }
 
+    await Promise.all([fetchTransactions(), fetchCatalogueItems()]);
     setShowIssueModal(false);
   };
 
-  const totalIssued = transactions.length;
-  const pendingSignOffs = transactions.filter(
-    (t) => t.signOffStatus === "pending",
-  ).length;
-  const signedOff = transactions.filter(
-    (t) => t.signOffStatus === "signed",
-  ).length;
-  const upcomingReplacements = transactions.filter((t) => {
-    const replacementDate = new Date(t.replacementDue);
-    const today = new Date();
-    const daysUntil =
-      (replacementDate.getTime() - today.getTime()) / (1000 * 3600 * 24);
-    return daysUntil > 0 && daysUntil <= 30;
-  }).length;
+  const sites = [
+    "All Sites",
+    ...Array.from(new Set(employees.map((e) => e.siteLocation).filter(Boolean))).sort() as string[],
+  ];
 
-  const handleDismissAlert = (id: string) => {
-    dismissAlert(
-      id,
-      `PPE Alert: ${pendingSignOffs} items awaiting employee sign-off`,
-      "critical",
-    );
-  };
+  const ppeCategories = [
+    "All PPE Types",
+    ...Array.from(new Set(catalogueItems.map((c) => c.category))).sort(),
+  ];
 
   const employeeFilterOptions = [
     "All Employees",
-    ...employees.map((employee) => employee.name),
+    ...Array.from(new Set(transactions.map((t) => t.employeeName))).sort(),
   ];
 
   const filteredTransactions = transactions.filter((transaction) => {
-    const matchesEmployeeId = employeeId
-      ? transaction.employeeId === employeeId
-      : true;
+    const matchesEmployeeId = employeeId ? transaction.employeeName === employeeId : true;
+    const matchesSite = selectedSite === "All Sites" || transaction.siteLocation === selectedSite;
+    const matchesCategory = selectedCategory === "All PPE Types" || transaction.ppeCategory === selectedCategory;
+    const matchesEmployee = selectedEmployeeFilter === "All Employees" || transaction.employeeName === selectedEmployeeFilter;
 
-    const matchesCategory =
-      selectedCategory === "All PPE Types" ||
-      transaction.ppeCategory === selectedCategory;
-
-    const matchesEmployee =
-      selectedEmployee === "All Employees" ||
-      transaction.employeeName === selectedEmployee;
-
-    return matchesEmployeeId && matchesCategory && matchesEmployee;
+    return matchesEmployeeId && matchesSite && matchesCategory && matchesEmployee;
   });
 
+  const totalIssued = filteredTransactions.length;
+  const pendingSignOffs = filteredTransactions.filter((t) => t.signOffStatus === "pending").length;
+  const signedOff = filteredTransactions.filter((t) => t.signOffStatus === "signed").length;
+  const upcomingReplacements = filteredTransactions.filter((t) => {
+    const replacementDate = new Date(t.replacementDue);
+    const today = new Date();
+    const daysUntil = (replacementDate.getTime() - today.getTime()) / (1000 * 3600 * 24);
+    return daysUntil > 0 && daysUntil <= 30;
+  }).length;
+  const completionRate = totalIssued > 0 ? Math.round((signedOff / totalIssued) * 100) : 0;
+
+  const handleDismissAlert = (id: string) => {
+    dismissAlert(id, `PPE Alert: ${pendingSignOffs} items awaiting employee sign-off`, "critical");
+  };
+
   return (
-    <div
-      className="h-full overflow-y-auto"
-      style={{ backgroundColor: "#0F172A" }}
-    >
+    <div className="h-full overflow-y-auto" style={{ backgroundColor: "#0F172A" }}>
       <div className="max-w-[1600px] mx-auto">
         {!employeeId && (
           <>
-            {/* Top Notification Bar - Full Width White */}
             {pendingSignOffs > 0 && (
               <AlertBanner
                 id="ppe-pending-signoff-alert"
@@ -380,38 +207,28 @@ export function PPERegister({ employeeId }: { employeeId?: string }) {
               />
             )}
 
-            {/* Header Section */}
             <div className="px-8 pt-6 pb-8">
               <div className="flex items-start justify-between mb-8">
                 <div>
-                  <h1 className="text-3xl mb-2" style={{ color: "#F8FAFC" }}>
-                    PPE Register & Issue Log
-                  </h1>
+                  <h1 className="text-3xl mb-2" style={{ color: "#F8FAFC" }}>PPE Register & Issue Log</h1>
                   <div className="flex items-center gap-2 mt-1">
-                    <ShieldCheck
-                      className="size-4"
-                      style={{ color: "var(--compliance-success)" }}
-                    />
-                    <p className="text-sm" style={{ color: "#94A3B8" }}>
-                      POPI Act Compliant: Restricted Access
-                    </p>
+                    <ShieldCheck className="size-4" style={{ color: "var(--compliance-success)" }} />
+                    <p className="text-sm" style={{ color: "#94A3B8" }}>POPI Act Compliant: Restricted Access</p>
                   </div>
                 </div>
                 <div className="flex gap-3">
                   <button
                     onClick={() => setShowCatalogue(true)}
                     className="px-5 py-2.5 rounded-lg font-medium transition-opacity flex items-center gap-2 hover:opacity-90"
-                    style={{
-                      backgroundColor: "rgba(255, 255, 255, 0.1)",
-                      color: "#F8FAFC",
-                    }}
+                    style={{ backgroundColor: "rgba(255, 255, 255, 0.1)", color: "#F8FAFC" }}
                   >
                     <Settings className="size-4" />
                     PPE Catalogue
                   </button>
                   <button
                     onClick={() => setShowIssueModal(true)}
-                    className="px-5 py-2.5 rounded-lg font-medium text-white transition-opacity flex items-center gap-2 hover:opacity-90"
+                    disabled={employees.length === 0 || catalogueItems.length === 0}
+                    className="px-5 py-2.5 rounded-lg font-medium text-white transition-opacity flex items-center gap-2 hover:opacity-90 disabled:opacity-50"
                     style={{ backgroundColor: "#3B82F6" }}
                   >
                     <Plus className="size-4" />
@@ -420,372 +237,188 @@ export function PPERegister({ employeeId }: { employeeId?: string }) {
                 </div>
               </div>
 
-              {/* Filter Section */}
               <div className="flex items-center gap-3 mb-6">
                 <Filter className="size-5" style={{ color: "#94A3B8" }} />
                 <select
                   value={selectedSite}
                   onChange={(e) => setSelectedSite(e.target.value)}
                   className="px-4 py-2.5 rounded-lg text-sm appearance-none cursor-pointer"
-                  style={{
-                    backgroundColor: "#1E293B",
-                    color: "#F8FAFC",
-                    border: "none",
-                  }}
+                  style={{ backgroundColor: "#1E293B", color: "#F8FAFC", border: "none" }}
                 >
                   {sites.map((site) => (
-                    <option key={site} value={site}>
-                      {site}
-                    </option>
+                    <option key={site} value={site}>{site}</option>
                   ))}
                 </select>
                 <select
                   value={selectedCategory}
                   onChange={(e) => setSelectedCategory(e.target.value)}
                   className="px-4 py-2.5 rounded-lg text-sm appearance-none cursor-pointer"
-                  style={{
-                    backgroundColor: "#1E293B",
-                    color: "#F8FAFC",
-                    border: "none",
-                  }}
+                  style={{ backgroundColor: "#1E293B", color: "#F8FAFC", border: "none" }}
                 >
                   {ppeCategories.map((category) => (
-                    <option key={category} value={category}>
-                      {category}
-                    </option>
+                    <option key={category} value={category}>{category}</option>
                   ))}
                 </select>
-
                 <select
-                  value={selectedEmployee}
-                  onChange={(e) => setSelectedEmployee(e.target.value)}
+                  value={selectedEmployeeFilter}
+                  onChange={(e) => setSelectedEmployeeFilter(e.target.value)}
                   className="px-4 py-2.5 rounded-lg text-sm appearance-none cursor-pointer"
-                  style={{
-                    backgroundColor: "#1E293B",
-                    color: "#F8FAFC",
-                    border: "none",
-                  }}
+                  style={{ backgroundColor: "#1E293B", color: "#F8FAFC", border: "none" }}
                 >
                   {employeeFilterOptions.map((employee) => (
-                    <option key={employee} value={employee}>
-                      {employee}
-                    </option>
+                    <option key={employee} value={employee}>{employee}</option>
                   ))}
                 </select>
               </div>
 
-              {/* Statistics Cards */}
               <div className="grid grid-cols-5 gap-4">
-                <div
-                  className="px-6 py-4 rounded-lg"
-                  style={{
-                    backgroundColor: "#1E293B",
-                  }}
-                >
-                  <p className="text-sm mb-2" style={{ color: "#94A3B8" }}>
-                    Total Issued
-                  </p>
-                  <p
-                    className="text-3xl font-bold"
-                    style={{ color: "#F8FAFC" }}
-                  >
-                    {totalIssued}
-                  </p>
-                </div>
-                <div
-                  className="px-6 py-4 rounded-lg"
-                  style={{
-                    backgroundColor: "#1E293B",
-                  }}
-                >
-                  <p className="text-sm mb-2" style={{ color: "#94A3B8" }}>
-                    Signed Off
-                  </p>
-                  <p
-                    className="text-3xl font-bold"
-                    style={{ color: "var(--compliance-success)" }}
-                  >
-                    {signedOff}
-                  </p>
-                </div>
-                <div
-                  className="px-6 py-4 rounded-lg"
-                  style={{
-                    backgroundColor: "#1E293B",
-                  }}
-                >
-                  <p className="text-sm mb-2" style={{ color: "#94A3B8" }}>
-                    Pending Sign-Off
-                  </p>
-                  <p
-                    className="text-3xl font-bold"
-                    style={{ color: "var(--compliance-danger)" }}
-                  >
-                    {pendingSignOffs}
-                  </p>
-                </div>
-                <div
-                  className="px-6 py-4 rounded-lg"
-                  style={{
-                    backgroundColor: "#1E293B",
-                  }}
-                >
-                  <p className="text-sm mb-2" style={{ color: "#94A3B8" }}>
-                    Due for Replacement
-                  </p>
-                  <p
-                    className="text-3xl font-bold"
-                    style={{ color: "var(--compliance-warning)" }}
-                  >
-                    {upcomingReplacements}
-                  </p>
-                </div>
-                <div
-                  className="px-6 py-4 rounded-lg"
-                  style={{
-                    backgroundColor: "#1E293B",
-                  }}
-                >
-                  <p className="text-sm mb-2" style={{ color: "#94A3B8" }}>
-                    Completion Rate
-                  </p>
-                  <p
-                    className="text-3xl font-bold"
-                    style={{ color: "var(--compliance-success)" }}
-                  >
-                    {Math.round((signedOff / totalIssued) * 100)}%
-                  </p>
-                </div>
+                {[
+                  { label: "Total Issued", value: totalIssued, color: "#F8FAFC" },
+                  { label: "Signed Off", value: signedOff, color: "var(--compliance-success)" },
+                  { label: "Pending Sign-Off", value: pendingSignOffs, color: "var(--compliance-danger)" },
+                  { label: "Due for Replacement", value: upcomingReplacements, color: "var(--compliance-warning)" },
+                  { label: "Completion Rate", value: `${completionRate}%`, color: "var(--compliance-success)" },
+                ].map((stat) => (
+                  <div key={stat.label} className="px-6 py-4 rounded-lg" style={{ backgroundColor: "#1E293B" }}>
+                    <p className="text-sm mb-2" style={{ color: "#94A3B8" }}>{stat.label}</p>
+                    <p className="text-3xl font-bold" style={{ color: stat.color }}>{stat.value}</p>
+                  </div>
+                ))}
               </div>
             </div>
           </>
         )}
-        {/* PPE Transaction Log Table */}
-        <div className="px-8 pb-8">
-          <div
-            className="rounded-lg overflow-hidden"
-            style={{
-              backgroundColor: "#1E293B",
-            }}
-          >
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr
-                    style={{
-                      backgroundColor: "#0F172A",
-                    }}
-                  >
-                    <th
-                      className="px-6 py-4 text-left text-sm font-medium"
-                      style={{ color: "#94A3B8" }}
-                    >
-                      Transaction ID
-                    </th>
-                    <th
-                      className="px-6 py-4 text-left text-sm font-medium"
-                      style={{ color: "#94A3B8" }}
-                    >
-                      Employee
-                    </th>
-                    <th
-                      className="px-6 py-4 text-left text-sm font-medium"
-                      style={{ color: "#94A3B8" }}
-                    >
-                      PPE Item
-                    </th>
-                    <th
-                      className="px-6 py-4 text-left text-sm font-medium"
-                      style={{ color: "#94A3B8" }}
-                    >
-                      Issue Date
-                    </th>
-                    <th
-                      className="px-6 py-4 text-left text-sm font-medium"
-                      style={{ color: "#94A3B8" }}
-                    >
-                      Replacement Due
-                    </th>
-                    <th
-                      className="px-6 py-4 text-left text-sm font-medium"
-                      style={{ color: "#94A3B8" }}
-                    >
-                      Condition
-                    </th>
-                    <th
-                      className="px-6 py-4 text-center text-sm font-medium"
-                      style={{ color: "#94A3B8" }}
-                    >
-                      Sign-Off Status
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredTransactions.map((transaction, index) => {
-                    const replacementDate = new Date(
-                      transaction.replacementDue,
-                    );
-                    const today = new Date();
-                    const isOverdue = replacementDate < today;
-                    const isDueSoon =
-                      !isOverdue &&
-                      (replacementDate.getTime() - today.getTime()) /
-                        (1000 * 3600 * 24) <=
-                        30;
 
-                    return (
-                      <tr
-                        key={transaction.id}
-                        className="transition-colors hover:bg-opacity-80"
-                        style={{
-                          backgroundColor:
-                            index % 2 === 0 ? "#1E293B" : "#0F172A",
-                        }}
-                      >
-                        <td
-                          className="px-6 py-4 font-mono text-sm"
-                          style={{ color: "#94A3B8" }}
-                        >
-                          {transaction.id}
-                        </td>
-                        <td className="px-6 py-4">
-                          <div>
-                            <div
-                              className="font-medium mb-0.5"
-                              style={{ color: "#F8FAFC" }}
-                            >
-                              {transaction.employeeName}
-                            </div>
-                            <div
-                              className="text-sm"
-                              style={{ color: "#94A3B8" }}
-                            >
-                              {transaction.jobTitle}
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4">
-                          <div>
-                            <div
-                              className="font-medium mb-0.5"
-                              style={{ color: "#F8FAFC" }}
-                            >
-                              {transaction.ppeType}
-                            </div>
-                            <div
-                              className="text-sm"
-                              style={{ color: "#94A3B8" }}
-                            >
-                              {transaction.ppeBrand} • {transaction.ppeSize}
-                            </div>
-                          </div>
-                        </td>
-                        <td
-                          className="px-6 py-4 text-sm"
-                          style={{ color: "#94A3B8" }}
-                        >
-                          {new Date(transaction.issueDate).toLocaleDateString(
-                            "en-GB",
-                            {
-                              day: "numeric",
-                              month: "short",
-                            },
-                          )}
-                        </td>
-                        <td className="px-6 py-4 text-sm">
-                          <span
-                            style={{
-                              color: isOverdue
-                                ? "var(--compliance-danger)"
-                                : isDueSoon
-                                  ? "var(--compliance-warning)"
-                                  : "var(--compliance-success)",
-                            }}
-                          >
-                            {new Date(
-                              transaction.replacementDue,
-                            ).toLocaleDateString("en-GB", {
-                              day: "numeric",
-                              month: "short",
-                            })}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4">
-                          <span
-                            className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium"
-                            style={{
-                              backgroundColor:
-                                transaction.condition === "new"
-                                  ? "rgba(34, 197, 94, 0.2)"
-                                  : "rgba(59, 130, 246, 0.2)",
-                              color:
-                                transaction.condition === "new"
-                                  ? "var(--compliance-success)"
-                                  : "#3B82F6",
-                            }}
-                          >
-                            {transaction.condition === "new"
-                              ? "New"
-                              : "Re-issued (Good)"}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 text-center">
-                          {transaction.signOffStatus === "signed" ? (
-                            <div className="flex flex-col items-center gap-1">
-                              <CheckCircle2
-                                className="size-5"
-                                style={{ color: "var(--compliance-success)" }}
-                              />
-                              <span
-                                className="text-xs"
-                                style={{ color: "#94A3B8" }}
-                              >
-                                {transaction.signOffDate
-                                  ? new Date(
-                                      transaction.signOffDate,
-                                    ).toLocaleDateString("en-GB", {
-                                      day: "numeric",
-                                      month: "short",
-                                    })
-                                  : "Signed"}
-                              </span>
-                            </div>
-                          ) : (
-                            <div className="flex flex-col items-center gap-1">
-                              <Clock
-                                className="size-5"
-                                style={{ color: "var(--compliance-danger)" }}
-                              />
-                              <span
-                                className="text-xs font-medium"
-                                style={{ color: "var(--compliance-danger)" }}
-                              >
-                                Pending
-                              </span>
-                            </div>
-                          )}
+        <div className="px-8 pb-8">
+          <div className="rounded-lg overflow-hidden" style={{ backgroundColor: "#1E293B" }}>
+            {isLoading && (
+              <div className="flex items-center justify-center gap-2 py-16">
+                <Loader2 className="size-5 animate-spin" style={{ color: "#94A3B8" }} />
+                <span className="text-sm" style={{ color: "#94A3B8" }}>Loading PPE register…</span>
+              </div>
+            )}
+
+            {!isLoading && loadError && (
+              <div className="flex flex-col items-center justify-center gap-3 py-16">
+                <AlertTriangle className="size-6" style={{ color: "var(--compliance-danger)" }} />
+                <span className="text-sm" style={{ color: "#F8FAFC" }}>{loadError}</span>
+                <button onClick={fetchAll} className="px-4 py-2 rounded-lg text-sm font-medium text-white" style={{ backgroundColor: "#3B82F6" }}>
+                  Retry
+                </button>
+              </div>
+            )}
+
+            {!isLoading && !loadError && (
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr style={{ backgroundColor: "#0F172A" }}>
+                      <th className="px-6 py-4 text-left text-sm font-medium" style={{ color: "#94A3B8" }}>Transaction ID</th>
+                      <th className="px-6 py-4 text-left text-sm font-medium" style={{ color: "#94A3B8" }}>Employee</th>
+                      <th className="px-6 py-4 text-left text-sm font-medium" style={{ color: "#94A3B8" }}>PPE Item</th>
+                      <th className="px-6 py-4 text-left text-sm font-medium" style={{ color: "#94A3B8" }}>Issue Date</th>
+                      <th className="px-6 py-4 text-left text-sm font-medium" style={{ color: "#94A3B8" }}>Replacement Due</th>
+                      <th className="px-6 py-4 text-left text-sm font-medium" style={{ color: "#94A3B8" }}>Condition</th>
+                      <th className="px-6 py-4 text-center text-sm font-medium" style={{ color: "#94A3B8" }}>Sign-Off Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredTransactions.length === 0 ? (
+                      <tr>
+                        <td colSpan={7} className="px-6 py-12 text-center text-sm" style={{ color: "#94A3B8" }}>
+                          No PPE has been issued yet. Click "Issue PPE" to record one.
                         </td>
                       </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+                    ) : (
+                      filteredTransactions.map((transaction, index) => {
+                        const replacementDate = new Date(transaction.replacementDue);
+                        const today = new Date();
+                        const isOverdue = replacementDate < today;
+                        const isDueSoon = !isOverdue && (replacementDate.getTime() - today.getTime()) / (1000 * 3600 * 24) <= 30;
+
+                        return (
+                          <tr
+                            key={transaction.id}
+                            className="transition-colors hover:bg-opacity-80"
+                            style={{ backgroundColor: index % 2 === 0 ? "#1E293B" : "#0F172A" }}
+                          >
+                            <td className="px-6 py-4 font-mono text-sm" style={{ color: "#94A3B8" }}>
+                              PPE-{String(transaction.id).padStart(4, "0")}
+                            </td>
+                            <td className="px-6 py-4">
+                              <div>
+                                <div className="font-medium mb-0.5" style={{ color: "#F8FAFC" }}>{transaction.employeeName}</div>
+                                <div className="text-sm" style={{ color: "#94A3B8" }}>{transaction.jobTitle}</div>
+                              </div>
+                            </td>
+                            <td className="px-6 py-4">
+                              <div>
+                                <div className="font-medium mb-0.5" style={{ color: "#F8FAFC" }}>{transaction.ppeItemName}</div>
+                                <div className="text-sm" style={{ color: "#94A3B8" }}>
+                                  {transaction.ppeBrand}{transaction.ppeSize ? ` • ${transaction.ppeSize}` : ""}
+                                </div>
+                              </div>
+                            </td>
+                            <td className="px-6 py-4 text-sm" style={{ color: "#94A3B8" }}>
+                              {new Date(transaction.issueDate).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}
+                            </td>
+                            <td className="px-6 py-4 text-sm">
+                              <span style={{ color: isOverdue ? "var(--compliance-danger)" : isDueSoon ? "var(--compliance-warning)" : "var(--compliance-success)" }}>
+                                {new Date(transaction.replacementDue).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4">
+                              <span
+                                className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium"
+                                style={{
+                                  backgroundColor: transaction.condition === "new" ? "rgba(34, 197, 94, 0.2)" : "rgba(59, 130, 246, 0.2)",
+                                  color: transaction.condition === "new" ? "var(--compliance-success)" : "#3B82F6",
+                                }}
+                              >
+                                {transaction.condition === "new" ? "New" : "Re-issued (Good)"}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4 text-center">
+                              {transaction.signOffStatus === "signed" ? (
+                                <div className="flex flex-col items-center gap-1">
+                                  <CheckCircle2 className="size-5" style={{ color: "var(--compliance-success)" }} />
+                                  <span className="text-xs" style={{ color: "#94A3B8" }}>
+                                    {transaction.signOffDate
+                                      ? new Date(transaction.signOffDate).toLocaleDateString("en-GB", { day: "numeric", month: "short" })
+                                      : "Signed"}
+                                  </span>
+                                </div>
+                              ) : (
+                                <div className="flex flex-col items-center gap-1">
+                                  <Clock className="size-5" style={{ color: "var(--compliance-danger)" }} />
+                                  <span className="text-xs font-medium" style={{ color: "var(--compliance-danger)" }}>Pending</span>
+                                </div>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         </div>
       </div>
 
-      {/* Issue PPE Modal */}
       <IssuePPEModal
         isOpen={showIssueModal}
         onClose={() => setShowIssueModal(false)}
+        employees={employees}
+        catalogueItems={catalogueItems}
         onSubmit={handleIssuePPE}
       />
 
-      {/* PPE Catalogue Modal */}
       <PPECatalogue
         isOpen={showCatalogue}
         onClose={() => setShowCatalogue(false)}
+        onCatalogueChanged={fetchCatalogueItems}
       />
     </div>
   );

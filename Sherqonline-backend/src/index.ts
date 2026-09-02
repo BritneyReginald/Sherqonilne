@@ -9,6 +9,7 @@ import siteRoutes from "./routes/sites";
 import authRoutes from "./routes/auth";
 import adminRoutes from "./routes/admin";
 import medicalsRoutes from "./routes/medicalsRoutes";
+import ppeRouter from "./routes/ppeRoutes";
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -39,6 +40,7 @@ app.use("/sites", siteRoutes);
 app.use("/auth", authRoutes);
 app.use("/admin", adminRoutes);
 app.use("/medicals", medicalsRoutes);
+app.use("/ppe", ppeRouter);
 
 async function startServer() {
   try {

@@ -338,6 +338,85 @@ export async function initializeDatabase() {
 
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
+
+      -- ============================================================
+-- PPE CATALOGUE ITEMS
+-- ============================================================
+--
+-- The master list of PPE types RSS tracks and issues. Stock
+-- levels live here and are decremented whenever a transaction
+-- issues that item (see ppe_transactions below).
+
+CREATE TABLE IF NOT EXISTS ppe_catalogue_items (
+  id SERIAL PRIMARY KEY
+);
+
+ALTER TABLE ppe_catalogue_items
+  ADD COLUMN IF NOT EXISTS item_name TEXT NOT NULL,
+  ADD COLUMN IF NOT EXISTS category TEXT NOT NULL,
+  ADD COLUMN IF NOT EXISTS supplier TEXT,
+  ADD COLUMN IF NOT EXISTS requires_size BOOLEAN NOT NULL DEFAULT FALSE,
+  ADD COLUMN IF NOT EXISTS sizes TEXT[],
+  ADD COLUMN IF NOT EXISTS replacement_days INTEGER NOT NULL DEFAULT 180,
+  ADD COLUMN IF NOT EXISTS stock_level INTEGER NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS min_stock_level INTEGER NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
+
+-- Note: "replacement cycle" labels like "Every 6 months" are NOT
+-- stored — they're derived from replacement_days in the frontend,
+-- so there's no risk of the label and the day count disagreeing.
+
+-- ============================================================
+-- PPE TRANSACTIONS (issue log)
+-- ============================================================
+--
+-- One row = one PPE item issued to one employee on one occasion.
+-- Employee name/job title and item name/category/brand are
+-- SNAPSHOTTED at issue time (not joined live) — this is an audit
+-- log, so a later rename or catalogue edit must never rewrite
+-- history. employee_id / ppe_item_id are kept as FKs purely so
+-- you can still filter/report by the current employee or item
+-- when useful.
+
+CREATE TABLE IF NOT EXISTS ppe_transactions (
+  id SERIAL PRIMARY KEY
+);
+
+ALTER TABLE ppe_transactions
+  ADD COLUMN IF NOT EXISTS employee_id INTEGER
+    REFERENCES employees(id) ON DELETE CASCADE,
+  ADD COLUMN IF NOT EXISTS employee_name TEXT NOT NULL,
+  ADD COLUMN IF NOT EXISTS job_title TEXT,
+  ADD COLUMN IF NOT EXISTS site_location TEXT,
+
+  ADD COLUMN IF NOT EXISTS ppe_item_id INTEGER
+    REFERENCES ppe_catalogue_items(id) ON DELETE SET NULL,
+  ADD COLUMN IF NOT EXISTS ppe_item_name TEXT NOT NULL,
+  ADD COLUMN IF NOT EXISTS ppe_category TEXT NOT NULL,
+  ADD COLUMN IF NOT EXISTS ppe_brand TEXT,
+  ADD COLUMN IF NOT EXISTS ppe_size TEXT,
+
+  ADD COLUMN IF NOT EXISTS issue_date DATE NOT NULL DEFAULT CURRENT_DATE,
+  ADD COLUMN IF NOT EXISTS condition VARCHAR(20) NOT NULL
+    CHECK (condition IN ('new', 're-issued-good')),
+  ADD COLUMN IF NOT EXISTS replacement_due DATE NOT NULL,
+
+  ADD COLUMN IF NOT EXISTS sign_off_status VARCHAR(10) NOT NULL DEFAULT 'pending'
+    CHECK (sign_off_status IN ('signed', 'pending')),
+  ADD COLUMN IF NOT EXISTS sign_off_date TIMESTAMP,
+  ADD COLUMN IF NOT EXISTS signature_data TEXT,
+
+  ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
+
+CREATE INDEX IF NOT EXISTS idx_ppe_transactions_employee_id
+  ON ppe_transactions(employee_id);
+
+CREATE INDEX IF NOT EXISTS idx_ppe_transactions_ppe_item_id
+  ON ppe_transactions(ppe_item_id);
+
+CREATE INDEX IF NOT EXISTS idx_ppe_transactions_sign_off_status
+  ON ppe_transactions(sign_off_status);
     `);
 
     await client.query("COMMIT");
