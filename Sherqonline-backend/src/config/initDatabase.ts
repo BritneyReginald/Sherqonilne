@@ -53,6 +53,72 @@ export async function initializeDatabase() {
 
     /*
      * ============================================================
+     * MEDICAL RECORDS
+     * ============================================================
+     *
+     * Stores occupational medical surveillance records for employees.
+     *
+     * Each medical record belongs to one employee.
+     *
+     * Files themselves are stored in Azure Blob Storage.
+     * The database only stores the Blob name and file metadata.
+     */
+
+    await client.query(`
+  CREATE TABLE IF NOT EXISTS medical_records (
+    id SERIAL PRIMARY KEY,
+
+    employee_id INTEGER NOT NULL
+      REFERENCES employees(id)
+      ON DELETE CASCADE,
+
+    exam_type VARCHAR(50) NOT NULL CHECK (
+      exam_type IN (
+        'pre-placement',
+        'periodic',
+        'exit',
+        'return-to-work'
+      )
+    ),
+
+    practitioner_name VARCHAR(255) NOT NULL,
+
+    practitioner_type VARCHAR(20) NOT NULL CHECK (
+      practitioner_type IN ('OMP', 'OHNP')
+    ),
+
+    exam_date DATE NOT NULL,
+
+    expiry_date DATE,
+
+    fitness_status VARCHAR(50) NOT NULL CHECK (
+      fitness_status IN (
+        'fit',
+        'fit-with-restrictions',
+        'unfit'
+      )
+    ),
+
+    restrictions TEXT,
+
+    restriction_type TEXT[],
+
+    file_blob_name TEXT,
+
+    file_name TEXT,
+
+    file_size INTEGER,
+
+    file_mime_type VARCHAR(255),
+
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  );
+`);
+
+    /*
+     * ============================================================
      * SITES
      * ============================================================
      *
