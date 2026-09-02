@@ -26,8 +26,7 @@ const blobServiceClient = new BlobServiceClient(
   credential,
 );
 
-const containerClient =
-  blobServiceClient.getContainerClient(containerName);
+const containerClient = blobServiceClient.getContainerClient(containerName);
 
 /**
  * Upload medical document to Azure Blob Storage.
@@ -46,8 +45,7 @@ export async function uploadMedicalFile(
 
   const blobName = `employee-${employeeId}/${randomName}${extension}`;
 
-  const blockBlobClient =
-    containerClient.getBlockBlobClient(blobName);
+  const blockBlobClient = containerClient.getBlockBlobClient(blobName);
 
   await blockBlobClient.uploadData(buffer, {
     blobHTTPHeaders: {
@@ -58,9 +56,9 @@ export async function uploadMedicalFile(
 
   return {
     blobName,
-    originalName,
+    fileName: originalName,
     mimeType,
-    size: buffer.length,
+    fileSize: buffer.length,
   };
 }
 
@@ -68,11 +66,8 @@ export async function uploadMedicalFile(
  * Generate a short-lived URL for viewing/downloading
  * a private medical document.
  */
-export function getMedicalFileSasUrl(
-  blobName: string,
-): string {
-  const storageAccountKey =
-    process.env.AZURE_STORAGE_ACCOUNT_KEY;
+export function getMedicalFileSasUrl(blobName: string): string {
+  const storageAccountKey = process.env.AZURE_STORAGE_ACCOUNT_KEY;
 
   if (!storageAccountKey) {
     throw new Error(
@@ -80,27 +75,23 @@ export function getMedicalFileSasUrl(
     );
   }
 
-  const sharedKeyCredential =
-    new StorageSharedKeyCredential(
-      accountName!,
-      storageAccountKey,
-    );
-
-  const expiresOn = new Date(
-    Date.now() + 10 * 60 * 1000,
+  const sharedKeyCredential = new StorageSharedKeyCredential(
+    accountName!,
+    storageAccountKey,
   );
 
-  const sasToken =
-    generateBlobSASQueryParameters(
-      {
-        containerName,
-        blobName,
-        permissions: BlobSASPermissions.parse("r"),
-        startsOn: new Date(Date.now() - 60 * 1000),
-        expiresOn,
-      },
-      sharedKeyCredential,
-    ).toString();
+  const expiresOn = new Date(Date.now() + 10 * 60 * 1000);
+
+  const sasToken = generateBlobSASQueryParameters(
+    {
+      containerName,
+      blobName,
+      permissions: BlobSASPermissions.parse("r"),
+      startsOn: new Date(Date.now() - 60 * 1000),
+      expiresOn,
+    },
+    sharedKeyCredential,
+  ).toString();
 
   return `${containerClient.getBlobClient(blobName).url}?${sasToken}`;
 }
@@ -108,11 +99,8 @@ export function getMedicalFileSasUrl(
 /**
  * Delete medical document from Azure Blob Storage.
  */
-export async function deleteMedicalFile(
-  blobName: string,
-): Promise<void> {
-  const blobClient =
-    containerClient.getBlobClient(blobName);
+export async function deleteMedicalFile(blobName: string): Promise<void> {
+  const blobClient = containerClient.getBlobClient(blobName);
 
   await blobClient.deleteIfExists();
 }
