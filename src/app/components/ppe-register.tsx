@@ -12,9 +12,9 @@ import {
   IssuePPEModal,
   PPECatalogueItem,
 } from "@/app/components/issue-ppe-modal";
-import { PPECatalogue } from "@/app/components/ppe-catalogue";
-import { AlertBanner } from "@/app/components/alert-banner";
-import { useAlerts } from "@/app/contexts/alert-context";
+import { PPECatalogue } from "../components/ppe-catalogue";
+import { AlertBanner } from "../components/alert-banner";
+import { useAlerts } from "../contexts/alert-context";
 
 interface PPETransaction {
   id: string;

@@ -76,7 +76,7 @@ function generateTempPassword() {
         .randomBytes(9)
         .toString("base64")
         .replace(/[+/=]/g, "")
-        .slice(0, 12);
+        .slice(0, 6);
 }
 function signToken(payload) {
     return jsonwebtoken_1.default.sign(payload, JWT_SECRET, {
@@ -157,7 +157,7 @@ async function sendCredentialsEmail(args) {
         : `New Fire Equipment Inspector login created`;
     const html = `
     <p>Hello,</p>
-    <p>A new ${role} account was created on the SHERQ Online platform.</p>
+    <p>A new ${role} account for ${siteName} was created on the SHERQ Online platform.</p>
     <p><strong>Client email:</strong> ${email}</p>
     <p><strong>Login link:</strong> <a href="${loginUrl}">${loginUrl}</a></p>
     <p><strong>Password:</strong> ${tempPassword}</p>

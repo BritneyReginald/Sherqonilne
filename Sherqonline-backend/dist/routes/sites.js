@@ -48,7 +48,7 @@ router.get("/", authMiddleware_1.authenticate, (0, authMiddleware_1.authorize)("
  */
 router.post("/", authMiddleware_1.authenticate, (0, authMiddleware_1.authorize)("rss_staff"), async (req, res) => {
     try {
-        const { name, logo, email, contact_person, contact_number, } = req.body;
+        const { name, logo, email, contact_person, contact_number } = req.body;
         if (!name) {
             return res.status(400).json({
                 error: "Site name is required",
@@ -100,6 +100,54 @@ router.delete("/:id", authMiddleware_1.authenticate, (0, authMiddleware_1.author
         console.error("Delete site error:", err);
         res.status(500).json({
             error: "Failed to delete site",
+        });
+    }
+});
+/*
+ * ============================================================
+ * UPDATE SITE
+ * ============================================================
+ *
+ * RSS staff edits an existing client inspection site's details.
+ */
+router.patch("/:id", authMiddleware_1.authenticate, (0, authMiddleware_1.authorize)("rss_staff"), async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { name, logo, email, contact_person, contact_number } = req.body;
+        if (!name) {
+            return res.status(400).json({
+                error: "Site name is required",
+            });
+        }
+        const result = await db_1.default.query(`
+        UPDATE sites
+        SET
+          name = $1,
+          logo = $2,
+          email = $3,
+          contact_person = $4,
+          contact_number = $5
+        WHERE id = $6
+        RETURNING *
+        `, [
+            name,
+            logo ?? null,
+            email ?? null,
+            contact_person ?? null,
+            contact_number ?? null,
+            id,
+        ]);
+        if (result.rows.length === 0) {
+            return res.status(404).json({
+                error: "Site not found",
+            });
+        }
+        res.json(result.rows[0]);
+    }
+    catch (err) {
+        console.error("Update site error:", err);
+        res.status(500).json({
+            error: "Failed to update site",
         });
     }
 });

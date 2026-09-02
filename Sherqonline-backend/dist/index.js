@@ -13,6 +13,7 @@ const companies_1 = __importDefault(require("./routes/companies"));
 const sites_1 = __importDefault(require("./routes/sites"));
 const auth_1 = __importDefault(require("./routes/auth"));
 const admin_1 = __importDefault(require("./routes/admin"));
+const medicalsRoutes_1 = __importDefault(require("./routes/medicalsRoutes"));
 const app = (0, express_1.default)();
 const PORT = process.env.PORT || 3000;
 const corsOptions = {
@@ -36,6 +37,7 @@ app.use("/companies", companies_1.default);
 app.use("/sites", sites_1.default);
 app.use("/auth", auth_1.default);
 app.use("/admin", admin_1.default);
+app.use("/medicals", medicalsRoutes_1.default);
 async function startServer() {
     try {
         await (0, initDatabase_1.initializeDatabase)();
