@@ -9,7 +9,7 @@ import {
   AlertTriangle,
   Loader2,
 } from "lucide-react";
-import { IssuePPEModal, PPECatalogueItem, EmployeeOption } from "@/app/components/issue-ppe-modal";
+import { IssuePPEModal, PPECatalogueItem, EmployeeOption } from "../components/issue-ppe-modal";
 import { PPECatalogue } from "../components/ppe-catalogue";
 import { AlertBanner } from "../components/alert-banner";
 import { useAlerts } from "../contexts/alert-context";
