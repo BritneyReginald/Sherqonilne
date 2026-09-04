@@ -15,10 +15,10 @@ import {
   UserX,
   Trash2,
 } from "lucide-react";
-import { TrainingMatrix } from "../components/Training Matrix/training-matrix";
+import { TrainingMatrix } from "../components/Training-Matrix/training-matrix";
 import { LegalAppointments } from "./legal-appointments";
 import { MedicalSurveillanceEnhanced } from "./medical-surveillance-enhanced";
-import { PPERegister } from "../components/PPE Submodule/ppe-register";
+import { PPERegister } from "../components/PPE-Submodule/ppe-register";
 import { useRecycleBin } from "../contexts/recycle-bin-context";
 
 interface EmployeeProfileProps {
