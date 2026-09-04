@@ -417,6 +417,106 @@ CREATE INDEX IF NOT EXISTS idx_ppe_transactions_ppe_item_id
 
 CREATE INDEX IF NOT EXISTS idx_ppe_transactions_sign_off_status
   ON ppe_transactions(sign_off_status);
+
+
+-- ============================================================
+-- APPOINTMENTS
+-- ============================================================
+--
+-- One row = one scheduled Medical/Training/Induction appointment
+-- for one employee. Employee name/work ID/site are read live via
+-- JOIN on employees (like medical_records) — an appointment is a
+-- scheduling record tied to who the employee currently is, not a
+-- permanent audit snapshot like a PPE issuance.
+--
+-- "has_restrictions" is NOT stored here at all — it's derived at
+-- read time from medical_records.fitness_status for that employee.
+-- This keeps it always accurate without anyone having to remember
+-- to flag it manually. See models/appointment.ts.
+
+CREATE TABLE IF NOT EXISTS appointments (
+  id SERIAL PRIMARY KEY
+);
+
+ALTER TABLE appointments
+  ADD COLUMN IF NOT EXISTS employee_id INTEGER NOT NULL
+    REFERENCES employees(id) ON DELETE CASCADE,
+
+  ADD COLUMN IF NOT EXISTS appointment_type VARCHAR(20) NOT NULL
+    CHECK (appointment_type IN ('Medical', 'Training', 'Induction')),
+
+  ADD COLUMN IF NOT EXISTS practitioner TEXT NOT NULL,
+
+  ADD COLUMN IF NOT EXISTS appointment_date TIMESTAMP NOT NULL,
+
+  ADD COLUMN IF NOT EXISTS status VARCHAR(20) NOT NULL DEFAULT 'Pending'
+    CHECK (status IN ('Confirmed', 'Pending', 'Urgent', 'Overdue')),
+
+  ADD COLUMN IF NOT EXISTS notes TEXT,
+
+  ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
+
+CREATE INDEX IF NOT EXISTS idx_appointments_employee_id
+  ON appointments(employee_id);
+
+CREATE INDEX IF NOT EXISTS idx_appointments_appointment_date
+  ON appointments(appointment_date);
+
+CREATE INDEX IF NOT EXISTS idx_appointments_status
+  ON appointments(status);
+
+-- ============================================================
+-- TRAINING RECORDS
+-- ============================================================
+--
+-- One row = one training/certification record for one employee.
+-- Employee name/work ID/site are read live via JOIN on employees
+-- (same as medical_records and appointments) — this is a
+-- competency register tied to the employee's current identity,
+-- not an immutable audit log like PPE issuance.
+--
+-- training_category and is_legally_required were hardcoded in the
+-- old mock ("Safety" / false for every record, regardless of what
+-- was entered). They're now real, user-editable fields.
+
+CREATE TABLE IF NOT EXISTS training_records (
+  id SERIAL PRIMARY KEY
+);
+
+ALTER TABLE training_records
+  ADD COLUMN IF NOT EXISTS employee_id INTEGER NOT NULL
+    REFERENCES employees(id) ON DELETE CASCADE,
+
+  ADD COLUMN IF NOT EXISTS training_type VARCHAR(20)
+    CHECK (training_type IN ('internal', 'external')),
+
+  ADD COLUMN IF NOT EXISTS training_name TEXT NOT NULL,
+  ADD COLUMN IF NOT EXISTS certificate_name TEXT NOT NULL,
+  ADD COLUMN IF NOT EXISTS provider TEXT NOT NULL,
+
+  ADD COLUMN IF NOT EXISTS training_category TEXT NOT NULL DEFAULT 'Safety',
+  ADD COLUMN IF NOT EXISTS is_legally_required BOOLEAN NOT NULL DEFAULT FALSE,
+
+  ADD COLUMN IF NOT EXISTS completion_date DATE NOT NULL,
+  ADD COLUMN IF NOT EXISTS expiry_date DATE NOT NULL,
+
+  -- Same pattern as medical_records: only blob metadata is stored
+  -- here, the file itself lives in Azure Blob Storage behind a
+  -- short-lived SAS URL, never a public link.
+  ADD COLUMN IF NOT EXISTS file_blob_name TEXT,
+  ADD COLUMN IF NOT EXISTS file_name TEXT,
+  ADD COLUMN IF NOT EXISTS file_size INTEGER,
+  ADD COLUMN IF NOT EXISTS file_mime_type TEXT,
+
+  ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
+
+CREATE INDEX IF NOT EXISTS idx_training_records_employee_id
+  ON training_records(employee_id);
+
+CREATE INDEX IF NOT EXISTS idx_training_records_expiry_date
+  ON training_records(expiry_date);
     `);
 
     await client.query("COMMIT");

@@ -10,6 +10,10 @@ import authRoutes from "./routes/auth";
 import adminRoutes from "./routes/admin";
 import medicalsRoutes from "./routes/medicalsRoutes";
 import ppeRouter from "./routes/ppeRoutes";
+import appointmentRouter from "./routes/appointmentRoutes";
+import trainingRouter from "./routes/trainingRoutes";
+
+
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -41,6 +45,8 @@ app.use("/auth", authRoutes);
 app.use("/admin", adminRoutes);
 app.use("/medicals", medicalsRoutes);
 app.use("/ppe", ppeRouter);
+app.use("/appointments", appointmentRouter);
+app.use("/training-records", trainingRouter);
 
 async function startServer() {
   try {

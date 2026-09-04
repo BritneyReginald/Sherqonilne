@@ -11,7 +11,7 @@ import {
 import {
   calculateRiskScore,
   calculateRiskRating,
-} from "@/app/utils/risk-utils";
+} from "../utils/risk-utils";
 
 interface RiskAssessmentTableProps {
   beforeControls: BeforeControlsData;

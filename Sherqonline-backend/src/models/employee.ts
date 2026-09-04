@@ -1,54 +1,53 @@
-
 import pool from "../config/db";
 import { Employee } from "../types";
 
 export const createEmployee = async (employee: Employee) => {
   const result = await pool.query(
     `INSERT INTO employees (
-      full_name, date_of_birth, id_number, gender, nationality,
-      email, phone, mobile, address, reporting_manager, reporting_manager_id,
-      reporting_manager_job_title, reporting_manager_legal_appointment,
-      department, division, organisational_level, emergency_contact,
-      relationship, emergency_phone, job_title, site_location,
-      employment_type, start_date, contract_end_date,
-      salary_grade, work_schedule, compliance_status, status
-    )
-    VALUES (
-      $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,
-      $11,$12,$13,$14,$15,$16,$17,$18,$19,$20,
-      $21,$22,$23,$24,$25,$26,$27,$28
-    )
-    RETURNING *`,
+    full_name, date_of_birth, id_number, gender, nationality,
+    email, phone, mobile, address, reporting_manager, reporting_manager_id,
+    reporting_manager_job_title, reporting_manager_legal_appointment,
+    department, division, organisational_level, emergency_contact,
+    relationship, emergency_phone, job_title, site_location,
+    employment_type, start_date, contract_end_date,
+    salary_grade, work_schedule, compliance_status, status
+  )
+  VALUES (
+    $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,
+    $11,$12,$13,$14,$15,$16,$17,$18,$19,$20,
+    $21,$22,$23,$24,$25,$26,$27,$28
+  )
+  RETURNING *`,
     [
       employee.fullName,
-      employee.dateOfBirth,
-      employee.idNumber,
-      employee.gender,
-      employee.nationality,
-      employee.email,
-      employee.phone,
-      employee.mobile,
-      employee.address,
-      employee.reportingManager,
-      employee.reportingManagerId,
-      employee.reportingManagerJobTitle,
-      employee.reportingManagerLegalAppointment,
-      employee.department,
-      employee.division,
-      employee.organisationalLevel,
-      employee.emergencyContact,
-      employee.relationship,
-      employee.emergencyPhone,
-      employee.jobTitle,
-      employee.siteLocation,
-      employee.employmentType,
-      employee.startDate,
-      employee.contractEndDate,
-      employee.salaryGrade,
-      employee.workSchedule,
-      employee.complianceStatus,
-      employee.status,
-    ]
+      employee.dateOfBirth || null,
+      employee.idNumber || null,
+      employee.gender || null,
+      employee.nationality || null,
+      employee.email || null,
+      employee.phone || null,
+      employee.mobile || null,
+      employee.address || null,
+      employee.reportingManager || null,
+      employee.reportingManagerId || null,
+      employee.reportingManagerJobTitle || null,
+      employee.reportingManagerLegalAppointment || null,
+      employee.department || null,
+      employee.division || null,
+      employee.organisationalLevel || null,
+      employee.emergencyContact || null,
+      employee.relationship || null,
+      employee.emergencyPhone || null,
+      employee.jobTitle || null,
+      employee.siteLocation || null,
+      employee.employmentType || null,
+      employee.startDate || null,
+      employee.contractEndDate || null,
+      employee.salaryGrade || null,
+      employee.workSchedule || null,
+      employee.complianceStatus || "Pending",
+      employee.status || "Active",
+    ],
   );
 
   const newId = result.rows[0].id;
@@ -61,25 +60,22 @@ export const createEmployee = async (employee: Employee) => {
       WHERE id = $2
       RETURNING *
     `,
-    [employeeId, newId]
+    [employeeId, newId],
   );
 
   return updatedResult.rows[0];
 };
 
 export const getEmployees = async () => {
-  const result = await pool.query(
-    "SELECT * FROM employees ORDER BY id"
-  );
+  const result = await pool.query("SELECT * FROM employees ORDER BY id");
 
   return result.rows;
 };
 
 export const getEmployeeById = async (id: number) => {
-  const result = await pool.query(
-    "SELECT * FROM employees WHERE id = $1",
-    [id]
-  );
+  const result = await pool.query("SELECT * FROM employees WHERE id = $1", [
+    id,
+  ]);
 
   return result.rows[0];
 };
@@ -92,7 +88,7 @@ export const deactivateEmployee = async (id: number) => {
     WHERE id = $1
     RETURNING *
     `,
-    [id]
+    [id],
   );
 
   return result.rows[0];
@@ -105,7 +101,7 @@ export const deleteEmployee = async (id: number) => {
     WHERE id = $1
     RETURNING id
     `,
-    [id]
+    [id],
   );
 
   return result.rows[0];
@@ -113,7 +109,7 @@ export const deleteEmployee = async (id: number) => {
 
 export const updateEmployee = async (
   id: number,
-  employee: Partial<Employee>
+  employee: Partial<Employee>,
 ) => {
   // Convert frontend camelCase fields to database snake_case fields
   const fieldMap: Record<string, string> = {
@@ -129,8 +125,7 @@ export const updateEmployee = async (
     reportingManager: "reporting_manager",
     reportingManagerId: "reporting_manager_id",
     reportingManagerJobTitle: "reporting_manager_job_title",
-    reportingManagerLegalAppointment:
-      "reporting_manager_legal_appointment",
+    reportingManagerLegalAppointment: "reporting_manager_legal_appointment",
     department: "department",
     division: "division",
     organisationalLevel: "organisational_level",

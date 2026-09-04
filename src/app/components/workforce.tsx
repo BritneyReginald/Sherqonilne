@@ -114,62 +114,72 @@ export function Workforce() {
   });
 
   const handleSaveEmployee = async () => {
-    try {
-      const response = await fetch(`${API_URL}/employees`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(newEmployee),
-      });
-      if (response.ok) {
-        const savedEmployee = await response.json();
-        console.log(savedEmployee);
+  try {
+    console.log("Sending employee:", newEmployee);
 
-        const formattedEmployee = {
-          id: savedEmployee.id,
-          employeeId: savedEmployee.employee_id,
-          fullName: savedEmployee.full_name,
-          dateOfBirth: savedEmployee.date_of_birth,
-          idNumber: savedEmployee.id_number,
-          gender: savedEmployee.gender,
-          nationality: savedEmployee.nationality,
-          email: savedEmployee.email,
-          phone: savedEmployee.phone,
-          mobile: savedEmployee.mobile,
-          address: savedEmployee.address,
-          reportingManager: savedEmployee.reporting_manager,
-          reportingManagerId: savedEmployee.reporting_manager_id,
-          reportingManagerJobTitle: savedEmployee.reporting_manager_job_title,
-          reportingManagerLegalAppointment:
-            savedEmployee.reporting_manager_legal_appointment,
-          department: savedEmployee.department,
-          division: savedEmployee.division,
-          organisationalLevel: savedEmployee.organisational_level,
-          emergencyContact: savedEmployee.emergency_contact,
-          relationship: savedEmployee.relationship,
-          emergencyPhone: savedEmployee.emergency_phone,
-          jobTitle: savedEmployee.job_title,
-          siteLocation: savedEmployee.site_location,
-          employmentType: savedEmployee.employment_type,
-          startDate: savedEmployee.start_date,
-          contractEndDate: savedEmployee.contract_end_date,
-          salaryGrade: savedEmployee.salary_grade,
-          workSchedule: savedEmployee.work_schedule,
-          complianceStatus: savedEmployee.compliance_status,
-          status: savedEmployee.status,
-        };
+    const response = await fetch(`${API_URL}/employees`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(newEmployee),
+    });
 
-        setEmployeeList((prev) => [...prev, formattedEmployee]);
-        setShowAddModal(false);
-        // Reset form if needed
-      } else {
-        console.error("Failed to save employee");
-      }
-    } catch (error) {
-      console.error("Error:", error);
+    const responseText = await response.text();
+
+    console.log("Employee API status:", response.status);
+    console.log("Employee API response:", responseText);
+
+    if (!response.ok) {
+      throw new Error(
+        `Failed to save employee (${response.status}): ${responseText}`
+      );
     }
-  };
+
+    const savedEmployee = JSON.parse(responseText);
+
+    console.log("Saved employee:", savedEmployee);
+
+    const formattedEmployee = {
+      id: savedEmployee.id,
+      employeeId: savedEmployee.employee_id,
+      fullName: savedEmployee.full_name,
+      dateOfBirth: savedEmployee.date_of_birth,
+      idNumber: savedEmployee.id_number,
+      gender: savedEmployee.gender,
+      nationality: savedEmployee.nationality,
+      email: savedEmployee.email,
+      phone: savedEmployee.phone,
+      mobile: savedEmployee.mobile,
+      address: savedEmployee.address,
+      reportingManager: savedEmployee.reporting_manager,
+      reportingManagerId: savedEmployee.reporting_manager_id,
+      reportingManagerJobTitle: savedEmployee.reporting_manager_job_title,
+      reportingManagerLegalAppointment:
+        savedEmployee.reporting_manager_legal_appointment,
+      department: savedEmployee.department,
+      division: savedEmployee.division,
+      organisationalLevel: savedEmployee.organisational_level,
+      emergencyContact: savedEmployee.emergency_contact,
+      relationship: savedEmployee.relationship,
+      emergencyPhone: savedEmployee.emergency_phone,
+      jobTitle: savedEmployee.job_title,
+      siteLocation: savedEmployee.site_location,
+      employmentType: savedEmployee.employment_type,
+      startDate: savedEmployee.start_date,
+      contractEndDate: savedEmployee.contract_end_date,
+      salaryGrade: savedEmployee.salary_grade,
+      workSchedule: savedEmployee.work_schedule,
+      complianceStatus: savedEmployee.compliance_status,
+      status: savedEmployee.status,
+    };
+
+    setEmployeeList((prev) => [...prev, formattedEmployee]);
+    setShowAddModal(false);
+  } catch (error) {
+    console.error("Failed to save employee:", error);
+  }
+};
 
   const handleDeactivate = async (employee: any) => {
     setIsActioning(true);

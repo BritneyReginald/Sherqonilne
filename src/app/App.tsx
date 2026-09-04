@@ -1,17 +1,16 @@
-import { AppShell } from "@/app/components/app-shell";
+import { AppShell } from "./components/app-shell";
 import { Toaster } from "sonner";
-import { ThemeProvider } from "@/app/contexts/theme-context";
-import { AlertProvider } from "@/app/contexts/alert-context";
-import { SiteFilterProvider } from "@/app/contexts/site-filter-context";
-import { TrainingProvider } from "@/app/contexts/training-context";
-import { LegalAppointmentsProvider } from "@/app/contexts/legal-appointments-context";
-import { AuthProvider } from "@/app/contexts/auth-context";
-import { RecycleBinProvider } from "@/app/contexts/recycle-bin-context";
+import { ThemeProvider } from "./contexts/theme-context";
+import { AlertProvider } from "./contexts/alert-context";
+import { SiteFilterProvider } from "./contexts/site-filter-context";
+import { LegalAppointmentsProvider } from "./contexts/legal-appointments-context";
+import { AuthProvider } from "./contexts/auth-context";
+import { RecycleBinProvider } from "./contexts/recycle-bin-context";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import { LoginStaff } from "@/app/pages/login-staff";
-import { LoginClient } from "@/app/pages/login-client";
-import { LoginInspector } from "@/app/pages/login-inspector";
-import { ProtectedRoute } from "@/app/components/protected-route";
+import { LoginStaff } from "./pages/login-staff";
+import { LoginClient } from "./pages/login-client";
+import { LoginInspector } from "./pages/login-inspector";
+import { ProtectedRoute } from "./components/protected-route";
 
 export default function App() {
   return (
@@ -32,11 +31,9 @@ export default function App() {
                   <AlertProvider>
                     <SiteFilterProvider>
                       <LegalAppointmentsProvider>
-                        <TrainingProvider>
-                          <RecycleBinProvider>
-                            <AppShell />
-                          </RecycleBinProvider>
-                        </TrainingProvider>
+                        <RecycleBinProvider>
+                          <AppShell />
+                        </RecycleBinProvider>
                       </LegalAppointmentsProvider>
 
                       <Toaster
