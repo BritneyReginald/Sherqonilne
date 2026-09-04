@@ -23,10 +23,10 @@ import {
 } from "lucide-react";
 import { Dashboard } from "../components/dashboard";
 import { Workforce } from "../components/workforce";
-import { TrainingMatrix } from "../components/Training Matrix/training-matrix";
+import { TrainingMatrix } from "../components/Training-Matrix/training-matrix";
 import { DocumentLibrary } from "../components/document-library";
 import { GlobalTrainingMatrix } from "../components/global-training-matrix";
-import { PPERegister } from "../components/PPE Submodule/ppe-register";
+import { PPERegister } from "../components/PPE-Submodule/ppe-register";
 import { RiskAssessmentRegisterEnhanced } from "../components/risk-assessment-register-enhanced";
 import { MedicalSurveillanceEnhanced } from "../components/medical-surveillance-enhanced";
 import { ReportsAnalytics } from "../components/reports-analytics";
