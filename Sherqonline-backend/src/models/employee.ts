@@ -2,68 +2,109 @@ import pool from "../config/db";
 import { Employee } from "../types";
 
 export const createEmployee = async (employee: Employee) => {
-  const result = await pool.query(
-    `INSERT INTO employees (
-    full_name, date_of_birth, id_number, gender, nationality,
-    email, phone, mobile, address, reporting_manager, reporting_manager_id,
-    reporting_manager_job_title, reporting_manager_legal_appointment,
-    department, division, organisational_level, emergency_contact,
-    relationship, emergency_phone, job_title, site_location,
-    employment_type, start_date, contract_end_date,
-    salary_grade, work_schedule, compliance_status, status
-  )
-  VALUES (
-    $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,
-    $11,$12,$13,$14,$15,$16,$17,$18,$19,$20,
-    $21,$22,$23,$24,$25,$26,$27,$28
-  )
-  RETURNING *`,
-    [
-      employee.fullName,
-      employee.dateOfBirth || null,
-      employee.idNumber || null,
-      employee.gender || null,
-      employee.nationality || null,
-      employee.email || null,
-      employee.phone || null,
-      employee.mobile || null,
-      employee.address || null,
-      employee.reportingManager || null,
-      employee.reportingManagerId || null,
-      employee.reportingManagerJobTitle || null,
-      employee.reportingManagerLegalAppointment || null,
-      employee.department || null,
-      employee.division || null,
-      employee.organisationalLevel || null,
-      employee.emergencyContact || null,
-      employee.relationship || null,
-      employee.emergencyPhone || null,
-      employee.jobTitle || null,
-      employee.siteLocation || null,
-      employee.employmentType || null,
-      employee.startDate || null,
-      employee.contractEndDate || null,
-      employee.salaryGrade || null,
-      employee.workSchedule || null,
-      employee.complianceStatus || "Pending",
-      employee.status || "Active",
-    ],
-  );
+  const client = await pool.connect();
 
-  const newId = result.rows[0].id;
-  const employeeId = `EMP${newId.toString().padStart(3, "0")}`;
+  try {
+    await client.query("BEGIN");
 
-  const updatedResult = await pool.query(
-    `
-      UPDATE employees
-      SET employee_id = $1
-      WHERE id = $2
+    // Get the next employee database ID first
+    const idResult = await client.query(
+      `SELECT nextval('employees_id_seq') AS id`
+    );
+
+    const newId = Number(idResult.rows[0].id);
+
+    // Generate the employee number
+    const employeeNumber = `EMP${newId.toString().padStart(3, "0")}`;
+
+    const result = await client.query(
+      `
+      INSERT INTO employees (
+        id,
+        employee_id,
+        employee_number,
+        full_name,
+        date_of_birth,
+        id_number,
+        gender,
+        nationality,
+        email,
+        phone,
+        mobile,
+        address,
+        reporting_manager,
+        reporting_manager_id,
+        reporting_manager_job_title,
+        reporting_manager_legal_appointment,
+        department,
+        division,
+        organisational_level,
+        emergency_contact,
+        relationship,
+        emergency_phone,
+        job_title,
+        site_location,
+        employment_type,
+        start_date,
+        contract_end_date,
+        salary_grade,
+        work_schedule,
+        compliance_status,
+        status
+      )
+      VALUES (
+        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
+        $11, $12, $13, $14, $15, $16, $17, $18, $19, $20,
+        $21, $22, $23, $24, $25, $26, $27, $28, $29, $30,
+        $31, $32
+      )
       RETURNING *
-    `,
-    [employeeId, newId],
-  );
+      `,
+      [
+        newId,
+        employeeNumber,
+        employeeNumber,
 
-  return updatedResult.rows[0];
+        employee.fullName,
+        employee.dateOfBirth || null,
+        employee.idNumber || null,
+        employee.gender || null,
+        employee.nationality || null,
+        employee.email || null,
+        employee.phone || null,
+        employee.mobile || null,
+        employee.address || null,
+        employee.reportingManager || null,
+        employee.reportingManagerId || null,
+        employee.reportingManagerJobTitle || null,
+        employee.reportingManagerLegalAppointment || null,
+        employee.department || null,
+        employee.division || null,
+        employee.organisationalLevel || null,
+        employee.emergencyContact || null,
+        employee.relationship || null,
+        employee.emergencyPhone || null,
+        employee.jobTitle || null,
+        employee.siteLocation || null,
+        employee.employmentType || null,
+        employee.startDate || null,
+        employee.contractEndDate || null,
+        employee.salaryGrade || null,
+        employee.workSchedule || null,
+        employee.complianceStatus || "Pending",
+        employee.status || "Active",
+      ]
+    );
+
+    await client.query("COMMIT");
+
+    return result.rows[0];
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
 };
 
 export const getEmployees = async () => {
