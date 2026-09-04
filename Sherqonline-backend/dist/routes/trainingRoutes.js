@@ -1,0 +1,13 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const trainingController_1 = require("../controllers/trainingController");
+const uploadTraining_1 = require("../middleware/uploadTraining");
+const router = (0, express_1.Router)();
+router.post("/", uploadTraining_1.uploadTrainingCertificate, trainingController_1.addTrainingRecord);
+router.get("/", trainingController_1.getAllTrainingRecords);
+router.get("/:id", trainingController_1.getTrainingRecord);
+router.get("/:id/file", trainingController_1.getTrainingRecordFileUrl);
+router.patch("/:id", trainingController_1.editTrainingRecord);
+router.delete("/:id", trainingController_1.deleteTrainingRecordController);
+exports.default = router;

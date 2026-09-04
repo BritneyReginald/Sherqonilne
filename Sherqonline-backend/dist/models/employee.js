@@ -7,48 +7,48 @@ exports.updateEmployee = exports.deleteEmployee = exports.deactivateEmployee = e
 const db_1 = __importDefault(require("../config/db"));
 const createEmployee = async (employee) => {
     const result = await db_1.default.query(`INSERT INTO employees (
-      full_name, date_of_birth, id_number, gender, nationality,
-      email, phone, mobile, address, reporting_manager, reporting_manager_id,
-      reporting_manager_job_title, reporting_manager_legal_appointment,
-      department, division, organisational_level, emergency_contact,
-      relationship, emergency_phone, job_title, site_location,
-      employment_type, start_date, contract_end_date,
-      salary_grade, work_schedule, compliance_status, status
-    )
-    VALUES (
-      $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,
-      $11,$12,$13,$14,$15,$16,$17,$18,$19,$20,
-      $21,$22,$23,$24,$25,$26,$27,$28
-    )
-    RETURNING *`, [
+    full_name, date_of_birth, id_number, gender, nationality,
+    email, phone, mobile, address, reporting_manager, reporting_manager_id,
+    reporting_manager_job_title, reporting_manager_legal_appointment,
+    department, division, organisational_level, emergency_contact,
+    relationship, emergency_phone, job_title, site_location,
+    employment_type, start_date, contract_end_date,
+    salary_grade, work_schedule, compliance_status, status
+  )
+  VALUES (
+    $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,
+    $11,$12,$13,$14,$15,$16,$17,$18,$19,$20,
+    $21,$22,$23,$24,$25,$26,$27,$28
+  )
+  RETURNING *`, [
         employee.fullName,
-        employee.dateOfBirth,
-        employee.idNumber,
-        employee.gender,
-        employee.nationality,
-        employee.email,
-        employee.phone,
-        employee.mobile,
-        employee.address,
-        employee.reportingManager,
-        employee.reportingManagerId,
-        employee.reportingManagerJobTitle,
-        employee.reportingManagerLegalAppointment,
-        employee.department,
-        employee.division,
-        employee.organisationalLevel,
-        employee.emergencyContact,
-        employee.relationship,
-        employee.emergencyPhone,
-        employee.jobTitle,
-        employee.siteLocation,
-        employee.employmentType,
-        employee.startDate,
-        employee.contractEndDate,
-        employee.salaryGrade,
-        employee.workSchedule,
-        employee.complianceStatus,
-        employee.status,
+        employee.dateOfBirth || null,
+        employee.idNumber || null,
+        employee.gender || null,
+        employee.nationality || null,
+        employee.email || null,
+        employee.phone || null,
+        employee.mobile || null,
+        employee.address || null,
+        employee.reportingManager || null,
+        employee.reportingManagerId || null,
+        employee.reportingManagerJobTitle || null,
+        employee.reportingManagerLegalAppointment || null,
+        employee.department || null,
+        employee.division || null,
+        employee.organisationalLevel || null,
+        employee.emergencyContact || null,
+        employee.relationship || null,
+        employee.emergencyPhone || null,
+        employee.jobTitle || null,
+        employee.siteLocation || null,
+        employee.employmentType || null,
+        employee.startDate || null,
+        employee.contractEndDate || null,
+        employee.salaryGrade || null,
+        employee.workSchedule || null,
+        employee.complianceStatus || "Pending",
+        employee.status || "Active",
     ]);
     const newId = result.rows[0].id;
     const employeeId = `EMP${newId.toString().padStart(3, "0")}`;
@@ -67,7 +67,9 @@ const getEmployees = async () => {
 };
 exports.getEmployees = getEmployees;
 const getEmployeeById = async (id) => {
-    const result = await db_1.default.query("SELECT * FROM employees WHERE id = $1", [id]);
+    const result = await db_1.default.query("SELECT * FROM employees WHERE id = $1", [
+        id,
+    ]);
     return result.rows[0];
 };
 exports.getEmployeeById = getEmployeeById;

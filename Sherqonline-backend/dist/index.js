@@ -15,6 +15,8 @@ const auth_1 = __importDefault(require("./routes/auth"));
 const admin_1 = __importDefault(require("./routes/admin"));
 const medicalsRoutes_1 = __importDefault(require("./routes/medicalsRoutes"));
 const ppeRoutes_1 = __importDefault(require("./routes/ppeRoutes"));
+const appointmentRoutes_1 = __importDefault(require("./routes/appointmentRoutes"));
+const trainingRoutes_1 = __importDefault(require("./routes/trainingRoutes"));
 const app = (0, express_1.default)();
 const PORT = process.env.PORT || 3000;
 const corsOptions = {
@@ -40,6 +42,8 @@ app.use("/auth", auth_1.default);
 app.use("/admin", admin_1.default);
 app.use("/medicals", medicalsRoutes_1.default);
 app.use("/ppe", ppeRoutes_1.default);
+app.use("/appointments", appointmentRoutes_1.default);
+app.use("/training-records", trainingRoutes_1.default);
 async function startServer() {
     try {
         await (0, initDatabase_1.initializeDatabase)();
