@@ -9,15 +9,14 @@ const createEmployee = async (employee) => {
     const client = await db_1.default.connect();
     try {
         await client.query("BEGIN");
-        // Get the next employee database ID first
+        // Get the next database ID
         const idResult = await client.query(`SELECT nextval('employees_id_seq') AS id`);
         const newId = Number(idResult.rows[0].id);
-        // Generate the employee number
+        // Generate employee number
         const employeeNumber = `EMP${newId.toString().padStart(3, "0")}`;
         const result = await client.query(`
       INSERT INTO employees (
         id,
-        employee_id,
         employee_number,
         full_name,
         date_of_birth,
@@ -51,13 +50,11 @@ const createEmployee = async (employee) => {
       VALUES (
         $1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
         $11, $12, $13, $14, $15, $16, $17, $18, $19, $20,
-        $21, $22, $23, $24, $25, $26, $27, $28, $29, $30,
-        $31, $32
+        $21, $22, $23, $24, $25, $26, $27, $28, $29, $30
       )
       RETURNING *
       `, [
             newId,
-            employeeNumber,
             employeeNumber,
             employee.fullName,
             employee.dateOfBirth || null,
