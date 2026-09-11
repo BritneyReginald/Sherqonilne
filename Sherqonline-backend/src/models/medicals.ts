@@ -28,7 +28,6 @@ const SELECT_BASE = `
     mr.employee_id,
     e.employee_number,
     e.full_name        AS employee_name,
-    e.department,
     e.site_location,
     mr.exam_type,
     mr.practitioner_name,

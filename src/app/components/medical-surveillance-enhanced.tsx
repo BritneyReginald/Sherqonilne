@@ -19,7 +19,7 @@ interface MedicalRecord {
   employeeId: number;
   employeeNumber: string;
   employeeName: string;
-  department: string;
+  // department: string;
   siteLocation: string;
   examType: "pre-placement" | "periodic" | "exit" | "return-to-work";
   practitionerName: string;
@@ -38,7 +38,7 @@ interface EmployeeOption {
   id: number;
   employeeId: string;
   fullName: string;
-  department: string;
+  // department: string;
   siteLocation: string;
 }
 
@@ -119,7 +119,7 @@ export function MedicalSurveillanceEnhanced({
         employeeId: r.employee_id,
         employeeNumber: r.employee_number,
         employeeName: r.employee_name,
-        department: r.department,
+        // department: r.department,
         siteLocation: r.site_location,
         examType: r.exam_type,
         practitionerName: r.practitioner_name,
@@ -157,7 +157,7 @@ export function MedicalSurveillanceEnhanced({
           id: e.id,
           employeeId: e.employee_number,
           fullName: e.full_name,
-          department: e.department,
+          // department: e.department,
           siteLocation: e.site_location,
         }));
 
@@ -507,7 +507,6 @@ export function MedicalSurveillanceEnhanced({
                               <td className="sticky left-0 z-10 px-6 py-4" style={{ backgroundColor: "#1E293B" }}>
                                 <div>
                                   <div className="font-medium mb-1" style={{ color: "white" }}>{record.employeeName}</div>
-                                  <div className="text-sm" style={{ color: "rgba(255, 255, 255, 0.6)" }}>{record.department}</div>
                                   <div className="text-xs font-mono" style={{ color: "rgba(255, 255, 255, 0.5)" }}>{record.employeeNumber}</div>
                                 </div>
                               </td>
@@ -620,12 +619,12 @@ export function MedicalSurveillanceEnhanced({
                       className={inputClass}
                       style={inputStyle}
                     >
-                      <option value="">Select employee…</option>
+                      {/* <option value="">Select employee…</option>
                       {employees.map((emp) => (
                         <option key={emp.id} value={emp.id}>
                           {emp.fullName} ({emp.employeeId}) — {emp.department}
                         </option>
-                      ))}
+                      ))} */}
                     </select>
                   </div>
 
