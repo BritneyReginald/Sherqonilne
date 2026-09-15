@@ -1,14 +1,30 @@
 import { useState } from "react";
+import { EmployeeOption } from "../../../api/employees";
 
-const employees = [
-  { name: "John Doe", number: "EMP001", supervisor: "Mike Ross" },
-  { name: "Jane Smith", number: "EMP002", supervisor: "Rachel Zane" },
-];
+interface SiteOption {
+  id: string;
+  name: string;
+}
 
-export function IncidentForm({ onSubmit, incidentType, incidentNumber }: any) {
+interface IncidentFormProps {
+  onSubmit: (data: any) => void;
+  incidentType: string | null;
+  incidentNumber: string;
+  employees: EmployeeOption[];
+  sites: SiteOption[];
+}
+
+export function IncidentForm({
+  onSubmit,
+  incidentType,
+  incidentNumber,
+  employees,
+  sites,
+}: IncidentFormProps) {
   const [form, setForm] = useState({
     division: "",
     date: "",
+    employeeId: "",
     employeeName: "",
     supervisor: "",
     site: "",
@@ -19,6 +35,17 @@ export function IncidentForm({ onSubmit, incidentType, incidentNumber }: any) {
 
   const handleChange = (field: string, value: string) => {
     setForm((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const handleEmployeeSelect = (id: string) => {
+    const selected = employees.find((emp) => emp.id === id);
+    setForm((prev) => ({
+      ...prev,
+      employeeId: id,
+      employeeName: selected?.fullName || "",
+      employeeNumber: selected?.employeeNumber || "",
+      supervisor: selected?.reportingManager || "",
+    }));
   };
 
   return (
@@ -41,11 +68,18 @@ export function IncidentForm({ onSubmit, incidentType, incidentNumber }: any) {
 
           <div>
             <label className="text-sm text-gray-600">Site:</label>
-            <input
+            <select
               value={form.site}
               onChange={(e) => handleChange("site", e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900"
+            >
+              <option value="">Select Site</option>
+              {sites.map((site) => (
+                <option key={site.id} value={site.name}>
+                  {site.name}
+                </option>
+              ))}
+            </select>
           </div>
 
           <div>
@@ -73,7 +107,7 @@ export function IncidentForm({ onSubmit, incidentType, incidentNumber }: any) {
               Incident Classification:
             </label>
             <input
-              value={incidentType}
+              value={incidentType ?? ""}
               readOnly
               className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-700"
             />
@@ -93,24 +127,14 @@ export function IncidentForm({ onSubmit, incidentType, incidentNumber }: any) {
               Employee Involved Name:
             </label>
             <select
-              value={form.employeeName}
-              onChange={(e) => {
-                const selected = employees.find(
-                  (emp) => emp.name === e.target.value,
-                );
-                setForm((prev) => ({
-                  ...prev,
-                  employeeName: selected?.name || "",
-                  employeeNumber: selected?.number || "",
-                  supervisor: selected?.supervisor || "",
-                }));
-              }}
+              value={form.employeeId}
+              onChange={(e) => handleEmployeeSelect(e.target.value)}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900"
             >
               <option value="">Select Employee</option>
               {employees.map((emp) => (
-                <option key={emp.number} value={emp.name}>
-                  {emp.name}
+                <option key={emp.id} value={emp.id}>
+                  {emp.fullName}
                 </option>
               ))}
             </select>
@@ -120,8 +144,8 @@ export function IncidentForm({ onSubmit, incidentType, incidentNumber }: any) {
             <label className="text-sm text-gray-600">Employee Co. No.</label>
             <input
               value={form.employeeNumber}
-              onChange={(e) => handleChange("employeeNumber", e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              readOnly
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-700"
             />
           </div>
           <div>
@@ -152,7 +176,7 @@ export function IncidentForm({ onSubmit, incidentType, incidentNumber }: any) {
       {/* ================= ACTION BUTTON ================= */}
       <div className="flex justify-end">
         <button
-          onClick={() => onSubmit(form)}
+          onClick={() => onSubmit({ ...form, incidentNumber })}
           className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg"
         >
           Save Incident

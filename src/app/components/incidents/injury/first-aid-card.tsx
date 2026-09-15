@@ -1,14 +1,11 @@
 import { FirstAidEntry } from "./types";
-import { employees, firstAiders } from "./constants";
-import { useAuth } from "@/app/contexts/auth-context";
-// import {
-//   canEmployeeSign,
-//   canFirstAiderSign,
-// } from "@/app/permissions/firstAidPermissions";
+import { firstAiders } from "./constants";
+import { EmployeeOption } from "../../../../api/employees";
 
 type Props = {
   entry: FirstAidEntry;
   index: number;
+  employees: EmployeeOption[];
   onChange: (index: number, field: keyof FirstAidEntry, value: any) => void;
   onRemove: (index: number) => void;
   onEmployeeSign: (index: number) => void;
@@ -18,20 +15,12 @@ type Props = {
 export function FirstAidCard({
   entry,
   index,
+  employees,
   onChange,
   onRemove,
   onEmployeeSign,
   onFirstAiderSign,
 }: Props) {
-  const { user } = useAuth();
-  const handleEmployeeSign = (index: number) => {
-    handleTableChange(index, "status", "awaitingFirstAider");
-  };
-
-  const handleFirstAiderSign = (index: number) => {
-    handleTableChange(index, "status", "awaitingSafetyReview");
-  };
-
   return (
     <div className="border border-gray-200 rounded-2xl p-5 bg-white shadow-sm space-y-4 text-gray-700">
       {/* Header */}
@@ -54,23 +43,21 @@ export function FirstAidCard({
           <label className="text-sm text-gray-600">Employee</label>
 
           <select
-            value={entry.employeeName}
+            value={entry.employeeId || ""}
             onChange={(e) => {
-              const selected = employees.find(
-                (emp) => emp.name === e.target.value,
-              );
+              const selected = employees.find((emp) => emp.id === e.target.value);
 
-              onChange(index, "employeeName", selected?.name || "");
-
-              onChange(index, "employeeNumber", selected?.number || "");
+              onChange(index, "employeeId", e.target.value);
+              onChange(index, "employeeName", selected?.fullName || "");
+              onChange(index, "employeeNumber", selected?.employeeNumber || "");
             }}
             className="w-full mt-1 px-3 py-2 border rounded-lg"
           >
             <option value="">Select Employee</option>
 
             {employees.map((emp) => (
-              <option key={emp.number} value={emp.name}>
-                {emp.name}
+              <option key={emp.id} value={emp.id}>
+                {emp.fullName}
               </option>
             ))}
           </select>
@@ -164,24 +151,6 @@ export function FirstAidCard({
           Further medical attention required
         </span>
       </div>
-
-      {/* <div className="flex gap-4">
-        <button
-          disabled={!handleEmployeeSign}
-          onClick={() => onEmployeeSign(index)}
-          className="bg-blue-600 text-white px-4 py-2 rounded-xl"
-        >
-          Employee Sign
-        </button>
-
-        <button
-          disabled={!handleFirstAiderSign}
-          onClick={() => onFirstAiderSign(index)}
-          className="bg-blue-600 text-white px-4 py-2 rounded-xl"
-        >
-          First Aider Sign
-        </button>
-      </div> */}
 
       <div className="mt-3 text-sm text-gray-600">Status: {entry.status}</div>
     </div>

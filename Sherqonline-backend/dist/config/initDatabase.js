@@ -535,6 +535,208 @@ CREATE INDEX IF NOT EXISTS idx_training_records_employee_id
 CREATE INDEX IF NOT EXISTS idx_training_records_expiry_date
   ON training_records(expiry_date);
     `);
+        /*
+         * ============================================================
+         * INCIDENT RECORDS (Incidents / NCR / Injuries register)
+         * ============================================================
+         *
+         * One row = one incident, NCR, or injury report. `type` tells you
+         * which. employee_id is nullable because NCRs aren't necessarily
+         * tied to a specific employee (they use identified_by instead).
+         *
+         * Employee name/site are read live via JOIN on employees, same
+         * as medical_records/appointments — not snapshotted, since this
+         * is a live register, not an immutable audit log like PPE.
+         */
+        await client.query(`
+  CREATE TABLE IF NOT EXISTS incident_records (
+    id SERIAL PRIMARY KEY
+  );
+`);
+        await client.query(`
+  ALTER TABLE incident_records
+    ADD COLUMN IF NOT EXISTS type VARCHAR(20) NOT NULL DEFAULT 'incident'
+      CHECK (type IN ('incident', 'ncr', 'injury')),
+
+    ADD COLUMN IF NOT EXISTS employee_id INTEGER
+      REFERENCES employees(id) ON DELETE SET NULL,
+
+    ADD COLUMN IF NOT EXISTS division TEXT,
+    ADD COLUMN IF NOT EXISTS site TEXT,
+
+    ADD COLUMN IF NOT EXISTS incident_date DATE,
+    ADD COLUMN IF NOT EXISTS incident_time TIME,
+
+    -- incident classification (incident) / NCR category (ncr)
+    ADD COLUMN IF NOT EXISTS category TEXT,
+
+    -- NCR No. (ncr) / free title, otherwise unused
+    ADD COLUMN IF NOT EXISTS title TEXT NOT NULL DEFAULT '',
+
+    ADD COLUMN IF NOT EXISTS description TEXT NOT NULL DEFAULT '',
+
+    ADD COLUMN IF NOT EXISTS status VARCHAR(30) NOT NULL DEFAULT 'Created'
+      CHECK (status IN ('Created', 'Under Investigation', 'Complete')),
+
+    -- NCR-specific
+    ADD COLUMN IF NOT EXISTS ncr_type VARCHAR(20)
+      CHECK (ncr_type IN ('Internal', 'External')),
+    ADD COLUMN IF NOT EXISTS identified_by TEXT,
+    ADD COLUMN IF NOT EXISTS department TEXT,
+
+    -- Injury-specific
+    ADD COLUMN IF NOT EXISTS body_part TEXT,
+    ADD COLUMN IF NOT EXISTS effect TEXT,
+    ADD COLUMN IF NOT EXISTS disablement TEXT,
+
+    ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
+`);
+        await client.query(`
+  CREATE INDEX IF NOT EXISTS idx_incident_records_type ON incident_records(type);
+  CREATE INDEX IF NOT EXISTS idx_incident_records_employee_id ON incident_records(employee_id);
+  CREATE INDEX IF NOT EXISTS idx_incident_records_status ON incident_records(status);
+`);
+        /*
+         * ------------------------------------------------------------
+         * MIGRATION: injury_type — distinguishes First Aid Case
+         * Dressing logs from Hospital-case injury reports. Both are
+         * type='injury' in incident_records so they share one registry
+         * row and one set of statuses; injury_type is what tells the
+         * frontend/PDF view which shape of detail to render.
+         * ------------------------------------------------------------
+         */
+        await client.query(`
+      ALTER TABLE incident_records
+        ADD COLUMN IF NOT EXISTS injury_type VARCHAR(20)
+          CHECK (injury_type IN ('firstAid', 'hospital'));
+    `);
+        /*
+         * ============================================================
+         * FIRST AID ENTRIES
+         * ============================================================
+         *
+         * One row = one treatment record within a First Aid Case
+         * Dressing log. A single incident_records row (type='injury',
+         * injury_type='firstAid') can have many entries — same
+         * one-header/many-children shape as incident_evidence_files.
+         *
+         * employee_id is nullable + employee_name/number are also
+         * stored directly: unlike incident_records' live JOIN pattern,
+         * an entry's employee selection is made at log time and the
+         * name/number are meant to reflect who was treated then, not
+         * whoever currently holds that employee_id (matches the
+         * PPE-transaction snapshot reasoning, at small scale).
+         */
+        await client.query(`
+  CREATE TABLE IF NOT EXISTS first_aid_entries (
+    id SERIAL PRIMARY KEY
+  );
+`);
+        await client.query(`
+  ALTER TABLE first_aid_entries
+    ADD COLUMN IF NOT EXISTS record_id INTEGER NOT NULL
+      REFERENCES incident_records(id) ON DELETE CASCADE,
+
+    ADD COLUMN IF NOT EXISTS employee_id INTEGER
+      REFERENCES employees(id) ON DELETE SET NULL,
+    ADD COLUMN IF NOT EXISTS employee_name TEXT,
+    ADD COLUMN IF NOT EXISTS employee_number TEXT,
+
+    ADD COLUMN IF NOT EXISTS entry_date DATE,
+    ADD COLUMN IF NOT EXISTS entry_time TIME,
+
+    ADD COLUMN IF NOT EXISTS injury TEXT,
+    ADD COLUMN IF NOT EXISTS treatment TEXT,
+    ADD COLUMN IF NOT EXISTS comments TEXT,
+
+    ADD COLUMN IF NOT EXISTS first_aider TEXT,
+    ADD COLUMN IF NOT EXISTS further_medical_attention BOOLEAN NOT NULL DEFAULT FALSE,
+
+    ADD COLUMN IF NOT EXISTS status VARCHAR(30) NOT NULL DEFAULT 'draft'
+      CHECK (status IN ('draft', 'AWAITING_EMPLOYEE', 'AWAITING_FIRST_AIDER', 'AWAITING_SAFETY', 'closed')),
+
+    ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
+`);
+        await client.query(`
+  CREATE INDEX IF NOT EXISTS idx_first_aid_entries_record_id
+    ON first_aid_entries(record_id);
+`);
+        /*
+         * ============================================================
+         * INVESTIGATIONS
+         * ============================================================
+         *
+         * One row per incident_records row (1:1). corrective_actions is
+         * a TEXT[] — same array-column technique as
+         * medical_records.restriction_type — so it can hold a repeatable
+         * list of actions while responsible_person/due_date stay shared
+         * single fields, same as you'd expect from the register.
+         */
+        await client.query(`
+  CREATE TABLE IF NOT EXISTS investigations (
+    id SERIAL PRIMARY KEY
+  );
+`);
+        await client.query(`
+  ALTER TABLE investigations
+    ADD COLUMN IF NOT EXISTS record_id INTEGER UNIQUE NOT NULL
+      REFERENCES incident_records(id) ON DELETE CASCADE,
+
+    ADD COLUMN IF NOT EXISTS investigator TEXT,
+    ADD COLUMN IF NOT EXISTS investigation_date DATE,
+    ADD COLUMN IF NOT EXISTS location TEXT,
+    ADD COLUMN IF NOT EXISTS department TEXT,
+
+    ADD COLUMN IF NOT EXISTS immediate_cause TEXT,
+    ADD COLUMN IF NOT EXISTS root_cause TEXT,
+    ADD COLUMN IF NOT EXISTS contributing_factors TEXT,
+
+    ADD COLUMN IF NOT EXISTS corrective_actions TEXT[],
+    ADD COLUMN IF NOT EXISTS responsible_person TEXT,
+    ADD COLUMN IF NOT EXISTS due_date DATE,
+
+    ADD COLUMN IF NOT EXISTS preventive_actions TEXT,
+
+    ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
+`);
+        await client.query(`
+  CREATE INDEX IF NOT EXISTS idx_investigations_record_id ON investigations(record_id);
+`);
+        /*
+         * ============================================================
+         * INCIDENT EVIDENCE FILES
+         * ============================================================
+         *
+         * Same pattern as medical_records / training_records: only Blob
+         * metadata lives in Postgres, the file itself lives in Azure Blob
+         * Storage behind a short-lived SAS URL. Unlike medicals (one file
+         * per record), an incident can have many evidence files, so this
+         * is its own table rather than columns on incident_records.
+         */
+        await client.query(`
+  CREATE TABLE IF NOT EXISTS incident_evidence_files (
+    id SERIAL PRIMARY KEY
+  );
+`);
+        await client.query(`
+  ALTER TABLE incident_evidence_files
+    ADD COLUMN IF NOT EXISTS record_id INTEGER NOT NULL
+      REFERENCES incident_records(id) ON DELETE CASCADE,
+
+    ADD COLUMN IF NOT EXISTS file_blob_name TEXT NOT NULL,
+    ADD COLUMN IF NOT EXISTS file_name TEXT NOT NULL,
+    ADD COLUMN IF NOT EXISTS file_size INTEGER,
+    ADD COLUMN IF NOT EXISTS file_mime_type VARCHAR(255),
+
+    ADD COLUMN IF NOT EXISTS uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
+`);
+        await client.query(`
+  CREATE INDEX IF NOT EXISTS idx_incident_evidence_files_record_id
+    ON incident_evidence_files(record_id);
+`);
         // ============================================================
         // MIGRATION: REMOVE TRAINING NAME
         // ============================================================

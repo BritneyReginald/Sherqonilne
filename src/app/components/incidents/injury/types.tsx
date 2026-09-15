@@ -27,6 +27,11 @@ export type UnableToSign = {
 export type FirstAidEntry = {
   id: string;
 
+  // Links back to the real employee record — added so a real
+  // employeeId can eventually be sent to the backend, same as the
+  // hospital-case step. employeeName/employeeNumber stay for display.
+  employeeId?: string;
+
   date: string;
   time: string;
 

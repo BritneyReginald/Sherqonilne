@@ -1,131 +1,210 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { IncidentForm } from "./incidents-form";
 import { NCRForm } from "./ncr-form";
 import { InjuryForm } from "./injury/injury-form";
 import { InvestigationForm } from "./investigation";
 import { UploadPage } from "./upload";
 import { PDFView } from "./pdf-view";
+import {
+  IncidentRecord,
+  InvestigationData,
+  RecordStatus,
+  RecordType,
+} from "./types";
+import {
+  createIncidentRecord,
+  deleteIncidentRecord,
+  fetchIncidentRecords,
+  fetchIncidentRecord,
+  getNextRecordNumber,
+  patchInvestigationField,
+  updateIncidentStatus,
+  uploadEvidenceFiles,
+} from "../../../api/incidents";
+import { getEmployees, EmployeeOption } from "../../../api/employees";
+import { getSites } from "../../../api/siteAPI";
 
-type RecordType = "incident" | "ncr" | "injury" | null;
+type ViewType =
+  | "registry"
+  | "incident-type"
+  | "incident-form"
+  | "ncr"
+  | "injury"
+  | "investigation"
+  | "upload"
+  | "pdf";
 
-type InvestigationData = {
-  investigator?: string;
-  investigationDate?: string;
-  location?: string;
-  department?: string;
-
-  immediateCause?: string;
-  rootCause?: string;
-  contributingFactors?: string;
-
-  correctiveActions?: string;
-  responsiblePerson?: string;
-  dueDate?: string;
-
-  preventiveActions?: string;
-  evidence?: {
-    name: string;
-    data: string; // base64
-  }[];
-};
-
-type IncidentRecord = {
-  id: number;
-  type: "incident" | "ncr" | "injury";
-  category?: string;
-  title: string;
-  description: string;
-  status: "Created" | "Under Investigation" | "Complete";
-
-  investigation?: InvestigationData;
-};
+interface SiteOption {
+  id: string;
+  name: string;
+}
 
 export default function Incidents() {
-  type ViewType =
-    | "registry"
-    | "incident-type"
-    | "incident-form"
-    | "ncr"
-    | "injury"
-    | "investigation"
-    | "upload"
-    | "pdf";
-
   const [incidentCategory, setIncidentCategory] = useState<string | null>(null);
   const [view, setView] = useState<ViewType>("registry");
-  const [records, setRecords] = useState<IncidentRecord[]>(() => {
-    const saved = localStorage.getItem("incident-records");
-    return saved ? JSON.parse(saved) : [];
-  });
-  const [counter, setCounter] = useState(1);
+  const [records, setRecords] = useState<IncidentRecord[]>([]);
+  const [loading, setLoading] = useState(true);
   const [selectedRecord, setSelectedRecord] = useState<IncidentRecord | null>(
     null,
   );
 
-  useEffect(() => {
-    if (selectedRecord?.investigation) {
-    }
-  }, [selectedRecord]);
+  const [employees, setEmployees] = useState<EmployeeOption[]>([]);
+  const [sites, setSites] = useState<SiteOption[]>([]);
+
+  const debounceTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>(
+    {},
+  );
 
   useEffect(() => {
-    localStorage.setItem("incident-records", JSON.stringify(records));
-  }, [records]);
+    let cancelled = false;
 
-  const addRecord = (data: any) => {
-    const newRecord: IncidentRecord = {
-      id: Date.now(),
-      type: view === "incident-form" ? "incident" : view,
-      category: data.category || incidentCategory || undefined,
-      title: data.ncrNo || data.title || "",
-      description: data.description,
-      status: "Created",
+    (async () => {
+      try {
+        const data = await fetchIncidentRecords();
+        if (!cancelled) setRecords(data);
+      } catch (err) {
+        console.error("Failed to load records", err);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+
+    getEmployees()
+      .then((data) => !cancelled && setEmployees(data))
+      .catch((err) => console.error("Failed to load employees", err));
+
+    getSites()
+      .then(
+        (data: any[]) =>
+          !cancelled &&
+          setSites(data.map((s) => ({ id: String(s.id), name: s.name }))),
+      )
+      .catch((err) => console.error("Failed to load sites", err));
+
+    return () => {
+      cancelled = true;
     };
+  }, []);
 
-    setCounter((prev) => prev + 1);
-    setRecords((prev) => [newRecord, ...prev]);
-    setView("registry");
-  };
+  // Numbers are derived from the records themselves (max existing
+  // number of that type + 1), so they stay correct across refreshes
+  // and deletions instead of drifting local counters.
+  const nextIncidentNumber = getNextRecordNumber(records, "incident", "INC");
+  const nextNcrNumber = getNextRecordNumber(records, "ncr", "NCR");
+  const nextInjuryNumber = getNextRecordNumber(records, "injury", "INJ");
 
-  const updateStatus = (newStatus: IncidentRecord["status"]) => {
-    setRecords((prev) =>
-      prev.map((rec) => {
-        if (rec.id !== selectedRecord?.id) return rec;
+  const addRecord = async (data: any) => {
+    // InjuryForm's First Aid step submits { type: "firstAid", ... }
+    // directly (it isn't gated by `view`, since both injury steps
+    // share the "injury" view) — detect it up front.
+    const isFirstAid = data.type === "firstAid";
+    const type = (
+      isFirstAid ? "injury" : view === "incident-form" ? "incident" : view
+    ) as RecordType;
 
-        const updated = {
-          ...rec,
-          status: newStatus,
+    try {
+      let payload: Parameters<typeof createIncidentRecord>[0];
+
+      if (isFirstAid) {
+        payload = {
+          type: "injury",
+          injuryType: "firstAid",
+          title: data.incidentNumber,
+          site: data.site,
+          description: "First Aid Case Dressing log",
+          entries: data.entries.map((e: any) => ({
+            employeeId: e.employeeId,
+            employeeName: e.employeeName,
+            employeeNumber: e.employeeNumber,
+            date: e.date,
+            time: e.time,
+            injury: e.injury,
+            treatment: e.treatment,
+            comments: e.comments,
+            firstAider: e.firstAider,
+            furtherMedicalAttention: e.furtherMedicalAttention,
+            status: e.status,
+          })),
         };
+      } else if (type === "incident") {
+        payload = {
+          type,
+          employeeId: data.employeeId ? Number(data.employeeId) : undefined,
+          category: incidentCategory || undefined,
+          division: data.division,
+          site: data.site,
+          incidentDate: data.date,
+          incidentTime: data.time,
+          description: data.description,
+          title: data.incidentNumber,
+        };
+      } else if (type === "ncr") {
+        payload = {
+          type,
+          category: data.category,
+          title: data.ncrNo,
+          description: data.description,
+          ncrType: data.type, // NCRForm's "type" field is Internal/External
+          identifiedBy: data.identifiedBy,
+          department: data.department,
+          incidentDate: data.dateIdentified,
+        };
+      } else {
+        // injury (hospital-case step)
+        payload = {
+          type,
+          employeeId: data.employeeId ? Number(data.employeeId) : undefined,
+          injuryType: "hospital",
+          division: data.division,
+          site: data.site,
+          incidentDate: data.date,
+          incidentTime: data.time,
+          description: data.description,
+          bodyPart:
+            data.bodyPart === "Other" ? data.otherBodyPart : data.bodyPart,
+          effect: data.effect,
+          disablement: data.disablement,
+          title: data.incidentNumber,
+        };
+      }
 
-        // also sync selectedRecord
-        setSelectedRecord(updated);
-
-        return updated;
-      }),
-    );
+      const newRecord = await createIncidentRecord(payload);
+      setRecords((prev) => [newRecord, ...prev]);
+      setView("registry");
+    } catch (err) {
+      console.error("Failed to save record", err);
+      alert("Couldn't save that record — check your connection and try again.");
+    }
   };
 
-  const total = records.length;
-  const created = records.filter((r) => r.status === "Created").length;
-  const underInvestigation = records.filter(
-    (r) => r.status === "Under Investigation",
-  ).length;
-  const complete = records.filter((r) => r.status === "Complete").length;
+  const updateStatus = async (newStatus: RecordStatus) => {
+    if (!selectedRecord) return;
 
-  const ncrRecords = records.filter((r) => r.type === "ncr");
-
-  const [injuryCount, setInjuryCount] = useState(1);
-
-  const generateInjuryNumber = () => {
-    return `INJ-${String(injuryCount).padStart(3, "0")}`;
+    try {
+      const updated = await updateIncidentStatus(selectedRecord.id, newStatus);
+      setSelectedRecord(updated);
+      setRecords((prev) =>
+        prev.map((r) => (r.id === updated.id ? updated : r)),
+      );
+    } catch (err) {
+      console.error("Failed to update status", err);
+      alert("Couldn't update the status. Please try again.");
+    }
   };
 
-  const handleDelete = (id: number) => {
+  const handleDelete = async (id: number) => {
     const confirmDelete = confirm(
       "Are you sure you want to delete this record?",
     );
     if (!confirmDelete) return;
 
-    setRecords((prev) => prev.filter((rec) => rec.id !== id));
+    try {
+      await deleteIncidentRecord(id);
+      setRecords((prev) => prev.filter((rec) => rec.id !== id));
+    } catch (err) {
+      console.error("Failed to delete record", err);
+      alert("Couldn't delete that record. Please try again.");
+    }
   };
 
   const updateInvestigation = (field: string, value: any) => {
@@ -140,29 +219,50 @@ export default function Incidents() {
     };
 
     setSelectedRecord(updatedRecord);
-
     setRecords((prev) =>
       prev.map((rec) => (rec.id === selectedRecord.id ? updatedRecord : rec)),
     );
+
+    const key = `${selectedRecord.id}:${field}`;
+    if (debounceTimers.current[key]) clearTimeout(debounceTimers.current[key]);
+
+    debounceTimers.current[key] = setTimeout(() => {
+      patchInvestigationField(
+        selectedRecord.id,
+        field as keyof InvestigationData,
+        value,
+      ).catch((err) =>
+        console.error("Failed to save investigation field", err),
+      );
+    }, 600);
   };
+
   const investigation = selectedRecord?.investigation || {};
 
-  const handleUpload = (files: { name: string; data: string }[]) => {
+  const handleUpload = async (files: File[]) => {
     if (!selectedRecord) return;
 
-    const updatedRecord = {
-      ...selectedRecord,
-      investigation: {
-        ...selectedRecord.investigation,
-        evidence: [...(selectedRecord.investigation?.evidence || []), ...files],
-      },
-    };
+    try {
+      // Upload the files
+      await uploadEvidenceFiles(selectedRecord.id, files);
 
-    setSelectedRecord(updatedRecord);
+      // Get the latest incident, including the newly uploaded evidence
+      const freshRecord = await fetchIncidentRecord(selectedRecord.id);
 
-    setRecords((prev) =>
-      prev.map((rec) => (rec.id === selectedRecord.id ? updatedRecord : rec)),
-    );
+      // Update the page immediately
+      setSelectedRecord(freshRecord);
+
+      // Keep the registry data up to date too
+      setRecords((prev) =>
+        prev.map((rec) => (rec.id === freshRecord.id ? freshRecord : rec)),
+      );
+    } catch (err) {
+      console.error("Failed to upload evidence", err);
+      alert("Couldn't upload those files. Please try again.");
+
+      // Important: let UploadPage know the upload failed
+      throw err;
+    }
   };
 
   const getStatusColor = (status: string) => {
@@ -178,6 +278,28 @@ export default function Incidents() {
     }
   };
 
+  const total = records.length;
+  const created = records.filter((r) => r.status === "Created").length;
+  const underInvestigation = records.filter(
+    (r) => r.status === "Under Investigation",
+  ).length;
+  const complete = records.filter((r) => r.status === "Complete").length;
+
+  if (loading) {
+    return <div className="p-6 text-gray-500">Loading records…</div>;
+  }
+
+  const openUploadPage = async (record: IncidentRecord) => {
+    try {
+      const freshRecord = await fetchIncidentRecord(record.id);
+      setSelectedRecord(freshRecord);
+      setView("upload");
+    } catch (err) {
+      console.error("Failed to load latest incident", err);
+      alert("Couldn't load the latest incident data.");
+    }
+  };
+
   return (
     <div className="p-6">
       {/* ================= REGISTRY ================= */}
@@ -187,7 +309,6 @@ export default function Incidents() {
             Incidents / NCR / Injuries Register
           </h1>
 
-          {/* Stats */}
           <div className="grid grid-cols-3 gap-4 mb-6">
             <div className="p-4 rounded-xl shadow bg-white">
               <p className="text-sm text-gray-500">Total Records</p>
@@ -212,7 +333,6 @@ export default function Incidents() {
             </div>
           </div>
 
-          {/* Buttons */}
           <div className="flex gap-4 mb-6">
             <button
               onClick={() => setView("incident-type")}
@@ -236,13 +356,13 @@ export default function Incidents() {
             </button>
           </div>
 
-          {/* Table */}
           <div className="bg-white rounded-xl shadow overflow-hidden text-gray-900">
             <table className="w-full">
               <thead className="bg-gray-100 text-left text-sm">
                 <tr>
                   <th className="p-3">Type</th>
-                  <th className="p-3">Description</th>
+                  <th className="p-3">Reference #</th>
+                  <th className="p-3">Details</th>
                   <th className="p-3">Status</th>
                   <th className="p-3">Actions</th>
                 </tr>
@@ -252,10 +372,11 @@ export default function Incidents() {
                 {records.map((record) => (
                   <tr key={record.id} className="border-t hover:bg-gray-50">
                     <td className="p-3 capitalize">{record.type}</td>
+                    <td className="p-3">{record.title || "—"}</td>
                     <td className="p-3">
                       {record.type === "incident"
                         ? record.category
-                        : record.title}
+                        : record.description}
                     </td>
                     <td className="p-3">
                       <span
@@ -267,7 +388,6 @@ export default function Incidents() {
 
                     <td className="p-3 whitespace-nowrap">
                       <div className="flex gap-3">
-                        {/* INVESTIGATE */}
                         <button
                           onClick={() => {
                             setSelectedRecord(record);
@@ -278,12 +398,8 @@ export default function Incidents() {
                           Investigate
                         </button>
 
-                        {/* UPLOAD */}
                         <button
-                          onClick={() => {
-                            setSelectedRecord(record);
-                            setView("upload");
-                          }}
+                          onClick={() => openUploadPage(record)}
                           className="text-purple-600 hover:underline text-sm"
                         >
                           Upload
@@ -299,7 +415,6 @@ export default function Incidents() {
                           View PDF
                         </button>
 
-                        {/* DELETE */}
                         <button
                           onClick={() => handleDelete(record.id)}
                           className="text-red-600 hover:underline text-sm"
@@ -328,7 +443,6 @@ export default function Incidents() {
 
           <h1 className="text-2xl font-bold mb-2">Report Incident</h1>
 
-          {/* Show selected type */}
           <p className="mb-4 text-gray-500">
             Type:{" "}
             <span className="font-bold text-blue-600">{incidentCategory}</span>
@@ -337,7 +451,9 @@ export default function Incidents() {
           <IncidentForm
             onSubmit={addRecord}
             incidentType={incidentCategory}
-            incidentNumber={`INC-${counter.toString().padStart(4, "0")}`}
+            incidentNumber={nextIncidentNumber}
+            employees={employees}
+            sites={sites}
           />
         </>
       )}
@@ -362,7 +478,7 @@ export default function Incidents() {
 
           <h1 className="text-2xl font-bold mb-4">Report NCR</h1>
 
-          <NCRForm onSubmit={addRecord} existingNCRs={ncrRecords} />
+          <NCRForm onSubmit={addRecord} ncrNumber={nextNcrNumber} />
         </>
       )}
 
@@ -380,15 +496,10 @@ export default function Incidents() {
 
           <InjuryForm
             incidentType="Injury"
-            incidentNumber={generateInjuryNumber()}
-            onSubmit={(data: any) => {
-              addRecord({
-                ...data,
-                incidentNumber: generateInjuryNumber(),
-              });
-
-              setInjuryCount((prev) => prev + 1);
-            }}
+            incidentNumber={nextInjuryNumber}
+            employees={employees}
+            sites={sites}
+            onSubmit={(data: any) => addRecord(data)}
           />
         </>
       )}

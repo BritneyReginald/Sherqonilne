@@ -15,6 +15,26 @@ export const InvestigationForm = ({
   onUpdateStatus,
   onBack,
 }: Props) => {
+  const correctiveActions =
+    investigation.correctiveActions && investigation.correctiveActions.length
+      ? investigation.correctiveActions
+      : [""];
+
+  const updateCorrectiveAction = (index: number, value: string) => {
+    const updated = [...correctiveActions];
+    updated[index] = value;
+    onChange("correctiveActions", updated);
+  };
+
+  const addCorrectiveAction = () => {
+    onChange("correctiveActions", [...correctiveActions, ""]);
+  };
+
+  const removeCorrectiveAction = (index: number) => {
+    const updated = correctiveActions.filter((_, i) => i !== index);
+    onChange("correctiveActions", updated.length ? updated : [""]);
+  };
+
   return (
     <>
       <button onClick={onBack} className="mb-4 text-blue-600">
@@ -91,12 +111,35 @@ export const InvestigationForm = ({
       <div className="bg-white rounded-xl shadow p-6 mt-6 space-y-3 text-gray-700">
         <h2 className="font-semibold text-lg">Corrective Actions</h2>
 
-        <textarea
-          className="w-full border p-2 rounded"
-          placeholder="Corrective Actions"
-          value={investigation.correctiveActions || ""}
-          onChange={(e) => onChange("correctiveActions", e.target.value)}
-        />
+        {correctiveActions.map((ca, index) => (
+          <div key={index} className="flex gap-2 items-start">
+            <textarea
+              className="w-full border p-2 rounded"
+              placeholder={`Corrective Action ${index + 1}`}
+              value={ca}
+              onChange={(e) => updateCorrectiveAction(index, e.target.value)}
+            />
+
+            {correctiveActions.length > 1 && (
+              <button
+                type="button"
+                onClick={() => removeCorrectiveAction(index)}
+                className="text-red-600 px-2 py-2"
+                title="Remove this action"
+              >
+                ✕
+              </button>
+            )}
+          </div>
+        ))}
+
+        <button
+          type="button"
+          onClick={addCorrectiveAction}
+          className="text-blue-600 text-sm hover:underline"
+        >
+          + Add Corrective Action
+        </button>
 
         <input
           className="w-full border p-2 rounded"
@@ -129,15 +172,20 @@ export const InvestigationForm = ({
       {/* ACTION BUTTONS */}
       <div className="flex gap-4 mt-6">
         <button
-          onClick={() =>{ console.log("CLICKED"); onUpdateStatus("Under Investigation"); onBack(); }}
-          
+          onClick={() => {
+            onUpdateStatus("Under Investigation");
+            onBack();
+          }}
           className="bg-yellow-500 text-white px-4 py-2 rounded-lg"
         >
           Start Investigation
         </button>
 
         <button
-          onClick={() => { console.log("CLICKED"); onUpdateStatus("Complete"); onBack(); } }
+          onClick={() => {
+            onUpdateStatus("Complete");
+            onBack();
+          }}
           className="bg-green-600 text-white px-4 py-2 rounded-lg"
         >
           Mark as Complete

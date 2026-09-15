@@ -29,7 +29,9 @@ const addAppointment = async (req, res) => {
     }
     catch (err) {
         console.error(err);
-        res.status(500).json({ error: err.message, detail: err.detail, code: err.code });
+        res
+            .status(500)
+            .json({ error: err.message, detail: err.detail, code: err.code });
     }
 };
 exports.addAppointment = addAppointment;
@@ -38,7 +40,9 @@ const getAllAppointments = async (req, res) => {
         const appointments = await (0, appointment_1.getAppointments)({
             siteLocation: req.query.site,
             appointmentType: req.query.type,
-            employeeId: req.query.employeeId ? Number(req.query.employeeId) : undefined,
+            employeeId: req.query.employeeId
+                ? Number(req.query.employeeId)
+                : undefined,
         });
         res.json(appointments);
     }

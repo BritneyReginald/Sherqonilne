@@ -1,9 +1,13 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 
-export function NCRForm({ onSubmit, existingNCRs }: any) {
+interface NCRFormProps {
+  onSubmit: (data: any) => void;
+  ncrNumber: string;
+}
+
+export function NCRForm({ onSubmit, ncrNumber }: NCRFormProps) {
   const [formData, setFormData] = useState({
     dateIdentified: "",
-    ncrNo: "",
     identifiedBy: "",
     department: "",
     type: "",
@@ -17,35 +21,14 @@ export function NCRForm({ onSubmit, existingNCRs }: any) {
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  const generateNCRNumber = (count: number) => {
-    return `NCR-${String(count + 1).padStart(3, "0")}`;
-  };
-
   const handleSubmit = () => {
-    const ncrNumber = generateNCRNumber(existingNCRs.length); // pass this in as prop
-
-    const finalData = {
+    onSubmit({
       ...formData,
       ncrNo: ncrNumber,
       category:
-        formData.category === "Other"
-          ? formData.customCategory
-          : formData.category,
-    };
-
-    onSubmit(finalData);
+        formData.category === "Other" ? formData.customCategory : formData.category,
+    });
   };
-
-  useEffect(() => {
-  const count = existingNCRs ? existingNCRs.length : 0;
-
-  const newNumber = generateNCRNumber(count);
-
-  setFormData((prev) => ({
-    ...prev,
-    ncrNo: newNumber,
-  }));
-}, [existingNCRs]);
 
   return (
     <div className="bg-white p-6 rounded-2xl shadow-md mb-6">
@@ -53,7 +36,6 @@ export function NCRForm({ onSubmit, existingNCRs }: any) {
         NON CONFORMANCE REPORT
       </h2>
 
-      {/* Grid Layout */}
       <div className="grid grid-cols-2 gap-4">
         <div>
           <label className="text-sm text-gray-600">Date identified: </label>
@@ -70,8 +52,7 @@ export function NCRForm({ onSubmit, existingNCRs }: any) {
           <label className="text-sm text-gray-600">NCR No.: </label>
           <input
             type="text"
-            name="ncrNo"
-            value={formData.ncrNo}
+            value={ncrNumber}
             readOnly
             className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-200 text-gray-700"
           />
@@ -100,7 +81,6 @@ export function NCRForm({ onSubmit, existingNCRs }: any) {
         </div>
 
         <div>
-          {/* Dropdown: Type */}
           <label className="text-sm text-gray-600">
             Non-Conformance Type:{" "}
           </label>
@@ -117,7 +97,6 @@ export function NCRForm({ onSubmit, existingNCRs }: any) {
         </div>
 
         <div>
-          {/* Dropdown: Category */}
           <label className="text-sm text-gray-600">
             Non-Conformance Category:{" "}
           </label>
@@ -149,7 +128,6 @@ export function NCRForm({ onSubmit, existingNCRs }: any) {
       </div>
 
       <div className="bg-white rounded-xl shadow p-6">
-        {/* Description Full Width */}
         <label className="text-sm text-gray-600">
           Description Of Non-Conformance:{" "}
         </label>
@@ -163,7 +141,6 @@ export function NCRForm({ onSubmit, existingNCRs }: any) {
         />
       </div>
 
-      {/* Submit */}
       <button
         onClick={handleSubmit}
         className="mt-4 bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-xl transition"

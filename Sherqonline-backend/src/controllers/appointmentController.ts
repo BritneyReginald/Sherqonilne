@@ -44,7 +44,9 @@ export const addAppointment = async (
     res.status(201).json(appointment);
   } catch (err: any) {
     console.error(err);
-    res.status(500).json({ error: err.message, detail: err.detail, code: err.code });
+    res
+      .status(500)
+      .json({ error: err.message, detail: err.detail, code: err.code });
   }
 };
 
@@ -56,7 +58,9 @@ export const getAllAppointments = async (
     const appointments = await getAppointments({
       siteLocation: req.query.site as string | undefined,
       appointmentType: req.query.type as string | undefined,
-      employeeId: req.query.employeeId ? Number(req.query.employeeId) : undefined,
+      employeeId: req.query.employeeId
+        ? Number(req.query.employeeId)
+        : undefined,
     });
 
     res.json(appointments);

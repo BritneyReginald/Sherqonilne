@@ -162,10 +162,7 @@ export async function updateMedicalRecord(
   return getMedicalRecordById(id);
 }
 
-export async function attachFileToRecord(
-  id: number,
-  file: MedicalFileMeta,
-) {
+export async function attachFileToRecord(id: number, file: MedicalFileMeta) {
   await pool.query(
     `
     UPDATE medical_records

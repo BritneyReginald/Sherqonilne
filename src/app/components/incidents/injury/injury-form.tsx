@@ -1,25 +1,35 @@
 import { useState } from "react";
-
-import SignatureCanvas from "react-signature-canvas";
 import { FirstAidSection } from "./first-aid-section";
+import { InjuryType, FirstAidEntry } from "./types";
+import { EmployeeOption } from "../../../../api/employees";
 
-import {
-  InjuryType,
-  FirstAidEntry,
-} from "./types";
+interface SiteOption {
+  id: string;
+  name: string;
+}
 
-import {
-  employees,
-  firstAiders,
-} from "./constants";
+interface InjuryFormProps {
+  onSubmit: (data: any) => void;
+  onBack?: () => void;
+  incidentType: string;
+  incidentNumber: string;
+  employees: EmployeeOption[];
+  sites: SiteOption[];
+}
 
 export function InjuryForm({
   onSubmit,
   onBack,
   incidentType,
   incidentNumber,
-}: any) {
+  employees,
+  sites,
+}: InjuryFormProps) {
   const [step, setStep] = useState<InjuryType>(null);
+
+  // Shared site for a First Aid log (the log itself isn't per-entry
+  // located — the entries within it are for the same site/shift).
+  const [firstAidSite, setFirstAidSite] = useState("");
 
   // form state (for hospital case)
   const [form, setForm] = useState({
@@ -27,6 +37,7 @@ export function InjuryForm({
     site: "",
     date: "",
     time: "",
+    employeeId: "",
     employeeName: "",
     employeeNumber: "",
     supervisor: "",
@@ -41,6 +52,7 @@ export function InjuryForm({
     {
       id: crypto.randomUUID(),
 
+      employeeId: "",
       date: "",
       time: "",
 
@@ -63,13 +75,24 @@ export function InjuryForm({
     setForm((prev) => ({ ...prev, [field]: value }));
   };
 
+  const handleEmployeeSelect = (id: string) => {
+    const selected = employees.find((emp) => emp.id === id);
+    setForm((prev) => ({
+      ...prev,
+      employeeId: id,
+      employeeName: selected?.fullName || "",
+      employeeNumber: selected?.employeeNumber || "",
+      supervisor: selected?.reportingManager || "",
+    }));
+  };
+
   const handleTableChange = (
     index: number,
     field: keyof FirstAidEntry,
     value: any,
   ) => {
     const updated = [...entries];
-    updated[index][field] = value;
+    updated[index] = { ...updated[index], [field]: value };
     setEntries(updated);
   };
 
@@ -79,6 +102,7 @@ export function InjuryForm({
       {
         id: crypto.randomUUID(),
 
+        employeeId: "",
         date: "",
         time: "",
 
@@ -132,21 +156,28 @@ export function InjuryForm({
 
   // ================= STEP 2: FIRST AID =================
   if (step === "firstAid") {
-  return (
-    <FirstAidSection
-      entries={entries}
-      handleTableChange={handleTableChange}
-      removeRow={removeRow}
-      addRow={addRow}
-      onSubmit={() =>
-        onSubmit({
-          type: "firstAid",
-          entries,
-        })
-      }
-    />
-  );
-}
+    return (
+      <FirstAidSection
+        entries={entries}
+        employees={employees}
+        site={firstAidSite}
+        sites={sites}
+        onSiteChange={setFirstAidSite}
+        handleTableChange={handleTableChange}
+        removeRow={removeRow}
+        addRow={addRow}
+        onBack={() => setStep(null)}
+        onSubmit={() =>
+          onSubmit({
+            type: "firstAid",
+            incidentNumber,
+            site: firstAidSite,
+            entries,
+          })
+        }
+      />
+    );
+  }
 
   // ================= STEP 3: HOSPITAL FORM =================
   return (
@@ -164,12 +195,18 @@ export function InjuryForm({
         </div>
         <div>
           <label className="text-sm text-gray-600">Site:</label>
-          <input
-            placeholder="Site"
+          <select
             value={form.site}
             onChange={(e) => handleChange("site", e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900"
+          >
+            <option value="">Select Site</option>
+            {sites.map((s) => (
+              <option key={s.id} value={s.name}>
+                {s.name}
+              </option>
+            ))}
+          </select>
         </div>
 
         <div>
@@ -217,24 +254,14 @@ export function InjuryForm({
             Employee Involved Name:
           </label>
           <select
-            value={form.employeeName}
-            onChange={(e) => {
-              const selected = employees.find(
-                (emp) => emp.name === e.target.value,
-              );
-              setForm((prev) => ({
-                ...prev,
-                employeeName: selected?.name || "",
-                employeeNumber: selected?.number || "",
-                supervisor: selected?.supervisor || "",
-              }));
-            }}
+            value={form.employeeId}
+            onChange={(e) => handleEmployeeSelect(e.target.value)}
             className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900"
           >
             <option value="">Select Employee</option>
             {employees.map((emp) => (
-              <option key={emp.number} value={emp.name}>
-                {emp.name}
+              <option key={emp.id} value={emp.id}>
+                {emp.fullName}
               </option>
             ))}
           </select>
@@ -243,10 +270,9 @@ export function InjuryForm({
         <div>
           <label className="text-sm text-gray-600">Employee Co. No.</label>
           <input
-            placeholder="Employee Number"
             value={form.employeeNumber}
-            onChange={(e) => handleChange("employeeNumber", e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            readOnly
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-700"
           />
         </div>
 
