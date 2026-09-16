@@ -785,6 +785,81 @@ CREATE INDEX IF NOT EXISTS idx_training_records_expiry_date
     DROP COLUMN IF EXISTS training_name;
 `);
 
+    /*
+     * ============================================================
+     * RISK ASSESSMENTS
+     * ============================================================
+     *
+     * One row = one Risk Assessment register entry. The hazard
+     * arrays (before/after controls) are stored as JSONB because
+     * they're a nested, variably-shaped list (hazard, risks[],
+     * controls[], severity, probability) that the frontend already
+     * treats as one document per step — same reasoning as storing
+     * a whole form as one unit rather than normalizing into a
+     * hazards child table.
+     *
+     * The logo and generated PDF are stored the same way as
+     * medical_records / training_records: only Blob metadata lives
+     * in Postgres, the file itself lives in Azure Blob Storage
+     * behind a short-lived SAS URL.
+     */
+
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS risk_assessments (
+        id SERIAL PRIMARY KEY
+      );
+    `);
+
+    await client.query(`
+      ALTER TABLE risk_assessments
+        ADD COLUMN IF NOT EXISTS reference_no VARCHAR(50) UNIQUE,
+        ADD COLUMN IF NOT EXISTS assessment_name TEXT NOT NULL DEFAULT '',
+        ADD COLUMN IF NOT EXISTS linked_site TEXT NOT NULL DEFAULT 'TBD',
+        ADD COLUMN IF NOT EXISTS linked_dept TEXT NOT NULL DEFAULT 'TBD',
+        ADD COLUMN IF NOT EXISTS revision VARCHAR(20) NOT NULL DEFAULT 'v1.0',
+        ADD COLUMN IF NOT EXISTS review_date DATE,
+        ADD COLUMN IF NOT EXISTS expiry_date DATE,
+        ADD COLUMN IF NOT EXISTS saved_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+        ADD COLUMN IF NOT EXISTS status VARCHAR(20) NOT NULL DEFAULT 'draft'
+          CHECK (status IN ('approved', 'draft', 'under-review', 'expired')),
+
+        ADD COLUMN IF NOT EXISTS sign_off_rate INTEGER NOT NULL DEFAULT 0,
+        ADD COLUMN IF NOT EXISTS assigned_employees INTEGER NOT NULL DEFAULT 0,
+        ADD COLUMN IF NOT EXISTS signed_employees INTEGER NOT NULL DEFAULT 0,
+
+        ADD COLUMN IF NOT EXISTS category VARCHAR(20) NOT NULL DEFAULT 'task-based'
+          CHECK (category IN ('baseline', 'task-based', 'issue-based')),
+
+        ADD COLUMN IF NOT EXISTS company_name TEXT NOT NULL DEFAULT '',
+        ADD COLUMN IF NOT EXISTS company_logo_blob_name TEXT,
+        ADD COLUMN IF NOT EXISTS company_logo_file_name TEXT,
+        ADD COLUMN IF NOT EXISTS company_logo_size INTEGER,
+        ADD COLUMN IF NOT EXISTS company_logo_mime_type TEXT,
+
+        ADD COLUMN IF NOT EXISTS task_description TEXT NOT NULL DEFAULT '',
+        ADD COLUMN IF NOT EXISTS assessors TEXT[] NOT NULL DEFAULT '{}',
+        ADD COLUMN IF NOT EXISTS assessment_date DATE,
+
+        ADD COLUMN IF NOT EXISTS before_controls JSONB NOT NULL DEFAULT '{"hazards":[]}',
+        ADD COLUMN IF NOT EXISTS after_controls JSONB,
+
+        ADD COLUMN IF NOT EXISTS pdf_blob_name TEXT,
+        ADD COLUMN IF NOT EXISTS pdf_file_name TEXT,
+        ADD COLUMN IF NOT EXISTS pdf_size INTEGER,
+        ADD COLUMN IF NOT EXISTS pdf_mime_type TEXT,
+
+        ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
+    `);
+
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_risk_assessments_status
+        ON risk_assessments(status);
+      CREATE INDEX IF NOT EXISTS idx_risk_assessments_category
+        ON risk_assessments(category);
+    `);
+
     await client.query("COMMIT");
 
     console.log("✅ Database initialization/migration successful");

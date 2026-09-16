@@ -1,60 +1,44 @@
 import { useState, useEffect } from "react";
-import { Plus, Trash2, FileText, Pencil, Printer } from "lucide-react";
-import { useTheme } from "@/app/contexts/theme-context";
-import { useAlerts } from "@/app/contexts/alert-context";
-import { ConfirmDeactivationModal } from "@/app/components/confirm-deactivation-modal";
+import { Plus, Trash2, FileText, Printer } from "lucide-react";
+import { useTheme } from "../contexts/theme-context";
+import { ConfirmDeactivationModal } from "../components/confirm-deactivation-modal";
+import { NewRiskAssessment } from "../components/new-risk-assessment";
 import {
-  AfterControlsData,
-  BeforeControlsData,
-  DetailsData,
-  NewRiskAssessment,
-} from "@/app/components/new-risk-assessment";
-import { useRecycleBin } from "@/app/contexts/recycle-bin-context";
-
-interface RiskAssessment {
-  id: string;
-  assessmentName: string;
-  referenceNo: string;
-  linkedSite: string;
-  linkedDept: string;
-  revision: string;
-  reviewDate: string;
-  expiryDate: string;
-  savedDate: string;
-  status: "approved" | "draft" | "under-review" | "expired";
-  signOffRate: number;
-  assignedEmployees: number;
-  signedEmployees: number;
-  category: "baseline" | "task-based" | "issue-based";
-  pdfBlob?: string;
-  rawData?: {
-    beforeControls: BeforeControlsData;
-    afterControls: AfterControlsData | null;
-    details: DetailsData;
-  };
-}
+  RiskAssessmentRecord,
+  getRiskAssessments,
+  saveRiskAssessmentToRegister,
+  deleteRiskAssessmentRecord,
+} from "../utils/risk-assessment-api";
 
 export function RiskAssessmentRegisterEnhanced() {
   const { colors } = useTheme();
-  const { dismissAlert } = useAlerts();
-  const { moveToRecycleBin } = useRecycleBin();
 
-  const [assessments, setAssessments] = useState<RiskAssessment[]>([]);
+  const [assessments, setAssessments] = useState<RiskAssessmentRecord[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+
   const [creatingRA, setCreatingRA] = useState(false);
-  const [editingRA, setEditingRA] = useState<RiskAssessment | null>(null);
+  const [editingRA, setEditingRA] = useState<RiskAssessmentRecord | null>(null);
 
   const [modalOpen, setModalOpen] = useState(false);
   const [selectedAssessment, setSelectedAssessment] =
-    useState<RiskAssessment | null>(null);
+    useState<RiskAssessmentRecord | null>(null);
+
+  const loadAssessments = async () => {
+    try {
+      setLoading(true);
+      const rows = await getRiskAssessments();
+      setAssessments(rows);
+    } catch (err) {
+      console.error("Failed to load risk assessments:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const stored = JSON.parse(localStorage.getItem("riskRegister") || "[]");
-    setAssessments(stored);
+    loadAssessments();
   }, []);
-
-  const saveToStorage = (data: RiskAssessment[]) => {
-    localStorage.setItem("riskRegister", JSON.stringify(data));
-  };
 
   /* ===============================
      CREATE / EDIT VIEW
@@ -63,73 +47,37 @@ export function RiskAssessmentRegisterEnhanced() {
   if (creatingRA || editingRA) {
     return (
       <div className="h-full w-full p-6 overflow-y-auto">
+        {saving && (
+          <div className="mb-4 p-3 bg-blue-50 text-blue-700 rounded">
+            Saving risk assessment…
+          </div>
+        )}
+
         <NewRiskAssessment
           existingData={editingRA?.rawData}
           onCancel={() => {
             setCreatingRA(false);
             setEditingRA(null);
           }}
-          onSave={(newRA) => {
-            if (editingRA) {
-              // ✅ UPDATE EXISTING
-              const updated = assessments.map((a) =>
-                a.id === editingRA.id
-                  ? {
-                      ...a,
-                      assessmentName: newRA.details.taskDescription,
-                      reviewDate: newRA.details.assessmentDate,
-                      expiryDate: newRA.details.assessmentDate,
-                      assignedEmployees:
-                        newRA.details.assessors.filter(Boolean).length,
-                      savedDate: a.savedDate,
-                      pdfBlob: newRA.pdfBlob,
-                      rawData: {
-                        beforeControls: newRA.beforeControls,
-                        afterControls: newRA.afterControls,
-                        details: newRA.details,
-                      },
-                    }
-                  : a,
-              );
-
-              setAssessments(updated);
-              saveToStorage(updated);
-            } else {
-              const today = new Date().toISOString();
-              // ✅ CREATE NEW
-              const newAssessment: RiskAssessment = {
-                id: `RA-${(assessments.length + 1)
-                  .toString()
-                  .padStart(3, "0")}`,
-                assessmentName: newRA.details.taskDescription,
-                referenceNo: `RA-NEW-${assessments.length + 1}`,
-                linkedSite: "TBD",
-                linkedDept: "TBD",
-                revision: "v1.0",
-                reviewDate: newRA.details.assessmentDate,
-                expiryDate: newRA.details.assessmentDate,
-                savedDate: today,
-                status: "draft",
-                assignedEmployees:
-                  newRA.details.assessors.filter(Boolean).length,
-                signedEmployees: 0,
-                signOffRate: 0,
-                category: "task-based",
+          onSave={async (newRA) => {
+            try {
+              setSaving(true);
+              await saveRiskAssessmentToRegister({
+                id: editingRA?.id,
+                beforeControls: newRA.beforeControls,
+                afterControls: newRA.afterControls,
+                details: newRA.details,
                 pdfBlob: newRA.pdfBlob,
-                rawData: {
-                  beforeControls: newRA.beforeControls,
-                  afterControls: newRA.afterControls,
-                  details: newRA.details,
-                },
-              };
-
-              const updated = [newAssessment, ...assessments];
-              setAssessments(updated);
-              saveToStorage(updated);
+              });
+              await loadAssessments();
+              setCreatingRA(false);
+              setEditingRA(null);
+            } catch (err) {
+              console.error("Failed to save risk assessment:", err);
+              alert("Failed to save the risk assessment. Please try again.");
+            } finally {
+              setSaving(false);
             }
-
-            setCreatingRA(false);
-            setEditingRA(null);
           }}
         />
       </div>
@@ -165,10 +113,25 @@ export function RiskAssessmentRegisterEnhanced() {
                 <th className="px-4 py-3 text-left">Reference</th>
                 <th className="px-4 py-3 text-left">Saved Date</th>
                 <th className="px-4 py-3 text-left">Actions</th>
-                
               </tr>
             </thead>
             <tbody>
+              {loading && (
+                <tr>
+                  <td className="px-4 py-3" colSpan={4}>
+                    Loading…
+                  </td>
+                </tr>
+              )}
+
+              {!loading && assessments.length === 0 && (
+                <tr>
+                  <td className="px-4 py-3" colSpan={4}>
+                    No risk assessments yet.
+                  </td>
+                </tr>
+              )}
+
               {assessments.map((assessment) => (
                 <tr key={assessment.id} className="border-t">
                   <td className="px-4 py-3">{assessment.assessmentName}</td>
@@ -177,78 +140,27 @@ export function RiskAssessmentRegisterEnhanced() {
                     {assessment.savedDate
                       ? new Date(assessment.savedDate).toLocaleDateString(
                           "en-GB",
-                          {
-                            day: "2-digit",
-                            month: "short",
-                            year: "numeric",
-                          },
+                          { day: "2-digit", month: "short", year: "numeric" },
                         )
                       : "-"}
                   </td>
                   <td className="px-4 py-3 flex gap-4">
-                    {/* VIEW PDF */}
-                    {assessment.pdfBlob && (
+                    {assessment.pdfUrl && (
                       <button
-                        onClick={() => {
-                          const byteString = atob(
-                            assessment.pdfBlob.split(",")[1],
-                          );
-
-                          const mimeString = assessment.pdfBlob
-                            .split(",")[0]
-                            .split(":")[1]
-                            .split(";")[0];
-
-                          const ab = new ArrayBuffer(byteString.length);
-                          const ia = new Uint8Array(ab);
-
-                          for (let i = 0; i < byteString.length; i++) {
-                            ia[i] = byteString.charCodeAt(i);
-                          }
-
-                          const blob = new Blob([ab], { type: mimeString });
-                          const url = URL.createObjectURL(blob);
-
-                          window.open(url, "_blank");
-                        }}
+                        onClick={() => window.open(assessment.pdfUrl!, "_blank")}
                         className="text-blue-600"
+                        title="View PDF"
                       >
                         <FileText className="size-4" />
                       </button>
                     )}
 
-                    {/* PRINT */}
-                    {assessment.pdfBlob && (
+                    {assessment.pdfUrl && (
                       <button
                         onClick={() => {
-                          if (!assessment.pdfBlob) return;
-
-                          // Convert base64 back to Blob
-                          const byteString = atob(
-                            assessment.pdfBlob.split(",")[1],
-                          );
-
-                          const mimeString = assessment.pdfBlob
-                            .split(",")[0]
-                            .split(":")[1]
-                            .split(";")[0];
-
-                          const ab = new ArrayBuffer(byteString.length);
-                          const ia = new Uint8Array(ab);
-
-                          for (let i = 0; i < byteString.length; i++) {
-                            ia[i] = byteString.charCodeAt(i);
-                          }
-
-                          const blob = new Blob([ab], { type: mimeString });
-                          const url = URL.createObjectURL(blob);
-
-                          const printWindow = window.open(url);
-
+                          const printWindow = window.open(assessment.pdfUrl!);
                           if (printWindow) {
-                            printWindow.onload = () => {
-                              printWindow.print();
-                            };
+                            printWindow.onload = () => printWindow.print();
                           }
                         }}
                         className="text-green-600"
@@ -258,7 +170,6 @@ export function RiskAssessmentRegisterEnhanced() {
                       </button>
                     )}
 
-                    {/* EDIT */}
                     <button
                       onClick={() => {
                         setEditingRA(assessment);
@@ -269,7 +180,6 @@ export function RiskAssessmentRegisterEnhanced() {
                       Edit
                     </button>
 
-                    {/* DELETE */}
                     <button
                       onClick={() => {
                         setSelectedAssessment(assessment);
@@ -291,16 +201,16 @@ export function RiskAssessmentRegisterEnhanced() {
       <ConfirmDeactivationModal
         isOpen={modalOpen}
         onClose={() => setModalOpen(false)}
-        onConfirm={() => {
+        onConfirm={async () => {
           if (selectedAssessment) {
-            const updated = assessments.filter(
-              (a) => a.id !== selectedAssessment.id,
-            );
-
-            setAssessments(updated);
-            saveToStorage(updated);
+            try {
+              await deleteRiskAssessmentRecord(selectedAssessment.id);
+              await loadAssessments();
+            } catch (err) {
+              console.error("Failed to delete risk assessment:", err);
+              alert("Failed to delete the risk assessment.");
+            }
           }
-
           setModalOpen(false);
         }}
       />

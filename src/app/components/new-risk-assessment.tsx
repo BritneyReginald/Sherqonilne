@@ -1,8 +1,5 @@
 import { useState } from "react";
-import {
-  calculateRiskScore,
-  calculateRiskRating,
-} from "@/app/utils/risk-utils";
+import { calculateRiskScore, calculateRiskRating } from "../utils/risk-utils";
 
 import { RiskMethodology } from "./risk-methodology";
 import { RiskAssessmentBeforeControls } from "./risk-assessment-before-controls";
@@ -35,10 +32,13 @@ export interface AfterControlsData {
   hazards: AfterControlsHazard[];
 }
 
+// DetailsData needs the two fields RiskAssessmentDetails already collects
 export interface DetailsData {
   taskDescription: string;
   assessors: string[];
   assessmentDate: string;
+  companyName: string;
+  companyLogo: string;
 }
 
 /* ---------------- PROPS ---------------- */
@@ -54,7 +54,7 @@ interface NewRiskAssessmentProps {
     beforeControls: BeforeControlsData;
     afterControls: AfterControlsData | null;
     details: DetailsData;
-    pdfBlob: string;
+    pdfBlob: Blob; // ⬅️ was a base64 string
   }) => void;
 }
 
@@ -63,44 +63,40 @@ export function NewRiskAssessment({
   onCancel,
   onSave,
 }: NewRiskAssessmentProps) {
-
   // ✅ Start at step 5 if editing
-  const [step, setStep] = useState<1 | 2 | 3 | 4 | 5>(
-    existingData ? 5 : 1
-  );
+  const [step, setStep] = useState<1 | 2 | 3 | 4 | 5>(existingData ? 5 : 1);
 
   const [needsAfterControls, setNeedsAfterControls] = useState(
-    existingData?.afterControls ? true : false
+    existingData?.afterControls ? true : false,
   );
 
-  const [beforeControls, setBeforeControls] =
-    useState<BeforeControlsData>(
-      existingData?.beforeControls || {
-        hazards: [
-          {
-            id: crypto.randomUUID(),
-            hazard: "",
-            severity: null,
-            probability: null,
-            controls: [""],
-          },
-        ],
-      }
-    );
+  const [beforeControls, setBeforeControls] = useState<BeforeControlsData>(
+    existingData?.beforeControls || {
+      hazards: [
+        {
+          id: crypto.randomUUID(),
+          hazard: "",
+          severity: null,
+          probability: null,
+          controls: [""],
+        },
+      ],
+    },
+  );
 
-  const [afterControls, setAfterControls] =
-    useState<AfterControlsData>(
-      existingData?.afterControls || { hazards: [] }
-    );
+  const [afterControls, setAfterControls] = useState<AfterControlsData>(
+    existingData?.afterControls || { hazards: [] },
+  );
 
-  const [details, setDetails] =
-    useState<DetailsData>(
-      existingData?.details || {
-        taskDescription: "",
-        assessors: [""],
-        assessmentDate: new Date().toISOString().slice(0, 10),
-      }
-    );
+  const [details, setDetails] = useState<DetailsData>(
+    existingData?.details || {
+      taskDescription: "",
+      assessors: [""],
+      assessmentDate: new Date().toISOString().slice(0, 10),
+      companyName: "",
+      companyLogo: "",
+    },
+  );
 
   return (
     <>
@@ -115,13 +111,8 @@ export function NewRiskAssessment({
 
             const highRiskHazards = data.hazards.filter((h) => {
               const score = calculateRiskScore(h.severity, h.probability);
-              const rating = score
-                ? calculateRiskRating(score)
-                : "";
-              return (
-                rating === "Critical" ||
-                rating === "High Risk"
-              );
+              const rating = score ? calculateRiskRating(score) : "";
+              return rating === "Critical" || rating === "High Risk";
             });
 
             if (highRiskHazards.length > 0) {
@@ -147,9 +138,8 @@ export function NewRiskAssessment({
 
       {step === 4 && (
         <RiskAssessmentDetails
-          onBack={() =>
-            setStep(needsAfterControls ? 3 : 2)
-          }
+          initialData={details} // see Details section below
+          onBack={() => setStep(needsAfterControls ? 3 : 2)}
           onSubmit={(data) => {
             setDetails(data);
             setStep(5);
@@ -160,31 +150,18 @@ export function NewRiskAssessment({
       {step === 5 && (
         <RiskAssessmentTable
           beforeControls={beforeControls}
-          afterControls={
-            needsAfterControls ? afterControls : null
-          }
+          afterControls={needsAfterControls ? afterControls : null}
           details={details}
           onBack={() => setStep(4)}
           onGenerate={(pdfBlob) => {
             if (!onSave) return;
 
-            const reader = new FileReader();
-
-            reader.onloadend = () => {
-              const base64data =
-                reader.result as string;
-
-              onSave({
-                beforeControls,
-                afterControls: needsAfterControls
-                  ? afterControls
-                  : null,
-                details,
-                pdfBlob: base64data,
-              });
-            };
-
-            reader.readAsDataURL(pdfBlob);
+            onSave({
+              beforeControls,
+              afterControls: needsAfterControls ? afterControls : null,
+              details,
+              pdfBlob, // pass the Blob straight through
+            });
           }}
         />
       )}

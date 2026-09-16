@@ -49,3 +49,25 @@ export interface Employee {
   profilePictureSize?: number;
   profilePictureMimeType?: string;
 }
+
+export interface RiskAssessmentInput {
+  assessmentName?: string;
+  linkedSite?: string;
+  linkedDept?: string;
+  revision?: string;
+  reviewDate?: string | null;
+  expiryDate?: string | null;
+  status?: "approved" | "draft" | "under-review" | "expired";
+  signOffRate?: number;
+  assignedEmployees?: number;
+  signedEmployees?: number;
+  category?: "baseline" | "task-based" | "issue-based";
+
+  companyName: string;
+  taskDescription: string;
+  assessors: string[];
+  assessmentDate: string;
+
+  beforeControls: unknown; // BeforeControlsData shape from the frontend
+  afterControls?: unknown | null; // AfterControlsData shape, or null
+}

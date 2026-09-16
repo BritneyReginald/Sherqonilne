@@ -1,10 +1,11 @@
+import { useState } from "react";
 import { PageLayout } from "../components/page-layout";
 import {
   calculateRiskScore,
   calculateRiskRating,
   getRiskRatingColor,
   RiskRating,
-} from "@/app/utils/risk-utils";
+} from "../utils/risk-utils";
 import { Plus, Trash2 } from "lucide-react";
 
 /* ---------------- TYPES ---------------- */
@@ -28,6 +29,14 @@ type Props = {
   onComplete: (data: BeforeControlsData) => void;
 };
 
+type HazardErrors = {
+  hazard?: string;
+  risks?: string;
+  severity?: string;
+  probability?: string;
+  controls?: string;
+};
+
 /* ---------------- COMPONENT ---------------- */
 
 export function RiskAssessmentBeforeControls({
@@ -35,6 +44,8 @@ export function RiskAssessmentBeforeControls({
   setData,
   onComplete,
 }: Props) {
+  const [errors, setErrors] = useState<Record<string, HazardErrors>>({});
+
   /* ---------------- HELPERS ---------------- */
 
   const addHazard = () => {
@@ -57,6 +68,11 @@ export function RiskAssessmentBeforeControls({
     setData((prev) => ({
       hazards: prev.hazards.filter((h) => h.id !== id),
     }));
+    setErrors((prev) => {
+      const next = { ...prev };
+      delete next[id];
+      return next;
+    });
   };
 
   const updateHazard = (id: string, updated: Partial<HazardItem>) => {
@@ -158,6 +174,51 @@ export function RiskAssessmentBeforeControls({
     }));
   };
 
+  /* ---------------- VALIDATION ---------------- */
+
+  const validate = (): boolean => {
+    const nextErrors: Record<string, HazardErrors> = {};
+
+    for (const hazardItem of data.hazards ?? []) {
+      const hazardErrors: HazardErrors = {};
+
+      if (!hazardItem.hazard.trim()) {
+        hazardErrors.hazard = "Hazard / Aspect is required.";
+      }
+
+      const risks = (hazardItem.risks ?? [""]).filter((r) => r.trim());
+      if (risks.length === 0) {
+        hazardErrors.risks = "At least one associated risk is required.";
+      }
+
+      if (hazardItem.severity === null) {
+        hazardErrors.severity = "Severity is required.";
+      }
+
+      if (hazardItem.probability === null) {
+        hazardErrors.probability = "Probability is required.";
+      }
+
+      const controls = (hazardItem.controls ?? []).filter((c) => c.trim());
+      if (controls.length === 0) {
+        hazardErrors.controls = "At least one control measure is required.";
+      }
+
+      if (Object.keys(hazardErrors).length > 0) {
+        nextErrors[hazardItem.id] = hazardErrors;
+      }
+    }
+
+    setErrors(nextErrors);
+    return Object.keys(nextErrors).length === 0;
+  };
+
+  const handleContinue = () => {
+    if (validate()) {
+      onComplete(data);
+    }
+  };
+
   /* ---------------- RENDER ---------------- */
 
   return (
@@ -177,6 +238,7 @@ export function RiskAssessmentBeforeControls({
             : "";
 
           const risks = hazardItem.risks ?? [""]; // ✅ SAFE fallback
+          const hazardErrors = errors[hazardItem.id] ?? {};
 
           return (
             <div
@@ -201,7 +263,7 @@ export function RiskAssessmentBeforeControls({
               {/* Hazard Description */}
               <div>
                 <label className="font-semibold block mb-1 text-gray-900">
-                  What is the Hazard and / or Aspect
+                  What is the Hazard and / or Aspect *
                 </label>
                 <textarea
                   value={hazardItem.hazard}
@@ -210,15 +272,22 @@ export function RiskAssessmentBeforeControls({
                       hazard: e.target.value,
                     })
                   }
-                  className="w-full border rounded p-2 text-gray-900"
+                  className={`w-full border rounded p-2 text-gray-900 ${
+                    hazardErrors.hazard ? "border-red-500" : ""
+                  }`}
                   rows={2}
                 />
+                {hazardErrors.hazard && (
+                  <p className="text-red-600 text-sm mt-1">
+                    {hazardErrors.hazard}
+                  </p>
+                )}
               </div>
 
               {/* Risks Section */}
               <div className="space-y-3">
                 <label className="font-semibold block text-gray-900">
-                  Associated Risks
+                  Associated Risks *
                 </label>
 
                 {risks.map((risk, i) => (
@@ -232,7 +301,9 @@ export function RiskAssessmentBeforeControls({
                           e.target.value
                         )
                       }
-                      className="flex-1 border rounded p-2 text-gray-900"
+                      className={`flex-1 border rounded p-2 text-gray-900 ${
+                        hazardErrors.risks ? "border-red-500" : ""
+                      }`}
                       rows={2}
                     />
                     {risks.length > 1 && (
@@ -248,6 +319,12 @@ export function RiskAssessmentBeforeControls({
                   </div>
                 ))}
 
+                {hazardErrors.risks && (
+                  <p className="text-red-600 text-sm">
+                    {hazardErrors.risks}
+                  </p>
+                )}
+
                 <button
                   onClick={() => addRisk(hazardItem.id)}
                   className="flex items-center gap-2 text-blue-600"
@@ -260,7 +337,7 @@ export function RiskAssessmentBeforeControls({
               {/* Severity */}
               <div>
                 <label className="font-semibold block mb-1 text-gray-900">
-                  Consequence (Severity)
+                  Consequence (Severity) *
                 </label>
                 <select
                   value={hazardItem.severity ?? ""}
@@ -271,7 +348,9 @@ export function RiskAssessmentBeforeControls({
                         : null,
                     })
                   }
-                  className="w-full border rounded p-2 text-gray-900"
+                  className={`w-full border rounded p-2 text-gray-900 ${
+                    hazardErrors.severity ? "border-red-500" : ""
+                  }`}
                 >
                   <option value="">Select severity</option>
                   <option value={1}>1 – Noticeable</option>
@@ -280,12 +359,17 @@ export function RiskAssessmentBeforeControls({
                   <option value={4}>4 – Very Serious</option>
                   <option value={5}>5 – Disaster</option>
                 </select>
+                {hazardErrors.severity && (
+                  <p className="text-red-600 text-sm mt-1">
+                    {hazardErrors.severity}
+                  </p>
+                )}
               </div>
 
               {/* Probability */}
               <div>
                 <label className="font-semibold block mb-1 text-gray-900">
-                  Exposure (Probability)
+                  Exposure (Probability) *
                 </label>
                 <select
                   value={hazardItem.probability ?? ""}
@@ -296,7 +380,9 @@ export function RiskAssessmentBeforeControls({
                         : null,
                     })
                   }
-                  className="w-full border rounded p-2 text-gray-900"
+                  className={`w-full border rounded p-2 text-gray-900 ${
+                    hazardErrors.probability ? "border-red-500" : ""
+                  }`}
                 >
                   <option value="">Select probability</option>
                   <option value={1}>1 – Conceivable</option>
@@ -305,6 +391,11 @@ export function RiskAssessmentBeforeControls({
                   <option value={4}>4 – Likely</option>
                   <option value={5}>5 – Almost certain</option>
                 </select>
+                {hazardErrors.probability && (
+                  <p className="text-red-600 text-sm mt-1">
+                    {hazardErrors.probability}
+                  </p>
+                )}
               </div>
 
               {/* Score */}
@@ -338,7 +429,7 @@ export function RiskAssessmentBeforeControls({
               {/* Controls */}
               <div className="space-y-3">
                 <label className="font-semibold block text-gray-900">
-                  Existing Control Measures
+                  Existing Control Measures *
                 </label>
 
                 {hazardItem.controls.map((control, i) => (
@@ -352,7 +443,9 @@ export function RiskAssessmentBeforeControls({
                           e.target.value
                         )
                       }
-                      className="flex-1 border rounded p-2"
+                      className={`flex-1 border rounded p-2 ${
+                        hazardErrors.controls ? "border-red-500" : ""
+                      }`}
                       rows={2}
                     />
                     {hazardItem.controls.length > 1 && (
@@ -367,6 +460,12 @@ export function RiskAssessmentBeforeControls({
                     )}
                   </div>
                 ))}
+
+                {hazardErrors.controls && (
+                  <p className="text-red-600 text-sm">
+                    {hazardErrors.controls}
+                  </p>
+                )}
 
                 <button
                   onClick={() => addControl(hazardItem.id)}
@@ -389,7 +488,7 @@ export function RiskAssessmentBeforeControls({
         </button>
 
         <button
-          onClick={() => onComplete(data)}
+          onClick={handleContinue}
           className="px-6 py-3 bg-blue-600 text-white rounded hover:bg-blue-700"
         >
           Continue

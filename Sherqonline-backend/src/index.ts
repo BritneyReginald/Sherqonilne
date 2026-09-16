@@ -13,6 +13,9 @@ import ppeRouter from "./routes/ppeRoutes";
 import appointmentRouter from "./routes/appointmentRoutes";
 import trainingRouter from "./routes/trainingRoutes";
 import incidentsRouter from "./routes/incidentsRoutes";
+import riskAssessmentRoutes from "./routes/riskAssessmentRoutes";
+
+
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -47,6 +50,7 @@ app.use("/ppe", ppeRouter);
 app.use("/appointments", appointmentRouter);
 app.use("/training-records", trainingRouter);
 app.use("/api/incidents", incidentsRouter);
+app.use("/risk-assessments", riskAssessmentRoutes);
 
 async function startServer() {
   try {

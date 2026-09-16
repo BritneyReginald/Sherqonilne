@@ -1,10 +1,11 @@
+import { useState } from "react";
 import { PageLayout } from "../components/page-layout";
 import {
   calculateRiskScore,
   calculateRiskRating,
   getRiskRatingColor,
   RiskRating,
-} from "@/app/utils/risk-utils";
+} from "../utils/risk-utils";
 
 /* ---------------- TYPES ---------------- */
 interface HazardItem {
@@ -34,12 +35,34 @@ export function RiskAssessmentAfterControls({
   onBack,
   onNext,
 }: Props) {
+  const [errors, setErrors] = useState<Record<string, string>>({});
+
   const updateHazard = (id: string, updated: Partial<HazardItem>) => {
     setData((prev) => ({
       hazards: prev.hazards.map((h) =>
         h.id === id ? { ...h, ...updated } : h
       ),
     }));
+  };
+
+  const validate = (): boolean => {
+    const nextErrors: Record<string, string> = {};
+
+    for (const hazardItem of data.hazards ?? []) {
+      if (hazardItem.severity === null || hazardItem.probability === null) {
+        nextErrors[hazardItem.id] =
+          "Severity and probability after controls are both required.";
+      }
+    }
+
+    setErrors(nextErrors);
+    return Object.keys(nextErrors).length === 0;
+  };
+
+  const handleContinue = () => {
+    if (validate()) {
+      onNext();
+    }
   };
 
   return (
@@ -59,6 +82,7 @@ export function RiskAssessmentAfterControls({
             : "";
 
           const risks = hazardItem.risks ?? []; // ✅ safe fallback
+          const hazardError = errors[hazardItem.id];
 
           return (
             <div
@@ -118,7 +142,7 @@ export function RiskAssessmentAfterControls({
               {/* Severity */}
               <div>
                 <label className="font-semibold block mb-1 text-gray-900">
-                  Consequence (Severity)
+                  Consequence (Severity) *
                 </label>
                 <select
                   value={hazardItem.severity ?? ""}
@@ -129,7 +153,9 @@ export function RiskAssessmentAfterControls({
                         : null,
                     })
                   }
-                  className="w-full border rounded p-2 text-gray-900"
+                  className={`w-full border rounded p-2 text-gray-900 ${
+                    hazardError ? "border-red-500" : ""
+                  }`}
                 >
                   <option value="">Select severity</option>
                   <option value={1}>1 – Noticeable</option>
@@ -143,7 +169,7 @@ export function RiskAssessmentAfterControls({
               {/* Probability */}
               <div>
                 <label className="font-semibold block mb-1 text-gray-900">
-                  Exposure (Probability)
+                  Exposure (Probability) *
                 </label>
                 <select
                   value={hazardItem.probability ?? ""}
@@ -154,7 +180,9 @@ export function RiskAssessmentAfterControls({
                         : null,
                     })
                   }
-                  className="w-full border rounded p-2 text-gray-900"
+                  className={`w-full border rounded p-2 text-gray-900 ${
+                    hazardError ? "border-red-500" : ""
+                  }`}
                 >
                   <option value="">Select probability</option>
                   <option value={1}>1 – Conceivable</option>
@@ -163,6 +191,9 @@ export function RiskAssessmentAfterControls({
                   <option value={4}>4 – Likely</option>
                   <option value={5}>5 – Almost certain</option>
                 </select>
+                {hazardError && (
+                  <p className="text-red-600 text-sm mt-1">{hazardError}</p>
+                )}
               </div>
 
               {/* Score */}
@@ -205,7 +236,7 @@ export function RiskAssessmentAfterControls({
             Back
           </button>
           <button
-            onClick={onNext}
+            onClick={handleContinue}
             className="px-6 py-3 bg-blue-600 text-white rounded hover:bg-blue-700"
           >
             Continue
