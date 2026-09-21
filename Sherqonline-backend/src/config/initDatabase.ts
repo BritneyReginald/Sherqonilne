@@ -860,6 +860,64 @@ CREATE INDEX IF NOT EXISTS idx_training_records_expiry_date
         ON risk_assessments(category);
     `);
 
+    /*
+     * ============================================================
+     * MIGRATION: FIRST AIDER ROLE
+     * ============================================================
+     *
+     * Adds 'first_aider' as a valid users.role, alongside the new
+     * first_aider_profiles / first_aider_assignments tables (mirrors
+     * inspector_profiles / inspector_assignments exactly) and a
+     * first_aider_user_id link on first_aid_entries so a treatment
+     * record's sign-off is tied to a real account, not just the
+     * free-text first_aider name.
+     */
+
+    await client.query(`
+      ALTER TABLE users DROP CONSTRAINT IF EXISTS users_role_check;
+      ALTER TABLE users ADD CONSTRAINT users_role_check
+        CHECK (role IN ('rss_staff', 'client', 'inspector', 'first_aider'));
+    `);
+
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS first_aider_profiles (
+        id SERIAL PRIMARY KEY
+      );
+    `);
+
+    await client.query(`
+      ALTER TABLE first_aider_profiles
+        ADD COLUMN IF NOT EXISTS user_id INTEGER UNIQUE
+          REFERENCES users(id) ON DELETE CASCADE,
+        ADD COLUMN IF NOT EXISTS employee_number VARCHAR(50) UNIQUE NOT NULL,
+        ADD COLUMN IF NOT EXISTS full_name VARCHAR(255) NOT NULL,
+        ADD COLUMN IF NOT EXISTS surname VARCHAR(255) NOT NULL,
+        ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
+    `);
+
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS first_aider_assignments (
+        id SERIAL PRIMARY KEY
+      );
+    `);
+
+    await client.query(`
+      ALTER TABLE first_aider_assignments
+        ADD COLUMN IF NOT EXISTS user_id INTEGER NOT NULL
+          REFERENCES users(id) ON DELETE CASCADE,
+        ADD COLUMN IF NOT EXISTS site_id INTEGER NOT NULL
+          REFERENCES sites(id) ON DELETE CASCADE,
+        ADD COLUMN IF NOT EXISTS assigned_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
+    `);
+
+    await client.query(`
+  CREATE UNIQUE INDEX IF NOT EXISTS uniq_first_aider_assignment
+    ON first_aider_assignments (user_id, site_id);
+`);
+    await client.query(`
+  ALTER TABLE first_aid_entries
+  ADD COLUMN IF NOT EXISTS first_aider_signature JSONB;`);
+
     await client.query("COMMIT");
 
     console.log("✅ Database initialization/migration successful");

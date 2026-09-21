@@ -1,6 +1,6 @@
 // components/protected-route.tsx
 import { Navigate } from "react-router-dom";
-import { useAuth, Role } from "@/app/contexts/auth-context";
+import { useAuth, Role } from "../contexts/auth-context";
 
 export function ProtectedRoute({
   children,

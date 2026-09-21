@@ -26,6 +26,19 @@ export type InvestigationData = {
   evidence?: EvidenceFile[];
 };
 
+// Matches the backend's first_aider_signature JSONB shape exactly
+// (see FirstAidSignature in models/firstAidEntries.ts) and the
+// client-side SignatureRecord in injury/types.ts — kept as a
+// separate declaration here since this file has no dependency on
+// the injury/ subfolder's client-only types.
+export type FirstAiderSignatureRecord = {
+  signedBy: string;
+  signedAt: string;
+  signature: string; // data URL
+  profileId: string;
+  role: string;
+};
+
 // One row from first_aid_entries, as returned nested under a
 // type: 'injury', injuryType: 'firstAid' record's `firstAidEntries`.
 export type FirstAidEntryRecord = {
@@ -39,6 +52,7 @@ export type FirstAidEntryRecord = {
   treatment: string;
   comments: string;
   firstAider: string;
+  firstAiderSignature?: FirstAiderSignatureRecord;
   furtherMedicalAttention: boolean;
   status: string;
 };

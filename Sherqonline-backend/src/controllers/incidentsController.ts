@@ -75,6 +75,7 @@ function parseFirstAidEntry(entry: any) {
     treatment: entry.treatment || null,
     comments: entry.comments || null,
     firstAider: entry.firstAider || null,
+    firstAiderSignature: entry.firstAiderSignature || null,
     furtherMedicalAttention: !!entry.furtherMedicalAttention,
     status: entry.status || "draft",
   };
@@ -104,7 +105,8 @@ async function buildFullRecord(id: number) {
           department: investigationRow?.department ?? undefined,
           immediateCause: investigationRow?.immediate_cause ?? undefined,
           rootCause: investigationRow?.root_cause ?? undefined,
-          contributingFactors: investigationRow?.contributing_factors ?? undefined,
+          contributingFactors:
+            investigationRow?.contributing_factors ?? undefined,
           correctiveActions: investigationRow?.corrective_actions ?? [],
           responsiblePerson: investigationRow?.responsible_person ?? undefined,
           dueDate: investigationRow?.due_date ?? undefined,
@@ -127,6 +129,7 @@ async function buildFullRecord(id: number) {
       treatment: r.treatment ?? "",
       comments: r.comments ?? "",
       firstAider: r.first_aider ?? "",
+      firstAiderSignature: r.first_aider_signature ?? undefined,
       furtherMedicalAttention: r.further_medical_attention,
       status: r.status,
     }));
@@ -135,17 +138,28 @@ async function buildFullRecord(id: number) {
   return { ...record, investigation, firstAidEntries };
 }
 
-export const addIncidentRecord = async (req: Request, res: Response): Promise<void> => {
+export const addIncidentRecord = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {
   try {
     const data = parseIncidentBody(req.body);
 
     if (!data.type || !["incident", "ncr", "injury"].includes(data.type)) {
-      res.status(400).json({ error: "type must be one of incident, ncr, injury" });
+      res
+        .status(400)
+        .json({ error: "type must be one of incident, ncr, injury" });
       return;
     }
 
-    if (data.type === "injury" && data.injuryType && !["firstAid", "hospital"].includes(data.injuryType)) {
-      res.status(400).json({ error: "injuryType must be firstAid or hospital" });
+    if (
+      data.type === "injury" &&
+      data.injuryType &&
+      !["firstAid", "hospital"].includes(data.injuryType)
+    ) {
+      res
+        .status(400)
+        .json({ error: "injuryType must be firstAid or hospital" });
       return;
     }
 
@@ -154,17 +168,25 @@ export const addIncidentRecord = async (req: Request, res: Response): Promise<vo
     // First Aid logs carry their treatment rows in the same submit —
     // create them right after the header row exists.
     if (data.injuryType === "firstAid" && Array.isArray(req.body.entries)) {
-      await createFirstAidEntries(record.id, req.body.entries.map(parseFirstAidEntry));
+      await createFirstAidEntries(
+        record.id,
+        req.body.entries.map(parseFirstAidEntry),
+      );
     }
 
     res.status(201).json(await buildFullRecord(record.id));
   } catch (err: any) {
     console.error(err);
-    res.status(500).json({ error: err.message, detail: err.detail, code: err.code });
+    res
+      .status(500)
+      .json({ error: err.message, detail: err.detail, code: err.code });
   }
 };
 
-export const getAllIncidentRecords = async (req: Request, res: Response): Promise<void> => {
+export const getAllIncidentRecords = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {
   try {
     const rows = await getIncidentRecords({
       type: req.query.type as string | undefined,
@@ -182,7 +204,10 @@ export const getAllIncidentRecords = async (req: Request, res: Response): Promis
   }
 };
 
-export const getIncidentRecord = async (req: Request, res: Response): Promise<void> => {
+export const getIncidentRecord = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {
   try {
     const record = await buildFullRecord(Number(req.params.id));
 
@@ -197,9 +222,15 @@ export const getIncidentRecord = async (req: Request, res: Response): Promise<vo
   }
 };
 
-export const editIncidentRecord = async (req: Request, res: Response): Promise<void> => {
+export const editIncidentRecord = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {
   try {
-    const updated = await updateIncidentRecord(Number(req.params.id), parseIncidentBody(req.body));
+    const updated = await updateIncidentRecord(
+      Number(req.params.id),
+      parseIncidentBody(req.body),
+    );
 
     if (!updated) {
       res.status(404).json({ message: "Record not found" });
@@ -207,7 +238,10 @@ export const editIncidentRecord = async (req: Request, res: Response): Promise<v
     }
 
     if (updated.injury_type === "firstAid" && Array.isArray(req.body.entries)) {
-      await replaceFirstAidEntries(updated.id, req.body.entries.map(parseFirstAidEntry));
+      await replaceFirstAidEntries(
+        updated.id,
+        req.body.entries.map(parseFirstAidEntry),
+      );
     }
 
     res.json(await buildFullRecord(updated.id));
@@ -216,7 +250,10 @@ export const editIncidentRecord = async (req: Request, res: Response): Promise<v
   }
 };
 
-export const updateIncidentStatusController = async (req: Request, res: Response): Promise<void> => {
+export const updateIncidentStatusController = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {
   try {
     const { status } = req.body;
 
@@ -238,7 +275,10 @@ export const updateIncidentStatusController = async (req: Request, res: Response
   }
 };
 
-export const deleteIncidentRecordController = async (req: Request, res: Response): Promise<void> => {
+export const deleteIncidentRecordController = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {
   try {
     const id = Number(req.params.id);
     const evidenceRows = await getEvidenceForRecord(id);
@@ -269,7 +309,10 @@ export const deleteIncidentRecordController = async (req: Request, res: Response
 
 // Partial update — only the investigation fields present in the
 // body get written. Frontend debounces calls per field while typing.
-export const updateInvestigationController = async (req: Request, res: Response): Promise<void> => {
+export const updateInvestigationController = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {
   try {
     const recordId = Number(req.params.id);
     const body = req.body as Partial<InvestigationInput>;
@@ -283,7 +326,10 @@ export const updateInvestigationController = async (req: Request, res: Response)
 };
 
 // Accepts multiple files (multer .array("files")).
-export const uploadEvidenceController = async (req: Request, res: Response): Promise<void> => {
+export const uploadEvidenceController = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {
   try {
     const recordId = Number(req.params.id);
     const files = (req.files as Express.Multer.File[]) || [];
@@ -297,7 +343,12 @@ export const uploadEvidenceController = async (req: Request, res: Response): Pro
 
     try {
       for (const file of files) {
-        const meta = await uploadToAzure(file.buffer, file.originalname, file.mimetype, recordId);
+        const meta = await uploadToAzure(
+          file.buffer,
+          file.originalname,
+          file.mimetype,
+          recordId,
+        );
         uploadedBlobNames.push(meta.blobName);
         await addEvidenceFile(recordId, meta);
       }
@@ -322,7 +373,10 @@ export const uploadEvidenceController = async (req: Request, res: Response): Pro
 
 // Short-lived signed URL for one evidence file, generated on demand
 // (same reasoning as getMedicalRecordFileUrl — never a public link).
-export const getEvidenceFileUrl = async (req: Request, res: Response): Promise<void> => {
+export const getEvidenceFileUrl = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {
   try {
     const recordId = Number(req.params.id);
     const fileId = Number(req.params.fileId);
@@ -342,7 +396,10 @@ export const getEvidenceFileUrl = async (req: Request, res: Response): Promise<v
   }
 };
 
-export const deleteEvidenceFileController = async (req: Request, res: Response): Promise<void> => {
+export const deleteEvidenceFileController = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {
   try {
     const fileId = Number(req.params.fileId);
     const deleted = await deleteEvidenceFile(fileId);

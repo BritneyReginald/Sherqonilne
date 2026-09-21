@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
-import { replaceInspectorSites } from "../models/user";
+import { replaceInspectorSites, replaceFirstAiderSites  } from "../models/user";
+
 
 export async function updateInspectorSites(req: Request, res: Response) {
   try {
@@ -22,6 +23,33 @@ export async function updateInspectorSites(req: Request, res: Response) {
 
     return res.status(500).json({
       error: "Failed to update inspector sites",
+    });
+  }
+}
+
+
+
+export async function updateFirstAiderSites(req: Request, res: Response) {
+  try {
+    const userId = Number(req.params.id);
+    const { siteIds } = req.body;
+
+    if (!Array.isArray(siteIds)) {
+      return res.status(400).json({
+        error: "siteIds must be an array",
+      });
+    }
+
+    await replaceFirstAiderSites(userId, siteIds);
+
+    return res.json({
+      message: "First aider sites updated successfully",
+    });
+  } catch (error) {
+    console.error(error);
+
+    return res.status(500).json({
+      error: "Failed to update first aider sites",
     });
   }
 }

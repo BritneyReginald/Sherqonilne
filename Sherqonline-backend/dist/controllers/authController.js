@@ -6,12 +6,12 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.loginStaff = loginStaff;
 exports.loginClient = loginClient;
 exports.loginInspector = loginInspector;
+exports.loginFirstAider = loginFirstAider;
 exports.issueClientCredentials = issueClientCredentials;
 exports.issueInspectorCredentials = issueInspectorCredentials;
 const user_1 = require("../models/user");
 const authService_1 = require("../services/authService");
 const db_1 = __importDefault(require("../config/db"));
-// --- 3 separate login endpoints, one per role ---
 async function loginStaff(req, res) {
     return handleLogin(req, res, "rss_staff");
 }
@@ -20,6 +20,9 @@ async function loginClient(req, res) {
 }
 async function loginInspector(req, res) {
     return handleLogin(req, res, "inspector");
+}
+async function loginFirstAider(req, res) {
+    return handleLogin(req, res, "first_aider");
 }
 async function handleLogin(req, res, role) {
     try {
@@ -46,8 +49,9 @@ async function handleLogin(req, res, role) {
                 error: "Invalid email or password",
             });
         }
-        // Get company information for client users
         let company = null;
+        let fullName;
+        let surname;
         if (role === "client") {
             const companyResult = await db_1.default.query(`
     SELECT
@@ -61,6 +65,11 @@ async function handleLogin(req, res, role) {
     `, [user.id]);
             company = companyResult.rows[0] ?? null;
         }
+        if (role === "first_aider") {
+            const profileResult = await db_1.default.query(`SELECT full_name, surname FROM first_aider_profiles WHERE user_id = $1`, [user.id]);
+            fullName = profileResult.rows[0]?.full_name;
+            surname = profileResult.rows[0]?.surname;
+        }
         const token = await (0, authService_1.buildTokenForUser)(user);
         return res.status(200).json({
             token,
@@ -69,6 +78,8 @@ async function handleLogin(req, res, role) {
                 email: user.email,
                 role: user.role,
                 company,
+                fullName,
+                surname,
             },
         });
     }
@@ -79,7 +90,6 @@ async function handleLogin(req, res, role) {
         });
     }
 }
-// --- RSS-only: issue credentials for a client or inspector ---
 async function issueClientCredentials(req, res) {
     try {
         const { email, siteId } = req.body;
@@ -134,7 +144,7 @@ async function issueInspectorCredentials(req, res) {
             role: "inspector",
             issuedByUserId,
             siteIds,
-            loginUrl: `${process.env.INSPECTOR_LOGIN_URL}`, // e.g. https://yourapp.com/login/inspector
+            loginUrl: `${process.env.INSPECTOR_LOGIN_URL}`,
         });
         return res.status(201).json({
             message: "Inspector account created",

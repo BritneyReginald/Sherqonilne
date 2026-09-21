@@ -1,14 +1,12 @@
 // middleware/authMiddleware.ts
 
 import { Request, Response, NextFunction } from "express";
-import {
-  verifyToken,
-  AuthTokenPayload,
-} from "../services/authService";
+import { verifyToken, AuthTokenPayload } from "../services/authService";
 
 import {
   findUserById,
   getClientSiteId,
+  getFirstAiderSiteIds,
   getInspectorSiteIds,
   UserRole,
 } from "../models/user";
@@ -34,7 +32,7 @@ declare global {
 export async function authenticate(
   req: Request,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) {
   try {
     const authHeader = req.headers.authorization;
@@ -87,11 +85,7 @@ export async function authenticate(
 // ============================================================
 
 export function authorize(...allowedRoles: UserRole[]) {
-  return (
-    req: Request,
-    res: Response,
-    next: NextFunction
-  ) => {
+  return (req: Request, res: Response, next: NextFunction) => {
     if (!req.user || !allowedRoles.includes(req.user.role)) {
       return res.status(403).json({
         error: "Insufficient permissions",
@@ -109,7 +103,7 @@ export function authorize(...allowedRoles: UserRole[]) {
 export async function scopeClient(
   req: Request,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) {
   if (req.user?.role !== "client") return next();
 
@@ -133,7 +127,7 @@ export async function scopeClient(
 export async function scopeInspector(
   req: Request,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) {
   if (req.user?.role !== "inspector") return next();
 
@@ -148,14 +142,8 @@ export async function scopeInspector(
 // 5. REQUIRE SITE ACCESS
 // ============================================================
 
-export function requireSiteAccess(
-  siteIdParam: string = "siteId"
-) {
-  return (
-    req: Request,
-    res: Response,
-    next: NextFunction
-  ) => {
+export function requireSiteAccess(siteIdParam: string = "siteId") {
+  return (req: Request, res: Response, next: NextFunction) => {
     const requestedSiteId = Number(req.params[siteIdParam]);
 
     // RSS staff can access every site
@@ -185,8 +173,26 @@ export function requireSiteAccess(
       });
     }
 
+    if (req.user?.role === "first_aider") {
+      if (req.user.siteIds?.includes(requestedSiteId)) {
+        return next();
+      }
+      return res.status(403).json({ error: "Not assigned to this site" });
+    }
+
     return res.status(403).json({
       error: "Access denied",
     });
   };
+}
+
+export async function scopeFirstAider(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
+  if (req.user?.role !== "first_aider") return next();
+  const siteIds = await getFirstAiderSiteIds(req.user.id); // add to models/user.ts
+  req.user.siteIds = siteIds;
+  next();
 }

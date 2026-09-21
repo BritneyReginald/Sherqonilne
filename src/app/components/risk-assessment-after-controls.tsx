@@ -11,7 +11,7 @@ import {
 interface HazardItem {
   id: string;
   hazard: string;
-  risks?: string[]; // ✅ optional for backward compatibility
+  risks?: string[]; //  optional for backward compatibility
   controls: string[];
   severity: number | null;
   probability: number | null;
@@ -81,7 +81,7 @@ export function RiskAssessmentAfterControls({
             ? calculateRiskRating(score)
             : "";
 
-          const risks = hazardItem.risks ?? []; // ✅ safe fallback
+          const risks = hazardItem.risks ?? []; //safe fallback
           const hazardError = errors[hazardItem.id];
 
           return (

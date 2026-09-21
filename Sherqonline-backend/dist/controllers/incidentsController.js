@@ -40,6 +40,7 @@ function parseFirstAidEntry(entry) {
         treatment: entry.treatment || null,
         comments: entry.comments || null,
         firstAider: entry.firstAider || null,
+        firstAiderSignature: entry.firstAiderSignature || null,
         furtherMedicalAttention: !!entry.furtherMedicalAttention,
         status: entry.status || "draft",
     };
@@ -87,6 +88,7 @@ async function buildFullRecord(id) {
             treatment: r.treatment ?? "",
             comments: r.comments ?? "",
             firstAider: r.first_aider ?? "",
+            firstAiderSignature: r.first_aider_signature ?? undefined,
             furtherMedicalAttention: r.further_medical_attention,
             status: r.status,
         }));
@@ -97,11 +99,17 @@ const addIncidentRecord = async (req, res) => {
     try {
         const data = parseIncidentBody(req.body);
         if (!data.type || !["incident", "ncr", "injury"].includes(data.type)) {
-            res.status(400).json({ error: "type must be one of incident, ncr, injury" });
+            res
+                .status(400)
+                .json({ error: "type must be one of incident, ncr, injury" });
             return;
         }
-        if (data.type === "injury" && data.injuryType && !["firstAid", "hospital"].includes(data.injuryType)) {
-            res.status(400).json({ error: "injuryType must be firstAid or hospital" });
+        if (data.type === "injury" &&
+            data.injuryType &&
+            !["firstAid", "hospital"].includes(data.injuryType)) {
+            res
+                .status(400)
+                .json({ error: "injuryType must be firstAid or hospital" });
             return;
         }
         const record = await (0, incidentRecords_1.createIncidentRecord)(data);
@@ -114,7 +122,9 @@ const addIncidentRecord = async (req, res) => {
     }
     catch (err) {
         console.error(err);
-        res.status(500).json({ error: err.message, detail: err.detail, code: err.code });
+        res
+            .status(500)
+            .json({ error: err.message, detail: err.detail, code: err.code });
     }
 };
 exports.addIncidentRecord = addIncidentRecord;

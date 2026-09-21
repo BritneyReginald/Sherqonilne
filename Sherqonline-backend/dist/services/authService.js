@@ -15,6 +15,8 @@ exports.getInspectorSites = getInspectorSites;
 exports.issueCredentials = issueCredentials;
 exports.createInspectorStaff = createInspectorStaff;
 exports.deleteInspector = deleteInspector;
+exports.createFirstAiderStaff = createFirstAiderStaff;
+exports.deleteFirstAider = deleteFirstAider;
 // services/authService.ts
 const bcrypt_1 = __importDefault(require("bcrypt"));
 const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
@@ -242,4 +244,54 @@ async function deleteInspector(userId) {
     await db_1.default.query(`DELETE FROM users
      WHERE id = $1
        AND role = 'inspector'`, [userId]);
+}
+function generateFirstAiderPassword(employeeNumber, surname) {
+    const cleanSurname = surname.trim();
+    const capitalizedSurname = cleanSurname.charAt(0).toUpperCase() + cleanSurname.slice(1).toLowerCase();
+    return `${employeeNumber}${capitalizedSurname}`;
+}
+async function createFirstAiderStaff(employeeNumber, fullName, surname, siteIds, createdBy) {
+    const client = await db_1.default.connect();
+    try {
+        await client.query("BEGIN");
+        let username = generateUsername(fullName);
+        const existing = await client.query(`SELECT id FROM users WHERE email = $1`, [username]);
+        if (existing.rows.length > 0) {
+            username = `${username} (${employeeNumber})`;
+        }
+        const plainPassword = generateFirstAiderPassword(employeeNumber, surname);
+        const passwordHash = await hashPassword(plainPassword);
+        const { encrypted, iv } = encryptPassword(plainPassword);
+        const userResult = await client.query(`
+      INSERT INTO users (
+        email, password_hash, role, status,
+        password_encrypted, password_iv, created_by
+      )
+      VALUES ($1,$2,'first_aider','active',$3,$4,$5)
+      RETURNING id,email
+      `, [username, passwordHash, encrypted, iv, createdBy]);
+        const user = userResult.rows[0];
+        await client.query(`
+      INSERT INTO first_aider_profiles
+      (user_id, employee_number, full_name, surname)
+      VALUES ($1,$2,$3,$4)
+      `, [user.id, employeeNumber, fullName, surname]);
+        for (const siteId of siteIds) {
+            await client.query(`INSERT INTO first_aider_assignments (user_id, site_id) VALUES ($1,$2)`, [user.id, siteId]);
+        }
+        await client.query("COMMIT");
+        return { id: user.id, username: user.email, plainPassword };
+    }
+    catch (error) {
+        await client.query("ROLLBACK");
+        throw error;
+    }
+    finally {
+        client.release();
+    }
+}
+async function deleteFirstAider(userId) {
+    await db_1.default.query(`DELETE FROM users WHERE id = $1 AND role = 'first_aider'`, [
+        userId,
+    ]);
 }

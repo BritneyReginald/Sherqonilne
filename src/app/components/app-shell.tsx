@@ -42,7 +42,7 @@ import { NewRiskAssessment } from "../components/new-risk-assessment";
 import Incidents from "../components/incidents/incidents";
 import { useAuth, Role } from "../contexts/auth-context";
 import { RecycleBin } from "../components/recycle-bin";
-import { InspectorsPage } from "../pages/inspectors";
+import { OnboardingPage } from "../pages/onboarding-page";
 import { SecurityPrivacy } from "../pages/security-privacy";
 
 interface NavigationItem {
@@ -708,7 +708,7 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
           ) : activeItem === "workforce" ? (
             <Workforce />
           ) : activeItem === "inspectors" ? (
-            <InspectorsPage />
+            <OnboardingPage />
           ) : activeItem === "appointments" ? (
             <Appointments />
           ) : activeItem === "legal-appointments" ? (

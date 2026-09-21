@@ -2,6 +2,10 @@ import { useState } from "react";
 import { FirstAidSection } from "./first-aid-section";
 import { InjuryType, FirstAidEntry } from "./types";
 import { EmployeeOption } from "../../../../api/employees";
+import {
+  FirstAiderIdentity,
+  FirstAiderLoginGate,
+} from "./first-aider-login-gate";
 
 interface SiteOption {
   id: string;
@@ -26,6 +30,8 @@ export function InjuryForm({
   sites,
 }: InjuryFormProps) {
   const [step, setStep] = useState<InjuryType>(null);
+  const [firstAiderAuth, setFirstAiderAuth] =
+    useState<FirstAiderIdentity | null>(null);
 
   // Shared site for a First Aid log (the log itself isn't per-entry
   // located — the entries within it are for the same site/shift).
@@ -91,9 +97,51 @@ export function InjuryForm({
     field: keyof FirstAidEntry,
     value: any,
   ) => {
-    const updated = [...entries];
-    updated[index] = { ...updated[index], [field]: value };
-    setEntries(updated);
+    setEntries((prevEntries) => {
+      const updated = [...prevEntries];
+
+      if (!updated[index]) return prevEntries;
+
+      updated[index] = {
+        ...updated[index],
+        [field]: value,
+      };
+
+      return updated;
+    });
+  };
+
+  const handleFirstAiderSign = (index: number, signatureDataUrl: string) => {
+    if (!firstAiderAuth) return;
+
+    const displayName =
+      [firstAiderAuth.fullName, firstAiderAuth.surname]
+        .filter(Boolean)
+        .join(" ")
+        .trim() || firstAiderAuth.email;
+
+    const signatureRecord = {
+      signedBy: displayName,
+      signedAt: new Date().toISOString(),
+      signature: signatureDataUrl,
+      profileId: String(firstAiderAuth.id),
+      role: "first_aider",
+    };
+
+    setEntries((prevEntries) => {
+      const updated = [...prevEntries];
+
+      if (!updated[index]) return prevEntries;
+
+      updated[index] = {
+        ...updated[index],
+        firstAider: displayName,
+        firstAiderSignature: signatureRecord,
+        status: "AWAITING_SAFETY",
+      };
+
+      return updated;
+    });
   };
 
   const addRow = () => {
@@ -154,7 +202,17 @@ export function InjuryForm({
     );
   }
 
-  // ================= STEP 2: FIRST AID =================
+  // ================= STEP 2a: FIRST AID — LOGIN GATE =================
+  if (step === "firstAid" && !firstAiderAuth) {
+    return (
+      <FirstAiderLoginGate
+        onSuccess={setFirstAiderAuth}
+        onCancel={() => setStep(null)}
+      />
+    );
+  }
+
+  // ================= STEP 2b: FIRST AID — FORM =================
   if (step === "firstAid") {
     return (
       <FirstAidSection
@@ -162,8 +220,10 @@ export function InjuryForm({
         employees={employees}
         site={firstAidSite}
         sites={sites}
+        firstAider={firstAiderAuth!}
         onSiteChange={setFirstAidSite}
         handleTableChange={handleTableChange}
+        handleFirstAiderSign={handleFirstAiderSign}
         removeRow={removeRow}
         addRow={addRow}
         onBack={() => setStep(null)}
@@ -368,7 +428,8 @@ export function InjuryForm({
           <option value="">Select Period of Disablement</option>
           <option>0–13 Days</option>
           <option>{">"}4–16 Weeks</option>
-          <option>{">"}16–52 Weeks / Permanent</option>
+          <option>{">"}16–52 Weeks</option>
+          <option>{">"}52 weeks or permanent disablement</option>
           <option>Killed</option>
         </select>
       </div>

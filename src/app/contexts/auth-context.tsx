@@ -7,7 +7,7 @@ import {
   ReactNode,
 } from "react";
 
-export type Role = "rss_staff" | "client" | "inspector";
+export type Role = "rss_staff" | "client" | "inspector" | "first_aider";
 
 export interface ClientCompany {
   id: number;
@@ -30,6 +30,7 @@ interface AuthContextType {
   loginStaff: (email: string, password: string) => Promise<void>;
   loginClient: (email: string, password: string) => Promise<void>;
   loginInspector: (email: string, password: string) => Promise<void>;
+  loginFirstAider: (email: string, password: string) => Promise<void>;
   logout: () => void;
 }
 
@@ -60,14 +61,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   async function performLogin(role: Role, email: string, password: string) {
-    const res = await fetch(
-      `${API_BASE}/auth/login/${role === "rss_staff" ? "staff" : role}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
-      },
-    );
+    const endpoint =
+      role === "rss_staff"
+        ? "staff"
+        : role === "first_aider"
+          ? "first-aider"
+          : role;
+
+    const res = await fetch(`${API_BASE}/auth/login/${endpoint}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password }),
+    });
 
     const data = await res.json();
 
@@ -104,6 +109,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           performLogin("client", email, password),
         loginInspector: (email, password) =>
           performLogin("inspector", email, password),
+        loginFirstAider: (email, password) =>
+          performLogin("first_aider", email, password),
         logout,
       }}
     >

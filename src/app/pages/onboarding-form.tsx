@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import { getSites } from "@/api/siteAPI";
-import { createInspector } from "@/api/adminAPI";
+import { getSites } from "../../api/siteAPI";
+import { createInspector, createFirstAider } from "../../api/adminAPI";
 import { Copy, Check } from "lucide-react";
 
 interface Site {
@@ -8,23 +8,19 @@ interface Site {
   name: string;
 }
 
-export function InspectorsPage() {
-  return (
-    <div className="p-6 space-y-6 text-gray-900">
-      {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold">Inspector Onboarding</h1>
-        <p className="text-gray-500">
-          Create inspector accounts and assign them to inspection sites.
-        </p>
-      </div>
+type Role = "inspector" | "first_aider";
 
-      <InspectorOnboardingForm />
-    </div>
-  );
-}
+const ROLE_LABEL: Record<Role, string> = {
+  inspector: "Inspector",
+  first_aider: "First Aider",
+};
 
-function InspectorOnboardingForm() {
+const ROLE_CREATE: Record<Role, (data: any) => Promise<any>> = {
+  inspector: createInspector,
+  first_aider: createFirstAider,
+};
+
+export function OnboardingForm({ role }: { role: Role }) {
   const [employeeNumber, setEmployeeNumber] = useState("");
   const [fullName, setFullName] = useState("");
   const [surname, setSurname] = useState("");
@@ -43,6 +39,16 @@ function InspectorOnboardingForm() {
   useEffect(() => {
     loadSites();
   }, []);
+
+  // Reset the form whenever the role tab changes, so leftover state
+  // from "Create Inspector" doesn't bleed into "Create First Aider"
+  useEffect(() => {
+    setEmployeeNumber("");
+    setFullName("");
+    setSurname("");
+    setSelectedSites([]);
+    setGeneratedCredentials(null);
+  }, [role]);
 
   async function loadSites() {
     try {
@@ -75,7 +81,7 @@ function InspectorOnboardingForm() {
     setLoading(true);
 
     try {
-      const result = await createInspector({
+      const result = await ROLE_CREATE[role]({
         employeeNumber,
         fullName,
         surname,
@@ -87,14 +93,13 @@ function InspectorOnboardingForm() {
         password: result.plainPassword,
       });
 
-      // Reset form
       setEmployeeNumber("");
       setFullName("");
       setSurname("");
       setSelectedSites([]);
     } catch (err) {
       console.error(err);
-      alert("Failed to create inspector.");
+      alert(`Failed to create ${ROLE_LABEL[role].toLowerCase()}.`);
     } finally {
       setLoading(false);
     }
@@ -103,7 +108,7 @@ function InspectorOnboardingForm() {
   async function handleCopyCredentials() {
     if (!generatedCredentials) return;
 
-    const text = `Inspector Login Credentials
+    const text = `${ROLE_LABEL[role]} Login Credentials
 
 Username: ${generatedCredentials.username}
 Password: ${generatedCredentials.password}`;
@@ -116,11 +121,14 @@ Password: ${generatedCredentials.password}`;
       setCopied(false);
     }, 2000);
   }
+
   return (
     <div className="grid grid-cols-3 gap-6">
       {/* LEFT PANEL */}
       <div className="col-span-2 bg-white rounded-xl shadow p-6">
-        <h2 className="text-xl font-semibold mb-6">Create Inspector</h2>
+        <h2 className="text-xl font-semibold mb-6">
+          Create {ROLE_LABEL[role]}
+        </h2>
 
         <div className="grid grid-cols-2 gap-5">
           <div>
@@ -155,7 +163,7 @@ Password: ${generatedCredentials.password}`;
         </div>
 
         <div className="mt-8">
-          <h3 className="font-semibold mb-3">Assign Inspection Sites</h3>
+          <h3 className="font-semibold mb-3">Assign Sites</h3>
 
           <div className="grid grid-cols-2 gap-3">
             {sites.map((site) => (
@@ -190,9 +198,9 @@ Password: ${generatedCredentials.password}`;
 
         {!generatedCredentials ? (
           <div className="text-gray-500 text-sm">
-            Once an inspector has been created, their login credentials will
-            appear here. Ensure the inspector records these credentials before
-            leaving this page.
+            Once a {ROLE_LABEL[role].toLowerCase()} has been created, their
+            login credentials will appear here. Ensure they record these
+            credentials before leaving this page.
           </div>
         ) : (
           <div className="space-y-5">
@@ -214,8 +222,8 @@ Password: ${generatedCredentials.password}`;
 
             <div className="border-t pt-4">
               <p className="text-sm text-amber-700">
-                These credentials are only shown once. Ask the inspector to
-                store them securely.
+                These credentials are only shown once. Ask the{" "}
+                {ROLE_LABEL[role].toLowerCase()} to store them securely.
               </p>
             </div>
 

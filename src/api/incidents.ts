@@ -1,4 +1,10 @@
-import { IncidentRecord, InvestigationData, RecordStatus, RecordType } from "../app/components/incidents/types";
+//api/incidents.ts
+import {
+  IncidentRecord,
+  InvestigationData,
+  RecordStatus,
+  RecordType,
+} from "../app/components/incidents/types";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
 const BASE_URL = `${API_URL}/api/incidents`;
@@ -6,7 +12,9 @@ const BASE_URL = `${API_URL}/api/incidents`;
 async function handle<T>(res: Response): Promise<T> {
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
-    throw new Error(body.error || body.message || `Request failed (${res.status})`);
+    throw new Error(
+      body.error || body.message || `Request failed (${res.status})`,
+    );
   }
   return res.json();
 }
@@ -80,6 +88,13 @@ export interface FirstAidEntryPayload {
   treatment?: string;
   comments?: string;
   firstAider?: string;
+  firstAiderSignature?: {
+    signedBy: string;
+    signedAt: string;
+    signature: string;
+    profileId: string;
+    role: string;
+  };
   furtherMedicalAttention?: boolean;
   status?: string;
 }
@@ -113,7 +128,10 @@ export async function createIncidentRecord(input: {
   return normalizeRecord(row);
 }
 
-export async function updateIncidentStatus(id: number, status: RecordStatus): Promise<IncidentRecord> {
+export async function updateIncidentStatus(
+  id: number,
+  status: RecordStatus,
+): Promise<IncidentRecord> {
   const res = await fetch(`${BASE_URL}/${id}/status`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
@@ -144,7 +162,10 @@ export async function patchInvestigationField(
   return normalizeRecord(row);
 }
 
-export async function uploadEvidenceFiles(id: number, files: File[]): Promise<IncidentRecord> {
+export async function uploadEvidenceFiles(
+  id: number,
+  files: File[],
+): Promise<IncidentRecord> {
   const formData = new FormData();
   files.forEach((file) => formData.append("files", file));
 

@@ -15,6 +15,8 @@ exports.updateLastLogin = updateLastLogin;
 exports.logCredentialIssuance = logCredentialIssuance;
 exports.replaceInspectorSites = replaceInspectorSites;
 exports.getClientCompany = getClientCompany;
+exports.getFirstAiderSiteIds = getFirstAiderSiteIds;
+exports.replaceFirstAiderSites = replaceFirstAiderSites;
 // models/user.ts
 const db_1 = __importDefault(require("../config/db"));
 // --- Core lookups ---
@@ -186,4 +188,28 @@ async function getClientCompany(userId) {
     WHERE cu.user_id = $1
     `, [userId]);
     return result.rows[0] ?? null;
+}
+async function getFirstAiderSiteIds(userId) {
+    const result = await db_1.default.query(`SELECT site_id FROM first_aider_assignments WHERE user_id = $1`, [userId]);
+    return result.rows.map((r) => r.site_id);
+}
+async function replaceFirstAiderSites(userId, siteIds) {
+    const client = await db_1.default.connect();
+    try {
+        await client.query("BEGIN");
+        await client.query(`DELETE FROM first_aider_assignments WHERE user_id = $1`, [userId]);
+        for (const siteId of siteIds) {
+            await client.query(`INSERT INTO first_aider_assignments (user_id, site_id)
+         VALUES ($1, $2)
+         ON CONFLICT (user_id, site_id) DO NOTHING`, [userId, siteId]);
+        }
+        await client.query("COMMIT");
+    }
+    catch (err) {
+        await client.query("ROLLBACK");
+        throw err;
+    }
+    finally {
+        client.release();
+    }
 }

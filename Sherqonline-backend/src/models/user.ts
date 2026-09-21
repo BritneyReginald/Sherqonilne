@@ -1,7 +1,7 @@
 // models/user.ts
 import pool from "../config/db";
 
-export type UserRole = "rss_staff" | "client" | "inspector";
+export type UserRole = "rss_staff" | "client" | "inspector" | "first_aider";
 export type UserStatus = "invited" | "active" | "disabled";
 
 export interface User {
@@ -275,4 +275,41 @@ export async function getClientCompany(userId: number) {
   );
 
   return result.rows[0] ?? null;
+}
+
+export async function getFirstAiderSiteIds(userId: number): Promise<number[]> {
+  const result = await pool.query(
+    `SELECT site_id FROM first_aider_assignments WHERE user_id = $1`,
+    [userId],
+  );
+  return result.rows.map((r) => r.site_id);
+}
+
+export async function replaceFirstAiderSites(userId: number, siteIds: number[]) {
+  const client = await pool.connect();
+
+  try {
+    await client.query("BEGIN");
+
+    await client.query(
+      `DELETE FROM first_aider_assignments WHERE user_id = $1`,
+      [userId],
+    );
+
+    for (const siteId of siteIds) {
+      await client.query(
+        `INSERT INTO first_aider_assignments (user_id, site_id)
+         VALUES ($1, $2)
+         ON CONFLICT (user_id, site_id) DO NOTHING`,
+        [userId, siteId],
+      );
+    }
+
+    await client.query("COMMIT");
+  } catch (err) {
+    await client.query("ROLLBACK");
+    throw err;
+  } finally {
+    client.release();
+  }
 }

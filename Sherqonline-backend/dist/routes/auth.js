@@ -9,6 +9,7 @@ const router = (0, express_1.Router)();
 router.post("/login/staff", authController_1.loginStaff);
 router.post("/login/client", authController_1.loginClient);
 router.post("/login/inspector", authController_1.loginInspector);
+router.post("/login/first-aider", authController_1.loginFirstAider);
 // RSS-only: create logins for clients/inspectors
 router.post("/credentials/client", authMiddleware_1.authenticate, (0, authMiddleware_1.authorize)("rss_staff"), authController_1.issueClientCredentials);
 router.post("/credentials/inspector", authMiddleware_1.authenticate, (0, authMiddleware_1.authorize)("rss_staff"), authController_1.issueInspectorCredentials);

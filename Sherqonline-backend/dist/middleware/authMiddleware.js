@@ -6,6 +6,7 @@ exports.authorize = authorize;
 exports.scopeClient = scopeClient;
 exports.scopeInspector = scopeInspector;
 exports.requireSiteAccess = requireSiteAccess;
+exports.scopeFirstAider = scopeFirstAider;
 const authService_1 = require("../services/authService");
 const user_1 = require("../models/user");
 // ============================================================
@@ -115,8 +116,21 @@ function requireSiteAccess(siteIdParam = "siteId") {
                 error: "You do not have access to this site",
             });
         }
+        if (req.user?.role === "first_aider") {
+            if (req.user.siteIds?.includes(requestedSiteId)) {
+                return next();
+            }
+            return res.status(403).json({ error: "Not assigned to this site" });
+        }
         return res.status(403).json({
             error: "Access denied",
         });
     };
+}
+async function scopeFirstAider(req, res, next) {
+    if (req.user?.role !== "first_aider")
+        return next();
+    const siteIds = await (0, user_1.getFirstAiderSiteIds)(req.user.id); // add to models/user.ts
+    req.user.siteIds = siteIds;
+    next();
 }

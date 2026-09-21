@@ -4,6 +4,7 @@ import {
   loginStaff,
   loginClient,
   loginInspector,
+  loginFirstAider,
   issueClientCredentials,
   issueInspectorCredentials,
 } from "../controllers/authController";
@@ -15,6 +16,7 @@ const router = Router();
 router.post("/login/staff", loginStaff);
 router.post("/login/client", loginClient);
 router.post("/login/inspector", loginInspector);
+router.post("/login/first-aider", loginFirstAider);
 
 // RSS-only: create logins for clients/inspectors
 router.post(

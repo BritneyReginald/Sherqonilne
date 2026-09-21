@@ -8,8 +8,6 @@ import {
 } from "../services/authService";
 import pool from "../config/db";
 
-// --- 3 separate login endpoints, one per role ---
-
 export async function loginStaff(req: Request, res: Response) {
   return handleLogin(req, res, "rss_staff");
 }
@@ -22,10 +20,14 @@ export async function loginInspector(req: Request, res: Response) {
   return handleLogin(req, res, "inspector");
 }
 
+export async function loginFirstAider(req: Request, res: Response) {
+  return handleLogin(req, res, "first_aider");
+}
+
 async function handleLogin(
   req: Request,
   res: Response,
-  role: "rss_staff" | "client" | "inspector",
+  role: "rss_staff" | "client" | "inspector" | "first_aider",
 ) {
   try {
     const { email, password } = req.body;
@@ -58,8 +60,9 @@ async function handleLogin(
       });
     }
 
-    // Get company information for client users
     let company = null;
+    let fullName: string | undefined;
+    let surname: string | undefined;
 
     if (role === "client") {
       const companyResult = await pool.query(
@@ -78,6 +81,17 @@ async function handleLogin(
 
       company = companyResult.rows[0] ?? null;
     }
+
+    if (role === "first_aider") {
+      const profileResult = await pool.query(
+        `SELECT full_name, surname FROM first_aider_profiles WHERE user_id = $1`,
+        [user.id],
+      );
+
+      fullName = profileResult.rows[0]?.full_name;
+      surname = profileResult.rows[0]?.surname;
+    }
+
     const token = await buildTokenForUser(user);
 
     return res.status(200).json({
@@ -87,6 +101,8 @@ async function handleLogin(
         email: user.email,
         role: user.role,
         company,
+        fullName,
+        surname,
       },
     });
   } catch (err) {
@@ -97,8 +113,6 @@ async function handleLogin(
     });
   }
 }
-
-// --- RSS-only: issue credentials for a client or inspector ---
 
 export async function issueClientCredentials(req: Request, res: Response) {
   try {
@@ -167,7 +181,7 @@ export async function issueInspectorCredentials(req: Request, res: Response) {
       role: "inspector",
       issuedByUserId,
       siteIds,
-      loginUrl: `${process.env.INSPECTOR_LOGIN_URL}`, // e.g. https://yourapp.com/login/inspector
+      loginUrl: `${process.env.INSPECTOR_LOGIN_URL}`,
     });
 
     return res.status(201).json({

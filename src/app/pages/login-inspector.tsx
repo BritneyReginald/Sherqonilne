@@ -1,9 +1,9 @@
 // pages/login-inspector.tsx
 import { useState } from "react";
 import { Flame } from "lucide-react";
-import { useAuth } from "@/app/contexts/auth-context";
-import { LoginLayout } from "@/app/components/login-layout";
-import { useTheme } from "@/app/contexts/theme-context";
+import { useAuth } from "../contexts/auth-context";
+import { LoginLayout } from "../components/login-layout";
+import { useTheme } from "../contexts/theme-context";
 
 // Inspectors skip the main AppShell entirely — they land straight in
 // Fire Equipment, per your access rules.

@@ -122,6 +122,11 @@ export default function Incidents() {
             treatment: e.treatment,
             comments: e.comments,
             firstAider: e.firstAider,
+            // Was previously dropped here, so a signature captured on
+            // the form (see FirstAidCard/onFirstAiderSign) never made
+            // it to the API even though the backend already accepts
+            // and stores it — this is the fix.
+            firstAiderSignature: e.firstAiderSignature,
             furtherMedicalAttention: e.furtherMedicalAttention,
             status: e.status,
           })),

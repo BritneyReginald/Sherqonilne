@@ -8,7 +8,7 @@ import {
   UserX,
   Trash2,
 } from "lucide-react";
-import { getSites } from "@/api/siteAPI";
+import { getSites } from "../../api/siteAPI";
 import {
   createInspector,
   getInspectors,
@@ -17,70 +17,102 @@ import {
   updateInspectorStatus,
   deleteInspector,
 } from "../../api/adminAPI";
+import {
+  getFirstAiders,
+  resetFirstAiderPassword,
+  updateFirstAiderSites,
+  updateFirstAiderStatus,
+  deleteFirstAider,
+} from "../../api/adminAPI";
 import EditInspectorSitesModal from "./EditInspectorSitesModal";
+import { createPortal } from "react-dom";
+
+type Role = "inspector" | "first_aider";
+
+const ROLE_CONFIG: Record<
+  Role,
+  {
+    label: string;
+    getAll: () => Promise<any[]>;
+    resetPassword: (id: number, pw: string) => Promise<any>;
+    updateSites: (id: number, siteIds: number[]) => Promise<any>;
+    updateStatus: (id: number, status: "active" | "disabled") => Promise<any>;
+    remove: (id: number) => Promise<any>;
+  }
+> = {
+  inspector: {
+    label: "Inspector",
+    getAll: getInspectors,
+    resetPassword: resetInspectorPassword,
+    updateSites: updateInspectorSites,
+    updateStatus: updateInspectorStatus,
+    remove: deleteInspector,
+  },
+  first_aider: {
+    label: "First Aider",
+    getAll: getFirstAiders,
+    resetPassword: resetFirstAiderPassword,
+    updateSites: updateFirstAiderSites,
+    updateStatus: updateFirstAiderStatus,
+    remove: deleteFirstAider,
+  },
+};
 
 export function SecurityPrivacy() {
-  const [activeTab, setActiveTab] = useState<"create" | "credentials">(
-    "create",
-  );
+  const [activeRole, setActiveRole] = useState<Role>("inspector");
 
   return (
     <div className="p-6 space-y-6 text-gray-900">
-      {/* Header */}
       <div>
         <h1 className="text-2xl font-bold">Security & Privacy</h1>
         <p className="text-gray-500">
-          Manage inspector accounts and login credentials.
+          Manage inspector and first aider accounts and login credentials.
         </p>
       </div>
 
-      {/* Tabs */}
       <div className="flex gap-3">
-        <button
-          onClick={() => setActiveTab("credentials")}
-          className={`px-4 py-2 rounded-lg flex items-center gap-2 ${
-            activeTab === "credentials"
-              ? "bg-blue-600 text-white"
-              : "bg-gray-100"
-          }`}
-        >
-          <Key size={18} />
-          Inspector Credentials
-        </button>
+        {(["inspector", "first_aider"] as Role[]).map((role) => (
+          <button
+            key={role}
+            onClick={() => setActiveRole(role)}
+            className={`px-4 py-2 rounded-lg flex items-center gap-2 ${
+              activeRole === role ? "bg-blue-600 text-white" : "bg-gray-100"
+            }`}
+          >
+            <Key size={18} />
+            {ROLE_CONFIG[role].label} Credentials
+          </button>
+        ))}
       </div>
 
-      <InspectorCredentialsTable />
+      <PersonnelCredentialsTable
+        role={activeRole}
+        config={ROLE_CONFIG[activeRole]}
+      />
     </div>
   );
 }
-
-function InspectorCredentialsTable() {
-  const [inspectors, setInspectors] = useState<any[]>([]);
+function PersonnelCredentialsTable({
+  role,
+  config,
+}: {
+  role: Role;
+  config: (typeof ROLE_CONFIG)[Role];
+}) {
+  const [people, setPeople] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [openMenu, setOpenMenu] = useState<number | null>(null);
-  const [editingInspector, setEditingInspector] = useState<any | null>(null);
+  const [editingPerson, setEditingPerson] = useState<any | null>(null);
   const [sites, setSites] = useState<any[]>([]);
   const [selectedSites, setSelectedSites] = useState<number[]>([]);
-
-  async function handleReset(inspector: any) {
-    const password = prompt(`Enter a new password for ${inspector.fullName}:`);
-
-    if (!password) return;
-
-    try {
-      await resetInspectorPassword(inspector.id, password);
-
-      alert("Password reset successfully.");
-
-      loadInspectors();
-    } catch {
-      alert("Failed to reset password.");
-    }
-  }
+  const [menuPosition, setMenuPosition] = useState<{
+    top: number;
+    left: number;
+  } | null>(null);
 
   useEffect(() => {
-    loadInspectors();
-  }, []);
+    loadPeople();
+  }, [role]); // re-fetch whenever the active tab/role changes
 
   useEffect(() => {
     async function loadSites() {
@@ -95,10 +127,11 @@ function InspectorCredentialsTable() {
     loadSites();
   }, []);
 
-  async function loadInspectors() {
+  async function loadPeople() {
+    setLoading(true);
     try {
-      const data = await getInspectors();
-      setInspectors(data);
+      const data = await config.getAll();
+      setPeople(data);
     } catch (err) {
       console.error(err);
     } finally {
@@ -116,222 +149,253 @@ function InspectorCredentialsTable() {
     return () => window.removeEventListener("click", handleClick);
   }, []);
 
-  if (loading) {
-    return (
-      <div className="bg-white rounded-xl shadow p-6">
-        Loading inspectors...
-      </div>
-    );
+  async function handleReset(person: any) {
+    const password = prompt(`Enter a new password for ${person.fullName}:`);
+
+    if (!password) return;
+
+    try {
+      await config.resetPassword(person.id, password);
+
+      alert("Password reset successfully.");
+
+      loadPeople();
+    } catch {
+      alert("Failed to reset password.");
+    }
   }
 
   async function handleSaveSites() {
-    if (!editingInspector) return;
+    if (!editingPerson) return;
 
     try {
-      await updateInspectorSites(editingInspector.id, selectedSites);
+      await config.updateSites(editingPerson.id, selectedSites);
 
       alert("Sites updated successfully.");
 
-      setEditingInspector(null);
+      setEditingPerson(null);
 
-      loadInspectors();
+      loadPeople();
     } catch (err) {
       console.error(err);
       alert("Failed to update sites.");
     }
   }
 
-  async function handleToggleStatus(inspector: any) {
-    const newStatus = inspector.status === "active" ? "disabled" : "active";
+  async function handleToggleStatus(person: any) {
+    const newStatus = person.status === "active" ? "disabled" : "active";
 
     const confirmed = window.confirm(
-      `Are you sure you want to ${newStatus} this inspector account?`,
+      `Are you sure you want to ${newStatus} this ${config.label.toLowerCase()} account?`,
     );
 
     if (!confirmed) return;
 
     try {
-      await updateInspectorStatus(inspector.id, newStatus);
+      await config.updateStatus(person.id, newStatus);
 
-      alert(`Inspector ${newStatus} successfully.`);
+      alert(`${config.label} ${newStatus} successfully.`);
 
-      loadInspectors();
+      loadPeople();
     } catch (err) {
       console.error(err);
-      alert("Failed to update inspector status.");
+      alert(`Failed to update ${config.label.toLowerCase()} status.`);
     }
   }
 
-  async function handleDelete(inspector: any) {
+  async function handleDelete(person: any) {
     const confirmed = window.confirm(
-      `Delete ${inspector.fullName} ${inspector.surname}?\n\nThis action cannot be undone.`,
+      `Delete ${person.fullName} ${person.surname}?\n\nThis action cannot be undone.`,
     );
 
     if (!confirmed) return;
 
     try {
-      await deleteInspector(inspector.id);
+      await config.remove(person.id);
 
-      alert("Inspector deleted successfully.");
+      alert(`${config.label} deleted successfully.`);
 
-      loadInspectors();
+      loadPeople();
     } catch (err) {
       console.error(err);
-      alert("Failed to delete inspector.");
+      alert(`Failed to delete ${config.label.toLowerCase()}.`);
     }
+  }
+
+  if (loading) {
+    return (
+      <div className="bg-white rounded-xl shadow p-6">
+        Loading {config.label.toLowerCase()}s...
+      </div>
+    );
   }
 
   return (
     <>
-      <div className="bg-white rounded-xl shadow overflow-x-auto overflow-y-visible">
+      <div className="bg-white rounded-xl shadow">
         <div className="px-6 py-5 border-b">
-          <h2 className="text-xl font-semibold">Inspector Credentials</h2>
+          <h2 className="text-xl font-semibold">{config.label} Credentials</h2>
         </div>
 
-        <table className="w-full">
-          <thead className="bg-gray-50">
-            <tr className="border-b">
-              <th className="text-left py-3">Name</th>
-              <th className="text-left py-3">Username</th>
-              <th className="text-left py-3">Employee No.</th>
-              <th className="text-left py-3">Assigned Sites</th>
-              <th className="text-left py-3">Status</th>
-              <th className="text-left py-3">Actions</th>
-            </tr>
-          </thead>
-
-          <tbody>
-            {loading ? (
-              <tr>
-                <td colSpan={6} className="py-6 text-center">
-                  Loading...
-                </td>
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead className="bg-gray-50">
+              <tr className="border-b">
+                <th className="text-left py-3">Name</th>
+                <th className="text-left py-3">Username</th>
+                <th className="text-left py-3">Employee No.</th>
+                <th className="text-left py-3">Assigned Sites</th>
+                <th className="text-left py-3">Status</th>
+                <th className="text-left py-3">Actions</th>
               </tr>
-            ) : inspectors.length === 0 ? (
-              <tr>
-                <td colSpan={6} className="py-6 text-center">
-                  No inspectors found.
-                </td>
-              </tr>
-            ) : (
-              inspectors.map((inspector) => (
-                <tr key={inspector.id} className="border-b">
-                  <td className="py-3">
-                    {inspector.fullName} {inspector.surname}
-                  </td>
+            </thead>
 
-                  <td>{inspector.username}</td>
-
-                  <td>{inspector.employeeNumber}</td>
-
-                  <td>{inspector.sites.join(", ")}</td>
-
-                  <td>
-                    <span
-                      className={`px-2 py-1 rounded text-sm ${
-                        inspector.status === "active"
-                          ? "bg-green-100 text-green-700"
-                          : "bg-red-100 text-red-700"
-                      }`}
-                    >
-                      {inspector.status}
-                    </span>
-                  </td>
-
-                  <td className="relative">
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-
-                        setOpenMenu(
-                          openMenu === inspector.id ? null : inspector.id,
-                        );
-                      }}
-                    >
-                      <MoreVertical size={18} />
-                    </button>
-
-                    {openMenu === inspector.id && (
-                      <div
-                        className="absolute right-0 mt-2 w-56 bg-white border rounded-xl shadow-lg z-50 overflow-hidden"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <button
-                          onClick={() => {
-                            setOpenMenu(null);
-                            handleReset(inspector);
-                          }}
-                          className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50"
-                        >
-                          <KeyRound size={18} />
-                          Reset Password
-                        </button>
-
-                        <button
-                          onClick={() => {
-                            setOpenMenu(null);
-
-                            setEditingInspector(inspector);
-
-                            const selected = sites
-                              .filter((site) =>
-                                inspector.sites.includes(site.name),
-                              )
-                              .map((site) => site.id);
-
-                            setSelectedSites(selected);
-                          }}
-                          className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50"
-                        >
-                          <MapPinned size={18} />
-                          Edit Sites
-                        </button>
-
-                        <button
-                          onClick={() => {
-                            setOpenMenu(null);
-                            handleToggleStatus(inspector);
-                          }}
-                          className={`w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 ${
-                            inspector.status === "active"
-                              ? "text-orange-600"
-                              : "text-green-600"
-                          }`}
-                        >
-                          <UserX size={18} />
-
-                          {inspector.status === "active"
-                            ? "Disable Account"
-                            : "Enable Account"}
-                        </button>
-
-                        <button
-                          onClick={() => {
-                            setOpenMenu(null);
-                            handleDelete(inspector);
-                          }}
-                          className="w-full flex items-center gap-3 px-4 py-3 hover:bg-red-50 text-red-600"
-                        >
-                          <Trash2 size={18} />
-                          Delete Inspector
-                        </button>
-                      </div>
-                    )}
+            <tbody>
+              {people.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="py-6 text-center">
+                    No {config.label.toLowerCase()}s found.
                   </td>
                 </tr>
-              ))
-            )}
-          </tbody>
-        </table>
+              ) : (
+                people.map((person) => (
+                  <tr key={person.id} className="border-b">
+                    <td className="py-3">
+                      {person.fullName} {person.surname}
+                    </td>
+
+                    <td>{person.username}</td>
+
+                    <td>{person.employeeNumber}</td>
+
+                    <td>{person.sites.join(", ")}</td>
+
+                    <td>
+                      <span
+                        className={`px-2 py-1 rounded text-sm ${
+                          person.status === "active"
+                            ? "bg-green-100 text-green-700"
+                            : "bg-red-100 text-red-700"
+                        }`}
+                      >
+                        {person.status}
+                      </span>
+                    </td>
+
+                    <td className="relative">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+
+                          if (openMenu === person.id) {
+                            setOpenMenu(null);
+                            return;
+                          }
+
+                          const rect = e.currentTarget.getBoundingClientRect();
+                          const menuHeight = 200; // approx height of the 4-item dropdown
+                          const spaceBelow = window.innerHeight - rect.bottom;
+
+                          const top =
+                            spaceBelow >= menuHeight
+                              ? rect.bottom + window.scrollY + 4 // enough room — open downward
+                              : rect.top + window.scrollY - menuHeight - 4; // not enough — open upward instead
+
+                          setMenuPosition({
+                            top,
+                            left: rect.right + window.scrollX - 224,
+                          });
+                          setOpenMenu(person.id);
+                        }}
+                      >
+                        <MoreVertical size={18} />
+                      </button>
+
+                      {openMenu === person.id &&
+                        menuPosition &&
+                        createPortal(
+                          <div
+                            className="fixed w-56 bg-white border rounded-xl shadow-lg z-50 overflow-hidden"
+                            style={{
+                              top: menuPosition.top,
+                              left: menuPosition.left,
+                            }}
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <button
+                              onClick={() => {
+                                setOpenMenu(null);
+                                handleReset(person);
+                              }}
+                              className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 text-gray-600"
+                            >
+                              <KeyRound size={18} />
+                              Reset Password
+                            </button>
+
+                            <button
+                              onClick={() => {
+                                setOpenMenu(null);
+                                setEditingPerson(person);
+                                const selected = sites
+                                  .filter((site) =>
+                                    person.sites.includes(site.name),
+                                  )
+                                  .map((site) => site.id);
+                                setSelectedSites(selected);
+                              }}
+                              className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 text-gray-600"
+                            >
+                              <MapPinned size={18} />
+                              Edit Sites
+                            </button>
+
+                            <button
+                              onClick={() => {
+                                setOpenMenu(null);
+                                handleToggleStatus(person);
+                              }}
+                              className={`w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 ${
+                                person.status === "active"
+                                  ? "text-orange-600"
+                                  : "text-green-600"
+                              }`}
+                            >
+                              <UserX size={18} />
+                              {person.status === "active"
+                                ? "Disable Account"
+                                : "Enable Account"}
+                            </button>
+
+                            <button
+                              onClick={() => {
+                                setOpenMenu(null);
+                                handleDelete(person);
+                              }}
+                              className="w-full flex items-center gap-3 px-4 py-3 hover:bg-red-50 text-red-600"
+                            >
+                              <Trash2 size={18} />
+                              Delete {config.label}
+                            </button>
+                          </div>,
+                          document.body,
+                        )}
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       <EditInspectorSitesModal
-        open={editingInspector !== null}
-        inspector={editingInspector}
+        open={editingPerson !== null}
+        inspector={editingPerson}
         sites={sites}
         selectedSites={selectedSites}
         onChangeSelectedSites={setSelectedSites}
-        onClose={() => setEditingInspector(null)}
+        onClose={() => setEditingPerson(null)}
         onSave={handleSaveSites}
       />
     </>
