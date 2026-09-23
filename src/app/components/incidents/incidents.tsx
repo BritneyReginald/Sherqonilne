@@ -305,6 +305,17 @@ export default function Incidents() {
     }
   };
 
+  const openPdfView = async (record: IncidentRecord) => {
+    try {
+      const freshRecord = await fetchIncidentRecord(record.id);
+      setSelectedRecord(freshRecord);
+      setView("pdf");
+    } catch (err) {
+      console.error("Failed to load latest incident", err);
+      alert("Couldn't load the latest incident data.");
+    }
+  };
+
   return (
     <div className="p-6">
       {/* ================= REGISTRY ================= */}
@@ -411,10 +422,7 @@ export default function Incidents() {
                         </button>
 
                         <button
-                          onClick={() => {
-                            setSelectedRecord(record);
-                            setView("pdf");
-                          }}
+                          onClick={() => openPdfView(record)}
                           className="text-gray-700 hover:underline text-sm"
                         >
                           View PDF

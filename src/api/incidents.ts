@@ -53,7 +53,7 @@ function normalizeRecord(row: any): IncidentRecord {
     updatedAt: row.updated_at ?? undefined,
 
     investigation: row.investigation as InvestigationData | undefined,
-    firstAidEntries: row.firstAidEntries ?? undefined,
+    firstAidEntries: row.firstAidEntries ?? row.first_aid_entries ?? undefined,
   };
 }
 

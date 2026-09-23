@@ -75,7 +75,8 @@ async function buildFullRecord(id) {
         }
         : undefined;
     let firstAidEntries;
-    if (record.type === "injury" && record.injury_type === "firstAid") {
+    if (record.type === "injury" &&
+        String(record.injury_type).toLowerCase().replace(/[_-]/g, "") === "firstaid") {
         const rows = await (0, firstAidEntries_1.getFirstAidEntriesForRecord)(id);
         firstAidEntries = rows.map((r) => ({
             id: String(r.id),
@@ -98,6 +99,8 @@ async function buildFullRecord(id) {
 const addIncidentRecord = async (req, res) => {
     try {
         const data = parseIncidentBody(req.body);
+        console.log("CREATE INCIDENT BODY:", JSON.stringify(req.body, null, 2));
+        console.log("FIRST AID ENTRIES:", req.body.entries);
         if (!data.type || !["incident", "ncr", "injury"].includes(data.type)) {
             res
                 .status(400)

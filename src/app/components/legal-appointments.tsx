@@ -18,8 +18,8 @@ import {
   FileCheck,
   Network,
 } from "lucide-react";
-import { useTheme } from "@/app/contexts/theme-context";
-import { useLegalAppointments } from "@/app/contexts/legal-appointments-context";
+import { useTheme } from "../contexts/theme-context";
+import { useLegalAppointments } from "../contexts/legal-appointments-context";
 import { appointmentTemplates } from "../templates/appointment-templates";
 
 interface LegalAppointment {

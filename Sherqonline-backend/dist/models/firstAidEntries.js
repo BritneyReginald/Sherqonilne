@@ -31,7 +31,7 @@ async function createFirstAidEntries(recordId, entries) {
             entry.treatment || null,
             entry.comments || null,
             entry.firstAider || null,
-            entry.firstAiderSignature ? JSON.stringify(entry.firstAiderSignature) : null, // ← add
+            entry.firstAiderSignature ? JSON.stringify(entry.firstAiderSignature) : null, 
             entry.furtherMedicalAttention ?? false,
             entry.status || "draft",
         ]);
