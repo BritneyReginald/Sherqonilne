@@ -9,7 +9,11 @@ import {
   AlertTriangle,
   Loader2,
 } from "lucide-react";
-import { IssuePPEModal, PPECatalogueItem, EmployeeOption } from "./issue-ppe-modal";
+import {
+  IssuePPEModal,
+  PPECatalogueItem,
+  EmployeeOption,
+} from "./issue-ppe-modal";
 import { PPECatalogue } from "./ppe-catalogue";
 import { AlertBanner } from "../alert-banner";
 import { useAlerts } from "../../contexts/alert-context";
@@ -45,7 +49,8 @@ export function PPERegister({ employeeId }: { employeeId?: string }) {
   const [showCatalogue, setShowCatalogue] = useState(false);
   const [selectedSite, setSelectedSite] = useState("All Sites");
   const [selectedCategory, setSelectedCategory] = useState("All PPE Types");
-  const [selectedEmployeeFilter, setSelectedEmployeeFilter] = useState("All Employees");
+  const [selectedEmployeeFilter, setSelectedEmployeeFilter] =
+    useState("All Employees");
 
   useEffect(() => {
     fetchAll();
@@ -55,10 +60,16 @@ export function PPERegister({ employeeId }: { employeeId?: string }) {
     setIsLoading(true);
     setLoadError(null);
     try {
-      await Promise.all([fetchTransactions(), fetchEmployees(), fetchCatalogueItems()]);
+      await Promise.all([
+        fetchTransactions(),
+        fetchEmployees(),
+        fetchCatalogueItems(),
+      ]);
     } catch (error) {
       console.error("Error loading PPE register:", error);
-      setLoadError("Couldn't load the PPE register. Check your connection and try again.");
+      setLoadError(
+        "Couldn't load the PPE register. Check your connection and try again.",
+      );
     } finally {
       setIsLoading(false);
     }
@@ -93,10 +104,15 @@ export function PPERegister({ employeeId }: { employeeId?: string }) {
     if (!response.ok) throw new Error("Failed to fetch employees");
     const data = await response.json();
 
+    // NOTE: employeeNumber is included here (in addition to the existing
+    // fields) so the register can be filtered by the employee's number
+    // (e.g. "EMP001") from the employee profile page, even though PPE
+    // transactions themselves only store the employee's name.
     const formatted: EmployeeOption[] = data
       .filter((e: any) => e.status !== "Inactive")
       .map((e: any) => ({
         id: e.id,
+        employeeNumber: e.employee_number,
         name: e.full_name,
         jobTitle: e.job_title,
         siteLocation: e.site_location,
@@ -154,7 +170,9 @@ export function PPERegister({ employeeId }: { employeeId?: string }) {
 
   const sites = [
     "All Sites",
-    ...Array.from(new Set(employees.map((e) => e.siteLocation).filter(Boolean))).sort() as string[],
+    ...(Array.from(
+      new Set(employees.map((e) => e.siteLocation).filter(Boolean)),
+    ).sort() as string[]),
   ];
 
   const ppeCategories = [
@@ -167,32 +185,75 @@ export function PPERegister({ employeeId }: { employeeId?: string }) {
     ...Array.from(new Set(transactions.map((t) => t.employeeName))).sort(),
   ];
 
-  const filteredTransactions = transactions.filter((transaction) => {
-    const matchesEmployeeId = employeeId ? transaction.employeeName === employeeId : true;
-    const matchesSite = selectedSite === "All Sites" || transaction.siteLocation === selectedSite;
-    const matchesCategory = selectedCategory === "All PPE Types" || transaction.ppeCategory === selectedCategory;
-    const matchesEmployee = selectedEmployeeFilter === "All Employees" || transaction.employeeName === selectedEmployeeFilter;
+  // Crosswalk: the employee profile page passes an employee NUMBER
+  // (e.g. "EMP001"), but PPE transactions only store the employee's NAME.
+  // Resolve the number to a name once here so filtering below is a
+  // straightforward name comparison.
+  const employeeNameForProfileFilter = employeeId
+    ? employees.find((e) => e.employeeNumber === employeeId)?.name
+    : undefined;
 
-    return matchesEmployeeId && matchesSite && matchesCategory && matchesEmployee;
+  const filteredTransactions = transactions.filter((transaction) => {
+    const matchesEmployeeId = employeeId
+      ? employeeNameForProfileFilter
+        ? transaction.employeeName === employeeNameForProfileFilter
+        : false
+      : true;
+    const matchesSite =
+      selectedSite === "All Sites" || transaction.siteLocation === selectedSite;
+    const matchesCategory =
+      selectedCategory === "All PPE Types" ||
+      transaction.ppeCategory === selectedCategory;
+    const matchesEmployee =
+      selectedEmployeeFilter === "All Employees" ||
+      transaction.employeeName === selectedEmployeeFilter;
+
+    return (
+      matchesEmployeeId && matchesSite && matchesCategory && matchesEmployee
+    );
   });
 
   const totalIssued = filteredTransactions.length;
-  const pendingSignOffs = filteredTransactions.filter((t) => t.signOffStatus === "pending").length;
-  const signedOff = filteredTransactions.filter((t) => t.signOffStatus === "signed").length;
+  const pendingSignOffs = filteredTransactions.filter(
+    (t) => t.signOffStatus === "pending",
+  ).length;
+  const signedOff = filteredTransactions.filter(
+    (t) => t.signOffStatus === "signed",
+  ).length;
   const upcomingReplacements = filteredTransactions.filter((t) => {
     const replacementDate = new Date(t.replacementDue);
     const today = new Date();
-    const daysUntil = (replacementDate.getTime() - today.getTime()) / (1000 * 3600 * 24);
+    const daysUntil =
+      (replacementDate.getTime() - today.getTime()) / (1000 * 3600 * 24);
     return daysUntil > 0 && daysUntil <= 30;
   }).length;
-  const completionRate = totalIssued > 0 ? Math.round((signedOff / totalIssued) * 100) : 0;
+  const completionRate =
+    totalIssued > 0 ? Math.round((signedOff / totalIssued) * 100) : 0;
 
   const handleDismissAlert = (id: string) => {
-    dismissAlert(id, `PPE Alert: ${pendingSignOffs} items awaiting employee sign-off`, "critical");
+    dismissAlert(
+      id,
+      `PPE Alert: ${pendingSignOffs} items awaiting employee sign-off`,
+      "critical",
+    );
+  };
+
+  const formatDate = (value: string) =>
+    new Date(value).toLocaleDateString("en-GB", {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+    });
+
+  const thStyle = {
+    color: "#94A3B8",
   };
 
   return (
-    <div className="h-full overflow-y-auto" style={{ backgroundColor: "#0F172A" }}>
+    <div
+      className="h-full overflow-y-auto"
+      style={{ backgroundColor: "#0F172A" }}
+    >
       <div className="max-w-[1600px] mx-auto">
         {!employeeId && (
           <>
@@ -210,24 +271,36 @@ export function PPERegister({ employeeId }: { employeeId?: string }) {
             <div className="px-8 pt-6 pb-8">
               <div className="flex items-start justify-between mb-8">
                 <div>
-                  <h1 className="text-3xl mb-2" style={{ color: "#F8FAFC" }}>PPE Register & Issue Log</h1>
+                  <h1 className="text-3xl mb-2" style={{ color: "#F8FAFC" }}>
+                    PPE Register & Issue Log
+                  </h1>
                   <div className="flex items-center gap-2 mt-1">
-                    <ShieldCheck className="size-4" style={{ color: "var(--compliance-success)" }} />
-                    <p className="text-sm" style={{ color: "#94A3B8" }}>POPI Act Compliant: Restricted Access</p>
+                    <ShieldCheck
+                      className="size-4"
+                      style={{ color: "var(--compliance-success)" }}
+                    />
+                    <p className="text-sm" style={{ color: "#94A3B8" }}>
+                      POPI Act Compliant: Restricted Access
+                    </p>
                   </div>
                 </div>
                 <div className="flex gap-3">
                   <button
                     onClick={() => setShowCatalogue(true)}
                     className="px-5 py-2.5 rounded-lg font-medium transition-opacity flex items-center gap-2 hover:opacity-90"
-                    style={{ backgroundColor: "rgba(255, 255, 255, 0.1)", color: "#F8FAFC" }}
+                    style={{
+                      backgroundColor: "rgba(255, 255, 255, 0.1)",
+                      color: "#F8FAFC",
+                    }}
                   >
                     <Settings className="size-4" />
                     PPE Catalogue
                   </button>
                   <button
                     onClick={() => setShowIssueModal(true)}
-                    disabled={employees.length === 0 || catalogueItems.length === 0}
+                    disabled={
+                      employees.length === 0 || catalogueItems.length === 0
+                    }
                     className="px-5 py-2.5 rounded-lg font-medium text-white transition-opacity flex items-center gap-2 hover:opacity-90 disabled:opacity-50"
                     style={{ backgroundColor: "#3B82F6" }}
                   >
@@ -243,45 +316,94 @@ export function PPERegister({ employeeId }: { employeeId?: string }) {
                   value={selectedSite}
                   onChange={(e) => setSelectedSite(e.target.value)}
                   className="px-4 py-2.5 rounded-lg text-sm appearance-none cursor-pointer"
-                  style={{ backgroundColor: "#1E293B", color: "#F8FAFC", border: "none" }}
+                  style={{
+                    backgroundColor: "#1E293B",
+                    color: "#F8FAFC",
+                    border: "none",
+                  }}
                 >
                   {sites.map((site) => (
-                    <option key={site} value={site}>{site}</option>
+                    <option key={site} value={site}>
+                      {site}
+                    </option>
                   ))}
                 </select>
                 <select
                   value={selectedCategory}
                   onChange={(e) => setSelectedCategory(e.target.value)}
                   className="px-4 py-2.5 rounded-lg text-sm appearance-none cursor-pointer"
-                  style={{ backgroundColor: "#1E293B", color: "#F8FAFC", border: "none" }}
+                  style={{
+                    backgroundColor: "#1E293B",
+                    color: "#F8FAFC",
+                    border: "none",
+                  }}
                 >
                   {ppeCategories.map((category) => (
-                    <option key={category} value={category}>{category}</option>
+                    <option key={category} value={category}>
+                      {category}
+                    </option>
                   ))}
                 </select>
                 <select
                   value={selectedEmployeeFilter}
                   onChange={(e) => setSelectedEmployeeFilter(e.target.value)}
                   className="px-4 py-2.5 rounded-lg text-sm appearance-none cursor-pointer"
-                  style={{ backgroundColor: "#1E293B", color: "#F8FAFC", border: "none" }}
+                  style={{
+                    backgroundColor: "#1E293B",
+                    color: "#F8FAFC",
+                    border: "none",
+                  }}
                 >
                   {employeeFilterOptions.map((employee) => (
-                    <option key={employee} value={employee}>{employee}</option>
+                    <option key={employee} value={employee}>
+                      {employee}
+                    </option>
                   ))}
                 </select>
               </div>
 
               <div className="grid grid-cols-5 gap-4">
                 {[
-                  { label: "Total Issued", value: totalIssued, color: "#F8FAFC" },
-                  { label: "Signed Off", value: signedOff, color: "var(--compliance-success)" },
-                  { label: "Pending Sign-Off", value: pendingSignOffs, color: "var(--compliance-danger)" },
-                  { label: "Due for Replacement", value: upcomingReplacements, color: "var(--compliance-warning)" },
-                  { label: "Completion Rate", value: `${completionRate}%`, color: "var(--compliance-success)" },
+                  {
+                    label: "Total Issued",
+                    value: totalIssued,
+                    color: "#F8FAFC",
+                  },
+                  {
+                    label: "Signed Off",
+                    value: signedOff,
+                    color: "var(--compliance-success)",
+                  },
+                  {
+                    label: "Pending Sign-Off",
+                    value: pendingSignOffs,
+                    color: "var(--compliance-danger)",
+                  },
+                  {
+                    label: "Due for Replacement",
+                    value: upcomingReplacements,
+                    color: "var(--compliance-warning)",
+                  },
+                  {
+                    label: "Completion Rate",
+                    value: `${completionRate}%`,
+                    color: "var(--compliance-success)",
+                  },
                 ].map((stat) => (
-                  <div key={stat.label} className="px-6 py-4 rounded-lg" style={{ backgroundColor: "#1E293B" }}>
-                    <p className="text-sm mb-2" style={{ color: "#94A3B8" }}>{stat.label}</p>
-                    <p className="text-3xl font-bold" style={{ color: stat.color }}>{stat.value}</p>
+                  <div
+                    key={stat.label}
+                    className="px-6 py-4 rounded-lg"
+                    style={{ backgroundColor: "#1E293B" }}
+                  >
+                    <p className="text-sm mb-2" style={{ color: "#94A3B8" }}>
+                      {stat.label}
+                    </p>
+                    <p
+                      className="text-3xl font-bold"
+                      style={{ color: stat.color }}
+                    >
+                      {stat.value}
+                    </p>
                   </div>
                 ))}
               </div>
@@ -290,119 +412,324 @@ export function PPERegister({ employeeId }: { employeeId?: string }) {
         )}
 
         <div className="px-8 pb-8">
-          <div className="rounded-lg overflow-hidden" style={{ backgroundColor: "#1E293B" }}>
+          <div
+            className="rounded-lg overflow-hidden"
+            style={{ backgroundColor: "#1E293B" }}
+          >
             {isLoading && (
               <div className="flex items-center justify-center gap-2 py-16">
-                <Loader2 className="size-5 animate-spin" style={{ color: "#94A3B8" }} />
-                <span className="text-sm" style={{ color: "#94A3B8" }}>Loading PPE register…</span>
+                <Loader2
+                  className="size-5 animate-spin"
+                  style={{ color: "#94A3B8" }}
+                />
+                <span className="text-sm" style={{ color: "#94A3B8" }}>
+                  Loading PPE register…
+                </span>
               </div>
             )}
 
             {!isLoading && loadError && (
               <div className="flex flex-col items-center justify-center gap-3 py-16">
-                <AlertTriangle className="size-6" style={{ color: "var(--compliance-danger)" }} />
-                <span className="text-sm" style={{ color: "#F8FAFC" }}>{loadError}</span>
-                <button onClick={fetchAll} className="px-4 py-2 rounded-lg text-sm font-medium text-white" style={{ backgroundColor: "#3B82F6" }}>
+                <AlertTriangle
+                  className="size-6"
+                  style={{ color: "var(--compliance-danger)" }}
+                />
+                <span className="text-sm" style={{ color: "#F8FAFC" }}>
+                  {loadError}
+                </span>
+                <button
+                  onClick={fetchAll}
+                  className="px-4 py-2 rounded-lg text-sm font-medium text-white"
+                  style={{ backgroundColor: "#3B82F6" }}
+                >
                   Retry
                 </button>
               </div>
             )}
 
-            {!isLoading && !loadError && (
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr style={{ backgroundColor: "#0F172A" }}>
-                      <th className="px-6 py-4 text-left text-sm font-medium" style={{ color: "#94A3B8" }}>Transaction ID</th>
-                      <th className="px-6 py-4 text-left text-sm font-medium" style={{ color: "#94A3B8" }}>Employee</th>
-                      <th className="px-6 py-4 text-left text-sm font-medium" style={{ color: "#94A3B8" }}>PPE Item</th>
-                      <th className="px-6 py-4 text-left text-sm font-medium" style={{ color: "#94A3B8" }}>Issue Date</th>
-                      <th className="px-6 py-4 text-left text-sm font-medium" style={{ color: "#94A3B8" }}>Replacement Due</th>
-                      <th className="px-6 py-4 text-left text-sm font-medium" style={{ color: "#94A3B8" }}>Condition</th>
-                      <th className="px-6 py-4 text-center text-sm font-medium" style={{ color: "#94A3B8" }}>Sign-Off Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredTransactions.length === 0 ? (
-                      <tr>
-                        <td colSpan={7} className="px-6 py-12 text-center text-sm" style={{ color: "#94A3B8" }}>
-                          No PPE has been issued yet. Click "Issue PPE" to record one.
-                        </td>
-                      </tr>
-                    ) : (
-                      filteredTransactions.map((transaction, index) => {
-                        const replacementDate = new Date(transaction.replacementDue);
-                        const today = new Date();
-                        const isOverdue = replacementDate < today;
-                        const isDueSoon = !isOverdue && (replacementDate.getTime() - today.getTime()) / (1000 * 3600 * 24) <= 30;
-
-                        return (
-                          <tr
-                            key={transaction.id}
-                            className="transition-colors hover:bg-opacity-80"
-                            style={{ backgroundColor: index % 2 === 0 ? "#1E293B" : "#0F172A" }}
-                          >
-                            <td className="px-6 py-4 font-mono text-sm" style={{ color: "#94A3B8" }}>
-                              PPE-{String(transaction.id).padStart(4, "0")}
-                            </td>
-                            <td className="px-6 py-4">
-                              <div>
-                                <div className="font-medium mb-0.5" style={{ color: "#F8FAFC" }}>{transaction.employeeName}</div>
-                                <div className="text-sm" style={{ color: "#94A3B8" }}>{transaction.jobTitle}</div>
-                              </div>
-                            </td>
-                            <td className="px-6 py-4">
-                              <div>
-                                <div className="font-medium mb-0.5" style={{ color: "#F8FAFC" }}>{transaction.ppeItemName}</div>
-                                <div className="text-sm" style={{ color: "#94A3B8" }}>
-                                  {transaction.ppeBrand}{transaction.ppeSize ? ` • ${transaction.ppeSize}` : ""}
-                                </div>
-                              </div>
-                            </td>
-                            <td className="px-6 py-4 text-sm" style={{ color: "#94A3B8" }}>
-                              {new Date(transaction.issueDate).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}
-                            </td>
-                            <td className="px-6 py-4 text-sm">
-                              <span style={{ color: isOverdue ? "var(--compliance-danger)" : isDueSoon ? "var(--compliance-warning)" : "var(--compliance-success)" }}>
-                                {new Date(transaction.replacementDue).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}
-                              </span>
-                            </td>
-                            <td className="px-6 py-4">
+            {!isLoading &&
+              !loadError &&
+              (employeeId ? (
+                <div className="p-6 space-y-3">
+                  {filteredTransactions.length === 0 ? (
+                    <div
+                      className="text-center py-10 text-sm"
+                      style={{ color: "#94A3B8" }}
+                    >
+                      No PPE has been issued to this employee yet.
+                    </div>
+                  ) : (
+                    filteredTransactions.map((t) => {
+                      const replacementDate = new Date(t.replacementDue);
+                      const today = new Date();
+                      const isOverdue = replacementDate < today;
+                      const isDueSoon =
+                        !isOverdue &&
+                        (replacementDate.getTime() - today.getTime()) /
+                          (1000 * 3600 * 24) <=
+                          30;
+                      return (
+                        <div
+                          key={t.id}
+                          className="rounded-lg p-4 flex items-center justify-between"
+                          style={{ backgroundColor: "#0F172A" }}
+                        >
+                          <div>
+                            <div
+                              className="font-medium mb-1"
+                              style={{ color: "#F8FAFC" }}
+                            >
+                              {t.ppeItemName}
+                            </div>
+                            <div
+                              className="text-sm"
+                              style={{ color: "#94A3B8" }}
+                            >
+                              {t.ppeBrand}
+                              {t.ppeSize ? ` • ${t.ppeSize}` : ""} • Issued{" "}
+                              {formatDate(t.issueDate)}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-4">
+                            <span
+                              className="text-sm"
+                              style={{
+                                color: isOverdue
+                                  ? "var(--compliance-danger)"
+                                  : isDueSoon
+                                    ? "var(--compliance-warning)"
+                                    : "var(--compliance-success)",
+                              }}
+                            >
+                              Due {formatDate(t.replacementDue)}
+                            </span>
+                            <span
+                              className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium"
+                              style={{
+                                backgroundColor:
+                                  t.condition === "new"
+                                    ? "rgba(34, 197, 94, 0.2)"
+                                    : "rgba(59, 130, 246, 0.2)",
+                                color:
+                                  t.condition === "new"
+                                    ? "var(--compliance-success)"
+                                    : "#3B82F6",
+                              }}
+                            >
+                              {t.condition === "new"
+                                ? "New"
+                                : "Re-issued (Good)"}
+                            </span>
+                            {t.signOffStatus === "signed" ? (
+                              <CheckCircle2
+                                className="size-5"
+                                style={{ color: "var(--compliance-success)" }}
+                              />
+                            ) : (
                               <span
-                                className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium"
+                                className="flex items-center gap-1 text-xs font-medium"
+                                style={{ color: "var(--compliance-danger)" }}
+                              >
+                                <Clock className="size-4" /> Pending
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr
+                        style={{
+                          borderBottom: "1px solid rgba(255, 255, 255, 0.1)",
+                        }}
+                      >
+                        <th
+                          className="text-left px-6 py-3 text-xs font-medium uppercase tracking-wider"
+                          style={thStyle}
+                        >
+                          Employee
+                        </th>
+                        <th
+                          className="text-left px-6 py-3 text-xs font-medium uppercase tracking-wider"
+                          style={thStyle}
+                        >
+                          Site
+                        </th>
+                        <th
+                          className="text-left px-6 py-3 text-xs font-medium uppercase tracking-wider"
+                          style={thStyle}
+                        >
+                          PPE Item
+                        </th>
+                        <th
+                          className="text-left px-6 py-3 text-xs font-medium uppercase tracking-wider"
+                          style={thStyle}
+                        >
+                          Issue Date
+                        </th>
+                        <th
+                          className="text-left px-6 py-3 text-xs font-medium uppercase tracking-wider"
+                          style={thStyle}
+                        >
+                          Condition
+                        </th>
+                        <th
+                          className="text-left px-6 py-3 text-xs font-medium uppercase tracking-wider"
+                          style={thStyle}
+                        >
+                          Replacement Due
+                        </th>
+                        <th
+                          className="text-left px-6 py-3 text-xs font-medium uppercase tracking-wider"
+                          style={thStyle}
+                        >
+                          Sign-Off
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredTransactions.length === 0 ? (
+                        <tr>
+                          <td
+                            colSpan={7}
+                            className="text-center py-10 text-sm"
+                            style={{ color: "#94A3B8" }}
+                          >
+                            No PPE issue records match the current filters.
+                          </td>
+                        </tr>
+                      ) : (
+                        filteredTransactions.map((t) => {
+                          const replacementDate = new Date(t.replacementDue);
+                          const today = new Date();
+                          const isOverdue = replacementDate < today;
+                          const daysUntil =
+                            (replacementDate.getTime() - today.getTime()) /
+                            (1000 * 3600 * 24);
+                          const isDueSoon = !isOverdue && daysUntil <= 30;
+
+                          return (
+                            <tr
+                              key={t.id}
+                              style={{
+                                borderBottom:
+                                  "1px solid rgba(255, 255, 255, 0.05)",
+                              }}
+                            >
+                              <td className="px-6 py-4">
+                                <div
+                                  className="font-medium"
+                                  style={{ color: "#F8FAFC" }}
+                                >
+                                  {t.employeeName}
+                                </div>
+                                {t.jobTitle && (
+                                  <div
+                                    className="text-xs"
+                                    style={{ color: "#94A3B8" }}
+                                  >
+                                    {t.jobTitle}
+                                  </div>
+                                )}
+                              </td>
+                              <td
+                                className="px-6 py-4 text-sm"
+                                style={{ color: "#CBD5E1" }}
+                              >
+                                {t.siteLocation || "—"}
+                              </td>
+                              <td className="px-6 py-4">
+                                <div
+                                  className="font-medium"
+                                  style={{ color: "#F8FAFC" }}
+                                >
+                                  {t.ppeItemName}
+                                </div>
+                                <div
+                                  className="text-xs"
+                                  style={{ color: "#94A3B8" }}
+                                >
+                                  {[t.ppeBrand, t.ppeSize, t.ppeCategory]
+                                    .filter(Boolean)
+                                    .join(" • ")}
+                                </div>
+                              </td>
+                              <td
+                                className="px-6 py-4 text-sm"
+                                style={{ color: "#CBD5E1" }}
+                              >
+                                {formatDate(t.issueDate)}
+                              </td>
+                              <td className="px-6 py-4">
+                                <span
+                                  className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium"
+                                  style={{
+                                    backgroundColor:
+                                      t.condition === "new"
+                                        ? "rgba(34, 197, 94, 0.2)"
+                                        : "rgba(59, 130, 246, 0.2)",
+                                    color:
+                                      t.condition === "new"
+                                        ? "var(--compliance-success)"
+                                        : "#3B82F6",
+                                  }}
+                                >
+                                  {t.condition === "new"
+                                    ? "New"
+                                    : "Re-issued (Good)"}
+                                </span>
+                              </td>
+                              <td
+                                className="px-6 py-4 text-sm font-medium"
                                 style={{
-                                  backgroundColor: transaction.condition === "new" ? "rgba(34, 197, 94, 0.2)" : "rgba(59, 130, 246, 0.2)",
-                                  color: transaction.condition === "new" ? "var(--compliance-success)" : "#3B82F6",
+                                  color: isOverdue
+                                    ? "var(--compliance-danger)"
+                                    : isDueSoon
+                                      ? "var(--compliance-warning)"
+                                      : "var(--compliance-success)",
                                 }}
                               >
-                                {transaction.condition === "new" ? "New" : "Re-issued (Good)"}
-                              </span>
-                            </td>
-                            <td className="px-6 py-4 text-center">
-                              {transaction.signOffStatus === "signed" ? (
-                                <div className="flex flex-col items-center gap-1">
-                                  <CheckCircle2 className="size-5" style={{ color: "var(--compliance-success)" }} />
-                                  <span className="text-xs" style={{ color: "#94A3B8" }}>
-                                    {transaction.signOffDate
-                                      ? new Date(transaction.signOffDate).toLocaleDateString("en-GB", { day: "numeric", month: "short" })
-                                      : "Signed"}
+                                {formatDate(t.replacementDue)}
+                              </td>
+                              <td className="px-6 py-4">
+                                {t.signOffStatus === "signed" ? (
+                                  <span
+                                    className="inline-flex items-center gap-1.5 text-xs font-medium"
+                                    style={{
+                                      color: "var(--compliance-success)",
+                                    }}
+                                  >
+                                    <CheckCircle2 className="size-4" />
+                                    Signed
+                                    {t.signOffDate
+                                      ? ` • ${formatDate(t.signOffDate)}`
+                                      : ""}
                                   </span>
-                                </div>
-                              ) : (
-                                <div className="flex flex-col items-center gap-1">
-                                  <Clock className="size-5" style={{ color: "var(--compliance-danger)" }} />
-                                  <span className="text-xs font-medium" style={{ color: "var(--compliance-danger)" }}>Pending</span>
-                                </div>
-                              )}
-                            </td>
-                          </tr>
-                        );
-                      })
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            )}
+                                ) : (
+                                  <span
+                                    className="inline-flex items-center gap-1.5 text-xs font-medium"
+                                    style={{
+                                      color: "var(--compliance-danger)",
+                                    }}
+                                  >
+                                    <Clock className="size-4" />
+                                    Pending
+                                  </span>
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        })
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              ))}
           </div>
         </div>
       </div>

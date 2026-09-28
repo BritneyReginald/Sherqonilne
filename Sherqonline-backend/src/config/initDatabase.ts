@@ -862,6 +862,103 @@ CREATE INDEX IF NOT EXISTS idx_training_records_expiry_date
 
     /*
      * ============================================================
+     * LEGAL APPOINTMENTS
+     * ============================================================
+     *
+     * One row = one Legal Appointment letter issued to one employee.
+     * employee_name / employee_number / job_title / site_name are
+     * SNAPSHOTTED at appointment time (same reasoning as
+     * ppe_transactions). site_id links to sites so the letter can pull
+     * the site's registered logo. The signed/uploaded letter lives in
+     * Azure Blob Storage; only its metadata is stored here.
+     */
+
+    await client.query(`
+  CREATE TABLE IF NOT EXISTS legal_appointments (
+    id SERIAL PRIMARY KEY
+  );
+`);
+
+    await client.query(`
+  ALTER TABLE legal_appointments
+    ADD COLUMN IF NOT EXISTS employee_id INTEGER
+      REFERENCES employees(id) ON DELETE SET NULL,
+    ADD COLUMN IF NOT EXISTS employee_name TEXT NOT NULL,
+    ADD COLUMN IF NOT EXISTS employee_number TEXT,
+    ADD COLUMN IF NOT EXISTS job_title TEXT,
+
+    ADD COLUMN IF NOT EXISTS appointment_type VARCHAR(40) NOT NULL
+      CHECK (appointment_type IN (
+        'First Aid Officer',
+        'HSE/SHE Representative',
+        'Incident Investigator'
+      )),
+
+    ADD COLUMN IF NOT EXISTS legal_section TEXT NOT NULL DEFAULT '',
+    ADD COLUMN IF NOT EXISTS department TEXT NOT NULL DEFAULT 'Health & Safety',
+
+    ADD COLUMN IF NOT EXISTS site_id INTEGER
+      REFERENCES sites(id) ON DELETE SET NULL,
+    ADD COLUMN IF NOT EXISTS site_name TEXT,
+
+    ADD COLUMN IF NOT EXISTS appointer_name TEXT,
+
+    ADD COLUMN IF NOT EXISTS start_date DATE,
+    ADD COLUMN IF NOT EXISTS end_date DATE,
+
+    ADD COLUMN IF NOT EXISTS status VARCHAR(20) NOT NULL DEFAULT 'Active'
+      CHECK (status IN ('Active', 'Expired', 'Pending')),
+
+    ADD COLUMN IF NOT EXISTS signature_status VARCHAR(20) NOT NULL DEFAULT 'Pending'
+      CHECK (signature_status IN ('Signed', 'Pending', 'Not Required')),
+
+    ADD COLUMN IF NOT EXISTS reports_to TEXT,
+    ADD COLUMN IF NOT EXISTS reports_to_id TEXT,
+
+    ADD COLUMN IF NOT EXISTS delegated_authority_scope TEXT NOT NULL DEFAULT 'Health & Safety',
+    ADD COLUMN IF NOT EXISTS hierarchy_level INTEGER NOT NULL DEFAULT 4,
+
+    ADD COLUMN IF NOT EXISTS document_blob_name TEXT,
+    ADD COLUMN IF NOT EXISTS document_file_name TEXT,
+    ADD COLUMN IF NOT EXISTS document_size INTEGER,
+    ADD COLUMN IF NOT EXISTS document_mime_type TEXT,
+
+    ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
+`);
+
+    /*
+     * MIGRATION: company name + logo now come from the selected site,
+     * so the old per-appointment columns are removed.
+     */
+    await client.query(`
+  ALTER TABLE legal_appointments
+    DROP COLUMN IF EXISTS responsible_area,
+    DROP COLUMN IF EXISTS company_name,
+    DROP COLUMN IF EXISTS logo_blob_name,
+    DROP COLUMN IF EXISTS logo_file_name,
+    DROP COLUMN IF EXISTS logo_size,
+    DROP COLUMN IF EXISTS logo_mime_type;
+`);
+
+    await client.query(`
+  CREATE INDEX IF NOT EXISTS idx_legal_appointments_employee_id
+    ON legal_appointments(employee_id);
+  CREATE INDEX IF NOT EXISTS idx_legal_appointments_status
+    ON legal_appointments(status);
+  CREATE INDEX IF NOT EXISTS idx_legal_appointments_appointment_type
+    ON legal_appointments(appointment_type);
+  CREATE INDEX IF NOT EXISTS idx_legal_appointments_site_id
+    ON legal_appointments(site_id);
+`);
+
+    await client.query(`
+  CREATE INDEX IF NOT EXISTS idx_legal_appointments_site_id
+    ON legal_appointments(site_id);
+`);
+
+    /*
+     * ============================================================
      * MIGRATION: FIRST AIDER ROLE
      * ============================================================
      *

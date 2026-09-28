@@ -7,7 +7,7 @@ const express_1 = __importDefault(require("express"));
 const db_1 = __importDefault(require("../config/db"));
 const authMiddleware_1 = require("../middleware/authMiddleware");
 const authService_1 = require("../services/authService");
-const userController_1 = require("../controllers/userController"); 
+const userController_1 = require("../controllers/userController"); // needs writing — see below
 const router = express_1.default.Router();
 async function requireSuperAdmin(req, res, next) {
     const result = await db_1.default.query(`SELECT is_super_admin FROM users WHERE id = $1`, [req.user.id]);

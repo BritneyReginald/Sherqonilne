@@ -178,8 +178,13 @@ export function MedicalSurveillanceEnhanced({
   ];
 
   const filteredRecords = records.filter((record) => {
+    // FIX: `employeeId` prop is the human-readable employee NUMBER
+    // (e.g. "EMP001"). `record.employeeId` is the internal numeric
+    // foreign key to the employees table, so it must never be compared
+    // against the prop. `record.employeeNumber` is the correct field
+    // to match against.
     const matchesEmployeeProp = employeeId
-      ? String(record.employeeId) === employeeId
+      ? record.employeeNumber === employeeId
       : true;
     const matchesSite =
       selectedSite === "All Sites" || record.siteLocation === selectedSite;
@@ -619,12 +624,12 @@ export function MedicalSurveillanceEnhanced({
                       className={inputClass}
                       style={inputStyle}
                     >
-                      {/* <option value="">Select employee…</option>
+                      <option value="">Select employee…</option>
                       {employees.map((emp) => (
                         <option key={emp.id} value={emp.id}>
-                          {emp.fullName} ({emp.employeeId}) — {emp.department}
+                          {emp.fullName} ({emp.employeeId})
                         </option>
-                      ))} */}
+                      ))}
                     </select>
                   </div>
 

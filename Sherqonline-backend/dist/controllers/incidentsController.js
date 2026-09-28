@@ -78,6 +78,7 @@ async function buildFullRecord(id) {
     if (record.type === "injury" &&
         String(record.injury_type).toLowerCase().replace(/[_-]/g, "") === "firstaid") {
         const rows = await (0, firstAidEntries_1.getFirstAidEntriesForRecord)(id);
+        console.log("FIRST AID ROWS FROM DATABASE:", rows);
         firstAidEntries = rows.map((r) => ({
             id: String(r.id),
             employeeId: r.employee_id ? String(r.employee_id) : undefined,
