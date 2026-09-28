@@ -221,8 +221,7 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
   const { dismissedAlerts } = useAlerts();
   const { theme, colors, brandPrimaryBg, getNavTextColor } = useTheme();
   const { user, logout } = useAuth();
-  const clientCompany =
-  user?.role === "client" ? user.company : null;
+  const clientCompany = user?.role === "client" ? user.company : null;
   const [activeItem, setActiveItem] = useState<string>("dashboard");
 
   useEffect(() => {
@@ -702,7 +701,14 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
         {/* Page Content */}
         <main className="flex-1 overflow-auto bg-background">
           {activeItem === "dashboard" ? (
-            <Dashboard />
+            <Dashboard
+              onNavigate={(page, options) => {
+                if (options?.openAddEmployee) {
+                  sessionStorage.setItem("workforce:openAddModal", "1");
+                }
+                setActiveItem(page);
+              }}
+            />
           ) : activeItem === "company-sites" ? (
             <CompanySites />
           ) : activeItem === "workforce" ? (

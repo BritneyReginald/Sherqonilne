@@ -80,7 +80,9 @@ export function Workforce() {
   const { selectedSite } = useSiteFilter();
   const [selectedStatus, setSelectedStatus] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
+  const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(
+    null,
+  );
   const [employeeList, setEmployeeList] = useState<Employee[]>([]);
   const [confirmModal, setConfirmModal] = useState<{
     type: "deactivate" | "delete";
@@ -104,7 +106,9 @@ export function Workforce() {
     fetchEmployees();
     getSites()
       .then((data: any[]) =>
-        setAvailableSites(data.map((s) => ({ id: String(s.id), name: s.name }))),
+        setAvailableSites(
+          data.map((s) => ({ id: String(s.id), name: s.name })),
+        ),
       )
       .catch((err) => console.error("Failed to load sites:", err));
   }, []);
@@ -137,8 +141,12 @@ export function Workforce() {
 
   const [showAddModal, setShowAddModal] = useState(false);
   const [idDocumentFile, setIdDocumentFile] = useState<File | null>(null);
-  const [profilePictureFile, setProfilePictureFile] = useState<File | null>(null);
-  const [profilePicturePreview, setProfilePicturePreview] = useState<string | null>(null);
+  const [profilePictureFile, setProfilePictureFile] = useState<File | null>(
+    null,
+  );
+  const [profilePicturePreview, setProfilePicturePreview] = useState<
+    string | null
+  >(null);
 
   const emptyNewEmployee = {
     fullName: "",
@@ -254,7 +262,9 @@ export function Workforce() {
       if (!response.ok) throw new Error("Failed");
 
       setEmployeeList((prev) =>
-        prev.map((e) => (e.id === employee.id ? { ...e, status: "Inactive" } : e)),
+        prev.map((e) =>
+          e.id === employee.id ? { ...e, status: "Inactive" } : e,
+        ),
       );
       setConfirmModal(null);
     } catch (err) {
@@ -289,6 +299,13 @@ export function Workforce() {
     }
   };
 
+  useEffect(() => {
+    if (sessionStorage.getItem("workforce:openAddModal") === "1") {
+      sessionStorage.removeItem("workforce:openAddModal");
+      setShowAddModal(true);
+    }
+  }, []);
+
   if (selectedEmployee) {
     return (
       <EmployeeProfile
@@ -319,13 +336,19 @@ export function Workforce() {
   const labelClass = "block text-sm font-medium mb-2";
 
   return (
-    <div className="h-full overflow-y-auto" style={{ backgroundColor: colors.background }}>
+    <div
+      className="h-full overflow-y-auto"
+      style={{ backgroundColor: colors.background }}
+    >
       <div className="max-w-[1600px] mx-auto">
         {/* Header */}
         <div className="px-8 pt-6 pb-8">
           <div className="flex items-start justify-between mb-8">
             <div>
-              <h1 className="text-3xl mb-2" style={{ color: colors.primaryText }}>
+              <h1
+                className="text-3xl mb-2"
+                style={{ color: colors.primaryText }}
+              >
                 Workforce Management
               </h1>
               <p className="text-sm" style={{ color: colors.subText }}>
@@ -347,7 +370,10 @@ export function Workforce() {
             <Filter className="size-5" style={{ color: colors.subText }} />
             <div
               className="px-4 py-2.5 rounded-lg text-sm font-medium"
-              style={{ backgroundColor: colors.surface, color: colors.primaryText }}
+              style={{
+                backgroundColor: colors.surface,
+                color: colors.primaryText,
+              }}
             >
               Site: {selectedSite?.name ?? "All Sites"}
             </div>
@@ -355,7 +381,11 @@ export function Workforce() {
               value={selectedStatus}
               onChange={(e) => setSelectedStatus(e.target.value)}
               className="px-4 py-2.5 rounded-lg text-sm appearance-none cursor-pointer"
-              style={{ backgroundColor: colors.surface, color: colors.primaryText, border: "none" }}
+              style={{
+                backgroundColor: colors.surface,
+                color: colors.primaryText,
+                border: "none",
+              }}
             >
               {statuses.map((status) => (
                 <option key={status.value} value={status.value}>
@@ -365,20 +395,30 @@ export function Workforce() {
             </select>
 
             <div className="flex-1 relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4" style={{ color: colors.subText }} />
+              <Search
+                className="absolute left-3 top-1/2 -translate-y-1/2 size-4"
+                style={{ color: colors.subText }}
+              />
               <input
                 type="text"
                 placeholder="Search by name, ID, or job title..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full pl-10 pr-4 py-2.5 rounded-lg text-sm focus:outline-none"
-                style={{ backgroundColor: colors.surface, color: colors.primaryText, border: "none" }}
+                style={{
+                  backgroundColor: colors.surface,
+                  color: colors.primaryText,
+                  border: "none",
+                }}
               />
             </div>
 
             <button
               className="px-4 py-2.5 rounded-lg flex items-center justify-center gap-2 font-medium transition-opacity hover:opacity-90"
-              style={{ backgroundColor: colors.surface, color: colors.primaryText }}
+              style={{
+                backgroundColor: colors.surface,
+                color: colors.primaryText,
+              }}
             >
               <Download className="size-4" />
               Export
@@ -387,26 +427,69 @@ export function Workforce() {
 
           {/* Stats */}
           <div className="grid grid-cols-4 gap-4">
-            <div className="px-6 py-4 rounded-lg" style={{ backgroundColor: colors.surface }}>
-              <p className="text-sm mb-2" style={{ color: colors.subText }}>Total Employees</p>
-              <p className="text-3xl font-bold" style={{ color: colors.primaryText }}>{filteredEmployees.length}</p>
-            </div>
-            <div className="px-6 py-4 rounded-lg" style={{ backgroundColor: colors.surface }}>
-              <p className="text-sm mb-2" style={{ color: colors.subText }}>Compliant</p>
-              <p className="text-3xl font-bold" style={{ color: "var(--compliance-success)" }}>
-                {employeeList.filter((e) => e.complianceStatus === "compliant").length}
+            <div
+              className="px-6 py-4 rounded-lg"
+              style={{ backgroundColor: colors.surface }}
+            >
+              <p className="text-sm mb-2" style={{ color: colors.subText }}>
+                Total Employees
+              </p>
+              <p
+                className="text-3xl font-bold"
+                style={{ color: colors.primaryText }}
+              >
+                {filteredEmployees.length}
               </p>
             </div>
-            <div className="px-6 py-4 rounded-lg" style={{ backgroundColor: colors.surface }}>
-              <p className="text-sm mb-2" style={{ color: colors.subText }}>Review Needed</p>
-              <p className="text-3xl font-bold" style={{ color: "var(--compliance-warning)" }}>
-                {employeeList.filter((e) => e.complianceStatus === "review").length}
+            <div
+              className="px-6 py-4 rounded-lg"
+              style={{ backgroundColor: colors.surface }}
+            >
+              <p className="text-sm mb-2" style={{ color: colors.subText }}>
+                Compliant
+              </p>
+              <p
+                className="text-3xl font-bold"
+                style={{ color: "var(--compliance-success)" }}
+              >
+                {
+                  employeeList.filter((e) => e.complianceStatus === "compliant")
+                    .length
+                }
               </p>
             </div>
-            <div className="px-6 py-4 rounded-lg" style={{ backgroundColor: colors.surface }}>
-              <p className="text-sm mb-2" style={{ color: colors.subText }}>Action Required</p>
-              <p className="text-3xl font-bold" style={{ color: "var(--compliance-danger)" }}>
-                {employeeList.filter((e) => e.complianceStatus === "action").length}
+            <div
+              className="px-6 py-4 rounded-lg"
+              style={{ backgroundColor: colors.surface }}
+            >
+              <p className="text-sm mb-2" style={{ color: colors.subText }}>
+                Review Needed
+              </p>
+              <p
+                className="text-3xl font-bold"
+                style={{ color: "var(--compliance-warning)" }}
+              >
+                {
+                  employeeList.filter((e) => e.complianceStatus === "review")
+                    .length
+                }
+              </p>
+            </div>
+            <div
+              className="px-6 py-4 rounded-lg"
+              style={{ backgroundColor: colors.surface }}
+            >
+              <p className="text-sm mb-2" style={{ color: colors.subText }}>
+                Action Required
+              </p>
+              <p
+                className="text-3xl font-bold"
+                style={{ color: "var(--compliance-danger)" }}
+              >
+                {
+                  employeeList.filter((e) => e.complianceStatus === "action")
+                    .length
+                }
               </p>
             </div>
           </div>
@@ -414,7 +497,10 @@ export function Workforce() {
 
         {/* Table */}
         <div className="px-8 pb-6">
-          <div className="rounded-lg overflow-hidden" style={{ backgroundColor: colors.surface }}>
+          <div
+            className="rounded-lg overflow-hidden"
+            style={{ backgroundColor: colors.surface }}
+          >
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
@@ -426,12 +512,42 @@ export function Workforce() {
                           : "rgba(0, 0, 0, 0.02)",
                     }}
                   >
-                    <th className="px-6 py-4 text-left text-sm font-medium" style={{ color: colors.subText }}>Employee ID</th>
-                    <th className="px-6 py-4 text-left text-sm font-medium" style={{ color: colors.subText }}>Full Name</th>
-                    <th className="px-6 py-4 text-left text-sm font-medium" style={{ color: colors.subText }}>Job Title</th>
-                    <th className="px-6 py-4 text-left text-sm font-medium" style={{ color: colors.subText }}>Site Location</th>
-                    <th className="px-6 py-4 text-left text-sm font-medium" style={{ color: colors.subText }}>Overall Compliance Status</th>
-                    <th className="px-6 py-4 text-left text-sm font-medium" style={{ color: colors.subText }}>Actions</th>
+                    <th
+                      className="px-6 py-4 text-left text-sm font-medium"
+                      style={{ color: colors.subText }}
+                    >
+                      Employee ID
+                    </th>
+                    <th
+                      className="px-6 py-4 text-left text-sm font-medium"
+                      style={{ color: colors.subText }}
+                    >
+                      Full Name
+                    </th>
+                    <th
+                      className="px-6 py-4 text-left text-sm font-medium"
+                      style={{ color: colors.subText }}
+                    >
+                      Job Title
+                    </th>
+                    <th
+                      className="px-6 py-4 text-left text-sm font-medium"
+                      style={{ color: colors.subText }}
+                    >
+                      Site Location
+                    </th>
+                    <th
+                      className="px-6 py-4 text-left text-sm font-medium"
+                      style={{ color: colors.subText }}
+                    >
+                      Overall Compliance Status
+                    </th>
+                    <th
+                      className="px-6 py-4 text-left text-sm font-medium"
+                      style={{ color: colors.subText }}
+                    >
+                      Actions
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
@@ -450,10 +566,16 @@ export function Workforce() {
                         }}
                         onClick={() => setSelectedEmployee(employee)}
                       >
-                        <td className="px-6 py-4 text-sm font-medium" style={{ color: colors.primaryText }}>
+                        <td
+                          className="px-6 py-4 text-sm font-medium"
+                          style={{ color: colors.primaryText }}
+                        >
                           {employee.employeeId}
                         </td>
-                        <td className="px-6 py-4 text-sm" style={{ color: colors.primaryText }}>
+                        <td
+                          className="px-6 py-4 text-sm"
+                          style={{ color: colors.primaryText }}
+                        >
                           <div className="flex items-center gap-2">
                             {employee.profilePictureUrl ? (
                               <img
@@ -466,29 +588,49 @@ export function Workforce() {
                                 className="size-7 rounded-full flex items-center justify-center text-white text-xs font-semibold"
                                 style={{ backgroundColor: "var(--brand-blue)" }}
                               >
-                                {employee.fullName?.split(" ").map((n) => n[0]).join("")}
+                                {employee.fullName
+                                  ?.split(" ")
+                                  .map((n) => n[0])
+                                  .join("")}
                               </div>
                             )}
                             {employee.fullName}
                             {employee.status === "Inactive" && (
                               <span
                                 className="px-2 py-0.5 rounded-full text-xs font-medium"
-                                style={{ backgroundColor: "#F3F4F6", color: "#6B7280" }}
+                                style={{
+                                  backgroundColor: "#F3F4F6",
+                                  color: "#6B7280",
+                                }}
                               >
                                 Inactive
                               </span>
                             )}
                           </div>
                         </td>
-                        <td className="px-6 py-4 text-sm" style={{ color: colors.subText }}>{employee.jobTitle}</td>
-                        <td className="px-6 py-4 text-sm" style={{ color: colors.subText }}>{employee.siteLocation}</td>
+                        <td
+                          className="px-6 py-4 text-sm"
+                          style={{ color: colors.subText }}
+                        >
+                          {employee.jobTitle}
+                        </td>
+                        <td
+                          className="px-6 py-4 text-sm"
+                          style={{ color: colors.subText }}
+                        >
+                          {employee.siteLocation}
+                        </td>
                         <td className="px-6 py-4">
                           <ComplianceBadge status={employee.complianceStatus} />
                         </td>
-                        <td className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
+                        <td
+                          className="px-6 py-4"
+                          onClick={(e) => e.stopPropagation()}
+                        >
                           <button
                             onClick={(e) => {
-                              const rect = e.currentTarget.getBoundingClientRect();
+                              const rect =
+                                e.currentTarget.getBoundingClientRect();
                               setMenuAnchor(
                                 menuAnchor?.employee.id === employee.id
                                   ? null
@@ -505,7 +647,11 @@ export function Workforce() {
                     ))
                   ) : (
                     <tr>
-                      <td colSpan={6} className="px-6 py-12 text-center text-sm" style={{ color: colors.subText }}>
+                      <td
+                        colSpan={6}
+                        className="px-6 py-12 text-center text-sm"
+                        style={{ color: colors.subText }}
+                      >
                         No employee found matching the current filters
                       </td>
                     </tr>
@@ -516,7 +662,8 @@ export function Workforce() {
           </div>
 
           <div className="mt-4 text-sm" style={{ color: colors.subText }}>
-            Showing {filteredEmployees.length} of {employeeList.length} employees
+            Showing {filteredEmployees.length} of {employeeList.length}{" "}
+            employees
           </div>
         </div>
       </div>
@@ -525,7 +672,10 @@ export function Workforce() {
       {menuAnchor &&
         createPortal(
           <>
-            <div className="fixed inset-0 z-40" onClick={() => setMenuAnchor(null)} />
+            <div
+              className="fixed inset-0 z-40"
+              onClick={() => setMenuAnchor(null)}
+            />
             <div
               className="fixed w-52 rounded-lg border shadow-lg z-50 overflow-hidden"
               style={{
@@ -547,7 +697,11 @@ export function Workforce() {
                 <UserX className="size-4" />
                 Deactivate Employee
               </button>
-              <div style={{ borderTop: `1px solid ${colors.border || "var(--grey-100)"}` }} />
+              <div
+                style={{
+                  borderTop: `1px solid ${colors.border || "var(--grey-100)"}`,
+                }}
+              />
               <button
                 onClick={() => {
                   const employee = menuAnchor.employee;
@@ -568,8 +722,14 @@ export function Workforce() {
       {/* Add Employee Modal */}
       {showAddModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="w-full max-w-5xl rounded-xl p-6" style={{ backgroundColor: colors.surface }}>
-            <h2 className="text-xl font-semibold mb-4" style={{ color: colors.primaryText }}>
+          <div
+            className="w-full max-w-5xl rounded-xl p-6"
+            style={{ backgroundColor: colors.surface }}
+          >
+            <h2
+              className="text-xl font-semibold mb-4"
+              style={{ color: colors.primaryText }}
+            >
               Add Employee
             </h2>
 
@@ -579,17 +739,27 @@ export function Workforce() {
                   <div key={step} className="flex flex-col items-center flex-1">
                     <div
                       className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-semibold transition-all ${
-                        currentStep >= index + 1 ? "bg-blue-500 text-white" : "bg-gray-300 text-gray-700"
+                        currentStep >= index + 1
+                          ? "bg-blue-500 text-white"
+                          : "bg-gray-300 text-gray-700"
                       }`}
                     >
                       {index + 1}
                     </div>
-                    <span className="text-xs mt-2" style={{ color: colors.subText }}>{step}</span>
+                    <span
+                      className="text-xs mt-2"
+                      style={{ color: colors.subText }}
+                    >
+                      {step}
+                    </span>
                   </div>
                 ))}
               </div>
               <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden mt-4">
-                <div className="h-full bg-blue-500 transition-all duration-300" style={{ width: `${(currentStep / totalSteps) * 100}%` }} />
+                <div
+                  className="h-full bg-blue-500 transition-all duration-300"
+                  style={{ width: `${(currentStep / totalSteps) * 100}%` }}
+                />
               </div>
             </div>
 
@@ -597,9 +767,15 @@ export function Workforce() {
               {/* PERSONAL */}
               {currentStep === 1 && (
                 <div>
-                  <h3 className="text-lg font-semibold mb-4" style={{ color: colors.primaryText }}>Personal Information</h3>
+                  <h3
+                    className="text-lg font-semibold mb-4"
+                    style={{ color: colors.primaryText }}
+                  >
+                    Personal Information
+                  </h3>
                   <p className="text-xs mb-4" style={{ color: colors.subText }}>
-                    Employee ID (e.g. EMP004) is generated automatically once you save.
+                    Employee ID (e.g. EMP004) is generated automatically once
+                    you save.
                   </p>
 
                   {/* Profile picture picker */}
@@ -610,14 +786,21 @@ export function Workforce() {
                         style={{ backgroundColor: "var(--brand-blue)" }}
                       >
                         {profilePicturePreview ? (
-                          <img src={profilePicturePreview} alt="Preview" className="w-full h-full object-cover" />
+                          <img
+                            src={profilePicturePreview}
+                            alt="Preview"
+                            className="w-full h-full object-cover"
+                          />
                         ) : (
                           <Camera className="size-7 opacity-80" />
                         )}
                       </div>
                       <div
                         className="absolute -bottom-1 -right-1 size-7 rounded-full flex items-center justify-center border-2"
-                        style={{ backgroundColor: "#3B82F6", borderColor: colors.surface }}
+                        style={{
+                          backgroundColor: "#3B82F6",
+                          borderColor: colors.surface,
+                        }}
                       >
                         <Camera className="size-3.5 text-white" />
                       </div>
@@ -637,7 +820,10 @@ export function Workforce() {
                       />
                     </label>
                     <div>
-                      <p className="text-sm font-medium" style={{ color: colors.primaryText }}>
+                      <p
+                        className="text-sm font-medium"
+                        style={{ color: colors.primaryText }}
+                      >
                         Profile Picture
                       </p>
                       <p className="text-xs" style={{ color: colors.subText }}>
@@ -648,30 +834,60 @@ export function Workforce() {
 
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <label className={labelClass} style={{ color: colors.primaryText }}>Full Name</label>
+                      <label
+                        className={labelClass}
+                        style={{ color: colors.primaryText }}
+                      >
+                        Full Name
+                      </label>
                       <input
                         type="text"
                         value={newEmployee.fullName}
-                        onChange={(e) => setNewEmployee({ ...newEmployee, fullName: e.target.value })}
+                        onChange={(e) =>
+                          setNewEmployee({
+                            ...newEmployee,
+                            fullName: e.target.value,
+                          })
+                        }
                         className={inputClass}
                         style={inputStyle}
                       />
                     </div>
                     <div>
-                      <label className={labelClass} style={{ color: colors.primaryText }}>Date Of Birth</label>
+                      <label
+                        className={labelClass}
+                        style={{ color: colors.primaryText }}
+                      >
+                        Date Of Birth
+                      </label>
                       <input
                         type="date"
                         value={newEmployee.dateOfBirth}
-                        onChange={(e) => setNewEmployee({ ...newEmployee, dateOfBirth: e.target.value })}
+                        onChange={(e) =>
+                          setNewEmployee({
+                            ...newEmployee,
+                            dateOfBirth: e.target.value,
+                          })
+                        }
                         className={inputClass}
                         style={inputStyle}
                       />
                     </div>
                     <div>
-                      <label className={labelClass} style={{ color: colors.primaryText }}>Gender</label>
+                      <label
+                        className={labelClass}
+                        style={{ color: colors.primaryText }}
+                      >
+                        Gender
+                      </label>
                       <select
                         value={newEmployee.gender}
-                        onChange={(e) => setNewEmployee({ ...newEmployee, gender: e.target.value })}
+                        onChange={(e) =>
+                          setNewEmployee({
+                            ...newEmployee,
+                            gender: e.target.value,
+                          })
+                        }
                         className={inputClass}
                         style={inputStyle}
                       >
@@ -681,29 +897,49 @@ export function Workforce() {
                       </select>
                     </div>
                     <div>
-                      <label className={labelClass} style={{ color: colors.primaryText }}>Nationality</label>
+                      <label
+                        className={labelClass}
+                        style={{ color: colors.primaryText }}
+                      >
+                        Nationality
+                      </label>
                       <input
                         type="text"
                         placeholder="Nationality"
                         value={newEmployee.nationality}
-                        onChange={(e) => setNewEmployee({ ...newEmployee, nationality: e.target.value })}
+                        onChange={(e) =>
+                          setNewEmployee({
+                            ...newEmployee,
+                            nationality: e.target.value,
+                          })
+                        }
                         className={inputClass}
                         style={inputStyle}
                       />
                     </div>
                     <div className="col-span-2">
-                      <label className={labelClass} style={{ color: colors.primaryText }}>
+                      <label
+                        className={labelClass}
+                        style={{ color: colors.primaryText }}
+                      >
                         Employee ID Document (upload)
                       </label>
                       <input
                         type="file"
                         accept="image/*,.pdf"
-                        onChange={(e) => setIdDocumentFile(e.target.files?.[0] ?? null)}
+                        onChange={(e) =>
+                          setIdDocumentFile(e.target.files?.[0] ?? null)
+                        }
                         className={inputClass}
                         style={inputStyle}
                       />
                       {idDocumentFile && (
-                        <p className="text-xs mt-1" style={{ color: colors.subText }}>Selected: {idDocumentFile.name}</p>
+                        <p
+                          className="text-xs mt-1"
+                          style={{ color: colors.subText }}
+                        >
+                          Selected: {idDocumentFile.name}
+                        </p>
                       )}
                     </div>
                   </div>
@@ -713,13 +949,23 @@ export function Workforce() {
               {/* CONTACT */}
               {currentStep === 2 && (
                 <div>
-                  <h3 className="text-lg font-semibold mb-4" style={{ color: colors.primaryText }}>Contact Information</h3>
+                  <h3
+                    className="text-lg font-semibold mb-4"
+                    style={{ color: colors.primaryText }}
+                  >
+                    Contact Information
+                  </h3>
                   <div className="grid grid-cols-2 gap-4">
                     <input
                       type="email"
                       placeholder="Email"
                       value={newEmployee.email}
-                      onChange={(e) => setNewEmployee({ ...newEmployee, email: e.target.value })}
+                      onChange={(e) =>
+                        setNewEmployee({
+                          ...newEmployee,
+                          email: e.target.value,
+                        })
+                      }
                       className={inputClass}
                       style={inputStyle}
                     />
@@ -727,7 +973,12 @@ export function Workforce() {
                       type="text"
                       placeholder="Office Phone"
                       value={newEmployee.phone}
-                      onChange={(e) => setNewEmployee({ ...newEmployee, phone: e.target.value })}
+                      onChange={(e) =>
+                        setNewEmployee({
+                          ...newEmployee,
+                          phone: e.target.value,
+                        })
+                      }
                       className={inputClass}
                       style={inputStyle}
                     />
@@ -735,7 +986,12 @@ export function Workforce() {
                       type="text"
                       placeholder="Mobile Phone"
                       value={newEmployee.mobile}
-                      onChange={(e) => setNewEmployee({ ...newEmployee, mobile: e.target.value })}
+                      onChange={(e) =>
+                        setNewEmployee({
+                          ...newEmployee,
+                          mobile: e.target.value,
+                        })
+                      }
                       className={inputClass}
                       style={inputStyle}
                     />
@@ -743,7 +999,12 @@ export function Workforce() {
                       type="text"
                       placeholder="Address"
                       value={newEmployee.address}
-                      onChange={(e) => setNewEmployee({ ...newEmployee, address: e.target.value })}
+                      onChange={(e) =>
+                        setNewEmployee({
+                          ...newEmployee,
+                          address: e.target.value,
+                        })
+                      }
                       className={`${inputClass} col-span-2`}
                       style={inputStyle}
                     />
@@ -754,32 +1015,54 @@ export function Workforce() {
               {/* EMPLOYMENT */}
               {currentStep === 3 && (
                 <div>
-                  <h3 className="text-lg font-semibold mb-4" style={{ color: colors.primaryText }}>Employment Details</h3>
+                  <h3
+                    className="text-lg font-semibold mb-4"
+                    style={{ color: colors.primaryText }}
+                  >
+                    Employment Details
+                  </h3>
                   <div className="grid grid-cols-2 gap-4">
                     <input
                       type="text"
                       placeholder="Job Title"
                       value={newEmployee.jobTitle}
-                      onChange={(e) => setNewEmployee({ ...newEmployee, jobTitle: e.target.value })}
+                      onChange={(e) =>
+                        setNewEmployee({
+                          ...newEmployee,
+                          jobTitle: e.target.value,
+                        })
+                      }
                       className={inputClass}
                       style={inputStyle}
                     />
                     <select
                       value={newEmployee.siteLocation}
-                      onChange={(e) => setNewEmployee({ ...newEmployee, siteLocation: e.target.value })}
+                      onChange={(e) =>
+                        setNewEmployee({
+                          ...newEmployee,
+                          siteLocation: e.target.value,
+                        })
+                      }
                       className={inputClass}
                       style={inputStyle}
                     >
                       <option value="">Select Site</option>
                       {availableSites.map((s) => (
-                        <option key={s.id} value={s.name}>{s.name}</option>
+                        <option key={s.id} value={s.name}>
+                          {s.name}
+                        </option>
                       ))}
                     </select>
                     <input
                       type="text"
                       placeholder="Reporting Manager"
                       value={newEmployee.reportingManager}
-                      onChange={(e) => setNewEmployee({ ...newEmployee, reportingManager: e.target.value })}
+                      onChange={(e) =>
+                        setNewEmployee({
+                          ...newEmployee,
+                          reportingManager: e.target.value,
+                        })
+                      }
                       className={inputClass}
                       style={inputStyle}
                     />
@@ -789,7 +1072,10 @@ export function Workforce() {
                         setNewEmployee({
                           ...newEmployee,
                           employmentType: e.target.value,
-                          contractEndDate: e.target.value === "Contract" ? newEmployee.contractEndDate : "",
+                          contractEndDate:
+                            e.target.value === "Contract"
+                              ? newEmployee.contractEndDate
+                              : "",
                         })
                       }
                       className={inputClass}
@@ -797,21 +1083,33 @@ export function Workforce() {
                     >
                       <option value="">Select Employment Type</option>
                       {employmentTypes.map((t) => (
-                        <option key={t} value={t}>{t}</option>
+                        <option key={t} value={t}>
+                          {t}
+                        </option>
                       ))}
                     </select>
                     <div className="col-span-2">
-                      <label className={labelClass} style={{ color: colors.primaryText }}>Compliance Status</label>
+                      <label
+                        className={labelClass}
+                        style={{ color: colors.primaryText }}
+                      >
+                        Compliance Status
+                      </label>
                       <select
                         value={newEmployee.complianceStatus}
                         onChange={(e) =>
-                          setNewEmployee({ ...newEmployee, complianceStatus: e.target.value as any })
+                          setNewEmployee({
+                            ...newEmployee,
+                            complianceStatus: e.target.value as any,
+                          })
                         }
                         className={inputClass}
                         style={inputStyle}
                       >
                         {complianceOptions.map((c) => (
-                          <option key={c.value} value={c.value}>{c.label}</option>
+                          <option key={c.value} value={c.value}>
+                            {c.label}
+                          </option>
                         ))}
                       </select>
                     </div>
@@ -822,27 +1120,50 @@ export function Workforce() {
               {/* TIMELINE & COMPENSATION */}
               {currentStep === 4 && (
                 <div>
-                  <h3 className="text-lg font-semibold mb-4" style={{ color: colors.primaryText }}>
+                  <h3
+                    className="text-lg font-semibold mb-4"
+                    style={{ color: colors.primaryText }}
+                  >
                     Employment Timeline & Compensation
                   </h3>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <label className={labelClass} style={{ color: colors.primaryText }}>Start Date</label>
+                      <label
+                        className={labelClass}
+                        style={{ color: colors.primaryText }}
+                      >
+                        Start Date
+                      </label>
                       <input
                         type="date"
                         value={newEmployee.startDate}
-                        onChange={(e) => setNewEmployee({ ...newEmployee, startDate: e.target.value })}
+                        onChange={(e) =>
+                          setNewEmployee({
+                            ...newEmployee,
+                            startDate: e.target.value,
+                          })
+                        }
                         className={inputClass}
                         style={inputStyle}
                       />
                     </div>
                     {newEmployee.employmentType === "Contract" && (
                       <div>
-                        <label className={labelClass} style={{ color: colors.primaryText }}>Contract End Date</label>
+                        <label
+                          className={labelClass}
+                          style={{ color: colors.primaryText }}
+                        >
+                          Contract End Date
+                        </label>
                         <input
                           type="date"
                           value={newEmployee.contractEndDate}
-                          onChange={(e) => setNewEmployee({ ...newEmployee, contractEndDate: e.target.value })}
+                          onChange={(e) =>
+                            setNewEmployee({
+                              ...newEmployee,
+                              contractEndDate: e.target.value,
+                            })
+                          }
                           className={inputClass}
                           style={inputStyle}
                         />
@@ -852,20 +1173,35 @@ export function Workforce() {
                       type="text"
                       placeholder="Salary Grade"
                       value={newEmployee.salaryGrade}
-                      onChange={(e) => setNewEmployee({ ...newEmployee, salaryGrade: e.target.value })}
+                      onChange={(e) =>
+                        setNewEmployee({
+                          ...newEmployee,
+                          salaryGrade: e.target.value,
+                        })
+                      }
                       className={inputClass}
                       style={inputStyle}
                     />
                     <textarea
                       placeholder="Work Schedule"
                       value={newEmployee.workSchedule}
-                      onChange={(e) => setNewEmployee({ ...newEmployee, workSchedule: e.target.value })}
+                      onChange={(e) =>
+                        setNewEmployee({
+                          ...newEmployee,
+                          workSchedule: e.target.value,
+                        })
+                      }
                       className={`${inputClass} col-span-2`}
                       style={inputStyle}
                       rows={3}
                     />
-                    <p className="text-xs col-span-2" style={{ color: colors.subText }}>
-                      Length of service is calculated automatically from the start date once the employee is saved — no need to enter it here.
+                    <p
+                      className="text-xs col-span-2"
+                      style={{ color: colors.subText }}
+                    >
+                      Length of service is calculated automatically from the
+                      start date once the employee is saved — no need to enter
+                      it here.
                     </p>
                   </div>
                 </div>
@@ -874,13 +1210,23 @@ export function Workforce() {
               {/* EMERGENCY */}
               {currentStep === 5 && (
                 <div>
-                  <h3 className="text-lg font-semibold mb-4" style={{ color: colors.primaryText }}>Emergency Contact</h3>
+                  <h3
+                    className="text-lg font-semibold mb-4"
+                    style={{ color: colors.primaryText }}
+                  >
+                    Emergency Contact
+                  </h3>
                   <div className="grid grid-cols-2 gap-4">
                     <input
                       type="text"
                       placeholder="Contact Name"
                       value={newEmployee.emergencyContact}
-                      onChange={(e) => setNewEmployee({ ...newEmployee, emergencyContact: e.target.value })}
+                      onChange={(e) =>
+                        setNewEmployee({
+                          ...newEmployee,
+                          emergencyContact: e.target.value,
+                        })
+                      }
                       className={inputClass}
                       style={inputStyle}
                     />
@@ -888,7 +1234,12 @@ export function Workforce() {
                       type="text"
                       placeholder="Relationship"
                       value={newEmployee.relationship}
-                      onChange={(e) => setNewEmployee({ ...newEmployee, relationship: e.target.value })}
+                      onChange={(e) =>
+                        setNewEmployee({
+                          ...newEmployee,
+                          relationship: e.target.value,
+                        })
+                      }
                       className={inputClass}
                       style={inputStyle}
                     />
@@ -896,7 +1247,12 @@ export function Workforce() {
                       type="text"
                       placeholder="Phone Number"
                       value={newEmployee.emergencyPhone}
-                      onChange={(e) => setNewEmployee({ ...newEmployee, emergencyPhone: e.target.value })}
+                      onChange={(e) =>
+                        setNewEmployee({
+                          ...newEmployee,
+                          emergencyPhone: e.target.value,
+                        })
+                      }
                       className={inputClass}
                       style={inputStyle}
                     />
@@ -906,10 +1262,16 @@ export function Workforce() {
 
               <div className="flex justify-between pt-6 border-t mt-6">
                 <button
-                  onClick={() => currentStep > 1 && setCurrentStep(currentStep - 1)}
+                  onClick={() =>
+                    currentStep > 1 && setCurrentStep(currentStep - 1)
+                  }
                   disabled={currentStep === 1}
                   className="px-5 py-2 rounded-lg"
-                  style={{ backgroundColor: colors.background, color: colors.primaryText, opacity: currentStep === 1 ? 0.5 : 1 }}
+                  style={{
+                    backgroundColor: colors.background,
+                    color: colors.primaryText,
+                    opacity: currentStep === 1 ? 0.5 : 1,
+                  }}
                 >
                   Back
                 </button>
@@ -917,7 +1279,10 @@ export function Workforce() {
                   <button
                     onClick={resetAddModal}
                     className="px-5 py-2 rounded-lg"
-                    style={{ backgroundColor: colors.background, color: colors.primaryText }}
+                    style={{
+                      backgroundColor: colors.background,
+                      color: colors.primaryText,
+                    }}
                   >
                     Cancel
                   </button>
@@ -929,7 +1294,10 @@ export function Workforce() {
                       Next
                     </button>
                   ) : (
-                    <button onClick={handleSaveEmployee} className="px-5 py-2 rounded-lg text-white bg-green-600">
+                    <button
+                      onClick={handleSaveEmployee}
+                      className="px-5 py-2 rounded-lg text-white bg-green-600"
+                    >
                       Save Employee
                     </button>
                   )}
@@ -942,11 +1310,17 @@ export function Workforce() {
 
       {confirmModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="w-full max-w-md rounded-xl shadow-xl p-6" style={{ backgroundColor: colors.surface }}>
+          <div
+            className="w-full max-w-md rounded-xl shadow-xl p-6"
+            style={{ backgroundColor: colors.surface }}
+          >
             <div className="flex items-center gap-3 mb-4">
               <div
                 className="size-10 rounded-full flex items-center justify-center"
-                style={{ backgroundColor: confirmModal.type === "delete" ? "#FEE2E2" : "#FEF3C7" }}
+                style={{
+                  backgroundColor:
+                    confirmModal.type === "delete" ? "#FEE2E2" : "#FEF3C7",
+                }}
               >
                 {confirmModal.type === "delete" ? (
                   <Trash2 className="size-5" style={{ color: "#DC2626" }} />
@@ -954,15 +1328,29 @@ export function Workforce() {
                   <UserX className="size-5" style={{ color: "#B45309" }} />
                 )}
               </div>
-              <h2 className="text-lg font-medium" style={{ color: colors.primaryText }}>
-                {confirmModal.type === "delete" ? "Delete Permanently" : "Deactivate Employee"}
+              <h2
+                className="text-lg font-medium"
+                style={{ color: colors.primaryText }}
+              >
+                {confirmModal.type === "delete"
+                  ? "Delete Permanently"
+                  : "Deactivate Employee"}
               </h2>
             </div>
             <p className="text-sm mb-1" style={{ color: colors.primaryText }}>
-              Are you sure you want to {confirmModal.type === "delete" ? "permanently delete" : "deactivate"}{" "}
+              Are you sure you want to{" "}
+              {confirmModal.type === "delete"
+                ? "permanently delete"
+                : "deactivate"}{" "}
               <strong>{confirmModal.employee.fullName}</strong>?
             </p>
-            <p className="text-sm mb-6" style={{ color: confirmModal.type === "delete" ? "#DC2626" : colors.subText }}>
+            <p
+              className="text-sm mb-6"
+              style={{
+                color:
+                  confirmModal.type === "delete" ? "#DC2626" : colors.subText,
+              }}
+            >
               {confirmModal.type === "delete"
                 ? "⚠ This cannot be undone. All data will be removed from the database."
                 : "Their record will be kept but marked as Inactive."}
@@ -971,7 +1359,10 @@ export function Workforce() {
               <button
                 onClick={() => setConfirmModal(null)}
                 className="px-4 py-2 rounded-lg text-sm"
-                style={{ backgroundColor: colors.background, color: colors.primaryText }}
+                style={{
+                  backgroundColor: colors.background,
+                  color: colors.primaryText,
+                }}
               >
                 Cancel
               </button>
@@ -983,9 +1374,16 @@ export function Workforce() {
                 }
                 disabled={isActioning}
                 className="px-4 py-2 rounded-lg text-sm text-white disabled:opacity-60"
-                style={{ backgroundColor: confirmModal.type === "delete" ? "#DC2626" : "#D97706" }}
+                style={{
+                  backgroundColor:
+                    confirmModal.type === "delete" ? "#DC2626" : "#D97706",
+                }}
               >
-                {isActioning ? "Processing…" : confirmModal.type === "delete" ? "Yes, Delete" : "Yes, Deactivate"}
+                {isActioning
+                  ? "Processing…"
+                  : confirmModal.type === "delete"
+                    ? "Yes, Delete"
+                    : "Yes, Deactivate"}
               </button>
             </div>
           </div>
@@ -1001,15 +1399,31 @@ interface ComplianceBadgeProps {
 
 function ComplianceBadge({ status }: ComplianceBadgeProps) {
   const badgeConfig = {
-    compliant: { label: "Compliant", color: "var(--compliance-success)", icon: <CheckCircle2 className="size-4" /> },
-    review: { label: "Review Needed", color: "var(--compliance-warning)", icon: <AlertTriangle className="size-4" /> },
-    action: { label: "Action Required", color: "var(--compliance-danger)", icon: <XCircle className="size-4" /> },
+    compliant: {
+      label: "Compliant",
+      color: "var(--compliance-success)",
+      icon: <CheckCircle2 className="size-4" />,
+    },
+    review: {
+      label: "Review Needed",
+      color: "var(--compliance-warning)",
+      icon: <AlertTriangle className="size-4" />,
+    },
+    action: {
+      label: "Action Required",
+      color: "var(--compliance-danger)",
+      icon: <XCircle className="size-4" />,
+    },
   };
 
-  const config = badgeConfig[status as keyof typeof badgeConfig] ?? badgeConfig.compliant;
+  const config =
+    badgeConfig[status as keyof typeof badgeConfig] ?? badgeConfig.compliant;
 
   return (
-    <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium text-white" style={{ backgroundColor: config.color }}>
+    <div
+      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium text-white"
+      style={{ backgroundColor: config.color }}
+    >
       {config.icon}
       {config.label}
     </div>

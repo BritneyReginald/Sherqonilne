@@ -1,6 +1,6 @@
 import { X } from "lucide-react";
 import { useState, useEffect } from "react";
-import { useTheme } from "@/app/contexts/theme-context";
+import { useTheme } from "../contexts/theme-context";
 
 export type AlertType = "critical" | "warning" | "info";
 
