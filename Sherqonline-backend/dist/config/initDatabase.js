@@ -902,9 +902,15 @@ CREATE INDEX IF NOT EXISTS idx_training_records_expiry_date
   CREATE INDEX IF NOT EXISTS idx_legal_appointments_site_id
     ON legal_appointments(site_id);
 `);
+        /*
+         * ------------------------------------------------------------
+         * MIGRATION: LEGAL APPOINTMENTS — ELECTRONIC SIGNATURE
+         * ------------------------------------------------------------
+         */
         await client.query(`
-  CREATE INDEX IF NOT EXISTS idx_legal_appointments_site_id
-    ON legal_appointments(site_id);
+  ALTER TABLE legal_appointments
+    ADD COLUMN IF NOT EXISTS signature_data TEXT,
+    ADD COLUMN IF NOT EXISTS signed_at TIMESTAMP;
 `);
         /*
          * ============================================================

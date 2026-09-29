@@ -118,6 +118,10 @@ export const updateLegalAppointment = async (
     documentFileName?: string | null;
     documentSize?: number | null;
     documentMimeType?: string | null;
+    /** Base64 PNG data URL from the on-screen signature pad, or null to clear it */
+    signatureData?: string | null;
+    /** ISO timestamp of when the signature was captured, or null to clear it */
+    signedAt?: string | null;
   },
 ) => {
   const fieldMap: Record<string, string> = {
@@ -151,6 +155,9 @@ export const updateLegalAppointment = async (
     documentFileName: "document_file_name",
     documentSize: "document_size",
     documentMimeType: "document_mime_type",
+
+    signatureData: "signature_data",
+    signedAt: "signed_at",
   };
 
   const setClauses: string[] = [];
@@ -158,6 +165,8 @@ export const updateLegalAppointment = async (
   let index = 1;
 
   for (const [key, value] of Object.entries(updates)) {
+    // signatureData / signedAt intentionally allow `null` (clearing a
+    // signature to re-sign), so only skip truly unset (`undefined`) keys.
     if (value !== undefined && fieldMap[key]) {
       setClauses.push(`${fieldMap[key]} = $${index}`);
       values.push(value);

@@ -31,6 +31,9 @@ export interface LegalAppointment {
   documentFileName?: string;
   documentUrl?: string;
   documentUploaded: boolean;
+  /** Base64 PNG data URL captured from the on-screen signature pad */
+  signatureData?: string | null;
+  signedAt?: string | null;
 }
 
 export interface NewLegalAppointmentInput {
@@ -76,6 +79,8 @@ function mapApiAppointment(row: any): LegalAppointment {
     documentFileName: row.document_file_name ?? undefined,
     documentUrl: row.document_url ?? undefined,
     documentUploaded: !!row.document_blob_name,
+    signatureData: row.signature_data ?? null,
+    signedAt: row.signed_at ?? null,
   };
 }
 
@@ -83,7 +88,9 @@ interface LegalAppointmentsContextType {
   appointments: LegalAppointment[];
   loading: boolean;
   refresh: () => Promise<void>;
-  addAppointment: (input: NewLegalAppointmentInput) => Promise<LegalAppointment>;
+  addAppointment: (
+    input: NewLegalAppointmentInput,
+  ) => Promise<LegalAppointment>;
   updateAppointment: (
     id: string,
     updates: Record<string, any>,
@@ -149,7 +156,8 @@ export function LegalAppointmentsProvider({
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(updates),
     });
-    if (!res.ok) throw new Error(`Failed to update appointment (${res.status})`);
+    if (!res.ok)
+      throw new Error(`Failed to update appointment (${res.status})`);
     const saved = await res.json();
     const mapped = mapApiAppointment(saved);
     setAppointments((prev) => prev.map((a) => (a.id === id ? mapped : a)));
@@ -160,7 +168,8 @@ export function LegalAppointmentsProvider({
     const res = await fetch(`${API_URL}/legal-appointments/${id}`, {
       method: "DELETE",
     });
-    if (!res.ok) throw new Error(`Failed to delete appointment (${res.status})`);
+    if (!res.ok)
+      throw new Error(`Failed to delete appointment (${res.status})`);
     setAppointments((prev) => prev.filter((a) => a.id !== id));
   };
 

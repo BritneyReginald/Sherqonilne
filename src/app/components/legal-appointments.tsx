@@ -62,11 +62,7 @@ export function LegalAppointments({ employeeId }: LegalAppointmentsProps) {
   }, [appointments, viewingAppointment]);
 
   const filteredAppointments = appointments
-    .filter((appt) =>
-      employeeId
-        ? appt.employeeNumber === employeeId || appt.employeeId === employeeId
-        : true,
-    )
+    .filter((appt) => (employeeId ? appt.employeeId === employeeId : true))
     .filter((appt) => {
       const matchesType =
         filterType === "all" || appt.appointmentType === filterType;
@@ -545,9 +541,7 @@ export function LegalAppointments({ employeeId }: LegalAppointmentsProps) {
                 className="px-4 py-8 text-center text-sm"
                 style={{ color: colors.subText }}
               >
-                {isEmployeeView
-                  ? "No legal appointments recorded for this employee."
-                  : "No legal appointments found."}
+                No legal appointments found.
               </div>
             )}
 
@@ -627,7 +621,10 @@ export function LegalAppointments({ employeeId }: LegalAppointmentsProps) {
                   </div>
 
                   <div className="col-span-1 flex items-center">
-                    {appointment.documentUploaded ? (
+                    {/* Fulfilled by either an electronic signature or an
+                        uploaded signed document — either one satisfies it */}
+                    {appointment.documentUploaded ||
+                    appointment.signatureData ? (
                       <CheckCircle
                         className="size-5"
                         style={{ color: "#10B981" }}

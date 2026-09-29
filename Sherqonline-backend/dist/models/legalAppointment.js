@@ -100,11 +100,15 @@ const updateLegalAppointment = async (id, updates) => {
         documentFileName: "document_file_name",
         documentSize: "document_size",
         documentMimeType: "document_mime_type",
+        signatureData: "signature_data",
+        signedAt: "signed_at",
     };
     const setClauses = [];
     const values = [];
     let index = 1;
     for (const [key, value] of Object.entries(updates)) {
+        // signatureData / signedAt intentionally allow `null` (clearing a
+        // signature to re-sign), so only skip truly unset (`undefined`) keys.
         if (value !== undefined && fieldMap[key]) {
             setClauses.push(`${fieldMap[key]} = $${index}`);
             values.push(value);

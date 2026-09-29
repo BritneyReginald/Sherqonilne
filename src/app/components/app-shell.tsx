@@ -189,6 +189,26 @@ const CLIENT_ALLOWED_IDS = new Set([
   "incidents",
 ]);
 
+// Modules hidden from the UI for now. Remove an id to bring it back.
+const HIDDEN_NAV_IDS = new Set([
+  "reports",
+  "global-training-matrix",
+  "analytics",
+  "system-settings",
+  "system-audit-log",
+  "appointments",
+]);
+
+function removeHiddenItems(items: NavigationItem[]): NavigationItem[] {
+  return items
+    .filter((item) => !HIDDEN_NAV_IDS.has(item.id))
+    .map((item) =>
+      item.children
+        ? { ...item, children: removeHiddenItems(item.children) }
+        : item,
+    );
+}
+
 function filterNavForRole(
   items: NavigationItem[],
   role: Role,
@@ -227,7 +247,7 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
   useEffect(() => {
     if (!user) return;
 
-    setActiveItem(user.role === "client" ? "appointments" : "dashboard");
+    setActiveItem(user.role === "client" ? "legal-appointments" : "dashboard");
   }, [user]);
 
   const [expandedItems, setExpandedItems] = useState<string[]>([]);
@@ -246,7 +266,9 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
   const [showSearchResults, setShowSearchResults] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [showAlertHistory, setShowAlertHistory] = useState(false);
-  const visibleNavItems = filterNavForRole(navigationItems, user!.role);
+  const visibleNavItems = removeHiddenItems(
+    filterNavForRole(navigationItems, user!.role),
+  );
   const visibleBottomNavItems =
     user!.role === "rss_staff" ? bottomNavigationItems : [];
 

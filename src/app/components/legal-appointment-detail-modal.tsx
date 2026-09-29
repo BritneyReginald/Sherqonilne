@@ -13,6 +13,7 @@ import {
   XCircle,
   ChevronDown,
   ChevronUp,
+  PenLine,
 } from "lucide-react";
 import { useTheme } from "../contexts/theme-context";
 import {
@@ -23,6 +24,7 @@ import {
   appointmentTypeMap,
   generateAppointmentLetter,
 } from "../templates/appointment-templates";
+import { SignaturePad } from "./legal-appointment-signature-pad";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
 
@@ -33,7 +35,7 @@ interface LegalAppointmentDetailModalProps {
 
 const DUTIES_PREVIEW_COUNT = 3;
 
-function formatDate(date: string) {
+function formatDate(date: string | null | undefined) {
   if (!date) return "—";
   const d = new Date(date);
   if (Number.isNaN(d.getTime())) return date;
@@ -69,7 +71,7 @@ async function loadImageAsDataUrl(url: string): Promise<string | null> {
     if (url.startsWith("data:")) return url;
     const res = await fetch(url);
     if (!res.ok) {
-      throw new Error(`Logo fetch failed with status ${res.status}`);
+      throw new Error(`Image fetch failed with status ${res.status}`);
     }
     const blob = await res.blob();
     return await new Promise<string>((resolve, reject) => {
@@ -79,7 +81,7 @@ async function loadImageAsDataUrl(url: string): Promise<string | null> {
       reader.readAsDataURL(blob);
     });
   } catch (err) {
-    console.error("Failed to load logo for PDF:", err);
+    console.error("Failed to load image for PDF:", err);
     return null;
   }
 }
@@ -130,6 +132,9 @@ export function LegalAppointmentDetailModal({
   const [isOpeningDocument, setIsOpeningDocument] = useState(false);
   const [siteLogo, setSiteLogo] = useState<string | null>(null);
 
+  const [showSignaturePad, setShowSignaturePad] = useState(false);
+  const [isSavingSignature, setIsSavingSignature] = useState(false);
+
   // Load the selected site's logo when the modal opens
   useEffect(() => {
     let cancelled = false;
@@ -163,6 +168,12 @@ export function LegalAppointmentDetailModal({
     : [];
 
   const daysRemaining = calculateDaysRemaining(appointment.endDate);
+
+  // Either an on-screen signature OR an uploaded signed document
+  // satisfies this appointment — Milly's requirement: if the
+  // employee signed electronically, an uploaded document isn't needed.
+  const hasSignature = !!appointment.signatureData;
+  const isFulfilled = appointment.documentUploaded || hasSignature;
 
   const downloadPDF = async () => {
     if (!letter) return;
@@ -205,7 +216,7 @@ export function LegalAppointmentDetailModal({
 
       if (letter.companyName) {
         doc.setFontSize(16);
-        doc.setFont(undefined, "bold");
+        doc.setFont("helvetica", "bold");
         doc.setTextColor(59, 130, 246);
         const companyLines = doc.splitTextToSize(
           letter.companyName,
@@ -214,16 +225,16 @@ export function LegalAppointmentDetailModal({
         const companyTextY = logoLoaded ? y + logoSize / 2 + 3 : y + 6;
         doc.text(companyLines, textX, companyTextY);
         doc.setTextColor(0, 0, 0);
-        doc.setFont(undefined, "normal");
+        doc.setFont("helvetica", "normal");
       }
 
       y += logoLoaded || letter.companyName ? logoSize + 10 : 0;
 
       doc.setFontSize(11);
-      doc.setFont(undefined, "bold");
+      doc.setFont("helvetica", "bold");
       const headerLines = doc.splitTextToSize(letter.headerTitle, 190);
       doc.text(headerLines, 10, y);
-      doc.setFont(undefined, "normal");
+      doc.setFont("helvetica", "normal");
       y += headerLines.length * 5 + 6;
 
       doc.setFontSize(10);
@@ -259,6 +270,36 @@ export function LegalAppointmentDetailModal({
 
       const reportingLines = doc.splitTextToSize(letter.reportingLine, 190);
       doc.text(reportingLines, 10, y);
+      y += reportingLines.length * 5 + 14;
+
+      // Footer: DATE ______ / Signature ______ — filled in with the
+      // captured signature image and its date when available.
+      if (y > 250) {
+        doc.addPage();
+        y = 20;
+      }
+
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "normal");
+      doc.text("DATE", 10, y);
+      doc.line(28, y, 90, y);
+      if (appointment.signedAt) {
+        doc.text(formatDate(appointment.signedAt), 30, y - 2);
+      }
+
+      doc.text("Signature", 110, y);
+      doc.line(135, y, 195, y);
+
+      if (hasSignature && appointment.signatureData) {
+        const sigDataUrl = await loadImageAsDataUrl(appointment.signatureData);
+        if (sigDataUrl) {
+          try {
+            doc.addImage(sigDataUrl, "PNG", 137, y - 14, 55, 13);
+          } catch (err) {
+            console.error("Failed to embed signature in PDF:", err);
+          }
+        }
+      }
 
       doc.save(
         `${appointment.employeeName.replace(/\s+/g, "_")}_Appointment.pdf`,
@@ -304,6 +345,23 @@ export function LegalAppointmentDetailModal({
       }
     } finally {
       setIsOpeningDocument(false);
+    }
+  };
+
+  const handleSaveSignature = async (dataUrl: string) => {
+    setIsSavingSignature(true);
+    try {
+      await updateAppointment(appointment.id, {
+        signatureData: dataUrl,
+        signedAt: new Date().toISOString(),
+        signatureStatus: "Signed",
+      });
+      setShowSignaturePad(false);
+    } catch (err) {
+      console.error("Failed to save signature:", err);
+      alert("Failed to save the signature. Please try again.");
+    } finally {
+      setIsSavingSignature(false);
     }
   };
 
@@ -583,7 +641,87 @@ export function LegalAppointmentDetailModal({
           </div>
         )}
 
-        {/* Document status */}
+        {/* Signature — sits between the letter and the upload section */}
+        <div className="mb-6">
+          <div className="flex items-center justify-between mb-3">
+            <p
+              className="text-sm font-semibold"
+              style={{ color: colors.primaryText }}
+            >
+              Employee Signature
+            </p>
+            {hasSignature ? (
+              <div className="flex items-center gap-2">
+                <CheckCircle className="size-4" style={{ color: "#10B981" }} />
+                <span
+                  className="text-xs font-medium"
+                  style={{ color: "#10B981" }}
+                >
+                  Signed{" "}
+                  {appointment.signedAt ? formatDate(appointment.signedAt) : ""}
+                </span>
+              </div>
+            ) : (
+              <span
+                className="text-xs font-medium"
+                style={{ color: "#F59E0B" }}
+              >
+                Not signed
+              </span>
+            )}
+          </div>
+
+          {hasSignature ? (
+            <div
+              className="flex items-center gap-3 p-3 rounded-lg"
+              style={{ backgroundColor: colors.background }}
+            >
+              <img
+                src={appointment.signatureData!}
+                alt="Employee signature"
+                className="h-16 rounded bg-white px-2"
+              />
+              <button
+                type="button"
+                onClick={() => setShowSignaturePad(true)}
+                className="ml-auto text-xs font-medium px-3 py-1.5 rounded-lg"
+                style={{
+                  backgroundColor: "rgba(59,130,246,0.1)",
+                  color: "#3B82F6",
+                }}
+              >
+                Re-sign
+              </button>
+            </div>
+          ) : showSignaturePad ? (
+            <SignaturePad
+              onSave={handleSaveSignature}
+              onCancel={() => setShowSignaturePad(false)}
+              saving={isSavingSignature}
+            />
+          ) : (
+            <button
+              type="button"
+              onClick={() => setShowSignaturePad(true)}
+              className="w-full py-3 rounded-lg border-2 border-dashed text-sm font-medium flex items-center justify-center gap-2"
+              style={{
+                borderColor: colors.border || "rgba(148,163,184,0.3)",
+                color: colors.primaryText,
+              }}
+            >
+              <PenLine className="size-4" />
+              Sign Now
+            </button>
+          )}
+
+          <p className="text-xs mt-2" style={{ color: colors.subText }}>
+            {hasSignature
+              ? "Signed electronically — uploading a document below is optional."
+              : "If the employee isn't available to sign now, a signed document can be uploaded below instead."}
+          </p>
+        </div>
+
+        {/* Document status — fulfilled by either a signature or an upload */}
         <div className="flex items-center justify-between mb-3">
           <p
             className="text-sm font-semibold"
@@ -591,14 +729,14 @@ export function LegalAppointmentDetailModal({
           >
             Appointment Letter
           </p>
-          {appointment.documentUploaded ? (
+          {isFulfilled ? (
             <div className="flex items-center gap-2">
               <CheckCircle className="size-4" style={{ color: "#10B981" }} />
               <span
                 className="text-xs font-medium"
                 style={{ color: "#10B981" }}
               >
-                Uploaded
+                {appointment.documentUploaded ? "Uploaded" : "Signed"}
               </span>
             </div>
           ) : (
