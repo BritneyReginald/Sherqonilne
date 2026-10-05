@@ -17,6 +17,9 @@ import riskAssessmentRoutes from "./routes/riskAssessmentRoutes";
 import adminRouter from "./routes/admin";
 import firstAidersRouter from "./routes/firstAiderRoutes";
 import legalAppointmentRoutes from "./routes/legalAppointmentRoutes";
+import documentLibraryRoutes from "./routes/documentLibraryRoutes";
+
+
 
 
 
@@ -59,6 +62,7 @@ app.use("/risk-assessments", riskAssessmentRoutes);
 app.use("/admin", adminRouter);
 app.use("/admin", firstAidersRouter);
 app.use("/legal-appointments", legalAppointmentRoutes);
+app.use("/document-library", documentLibraryRoutes);
 
 async function startServer() {
   try {

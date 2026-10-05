@@ -283,8 +283,12 @@ export function Dashboard({ onNavigate }: DashboardProps) {
     const legalActive = legalAppointments.filter(
       (a: any) => !inactiveNumbers.has(a.employeeNumber),
     );
+    // An appointment is "fulfilled" by either an uploaded signed document
+    // OR an electronic signature, same rule as the Legal Appointments register.
+    const hasProof = (a: any) => !!(a.documentUploaded || a.signatureData);
+
     const legalMissing: DetailItem[] = legalActive
-      .filter((a: any) => a.status === "Expired" || !a.documentUploaded)
+      .filter((a: any) => a.status === "Expired" || !hasProof(a))
       .map((a: any) => ({
         id: `legal-${a.id}`,
         title: a.employeeName,
@@ -293,6 +297,7 @@ export function Dashboard({ onNavigate }: DashboardProps) {
         days: daysUntil(a.endDate),
         note: a.status === "Expired" ? undefined : "No document uploaded",
       }));
+
     const legalMissingIds = new Set(legalMissing.map((i) => i.id));
     const legalItems: DetailItem[] = legalActive.map((a: any) => ({
       id: `legal-${a.id}`,

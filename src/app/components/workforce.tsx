@@ -17,7 +17,7 @@ import { useTheme } from "../contexts/theme-context";
 import { useRecycleBin } from "../contexts/recycle-bin-context";
 import { Employee } from "@/app/types";
 import { useSiteFilter } from "../contexts/site-filter-context";
-import { getSites } from "@/api/siteAPI";
+import { getSites } from "../../api/siteAPI";
 
 const statuses = [
   { value: "all", label: "All Statuses" },

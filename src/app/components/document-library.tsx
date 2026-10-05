@@ -1,254 +1,335 @@
-import { useState } from "react";
-import { useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ChevronRight,
   ChevronDown,
   Folder,
   FolderOpen,
+  FolderPlus,
   Upload,
   Download,
   FileText,
-  File,
   CheckCircle2,
   AlertTriangle,
   XCircle,
   MoreVertical,
-  Eye,
-  Edit,
-  Trash2,
   Clock,
   Archive,
 } from "lucide-react";
-import { VersionHistoryDrawer } from "@/app/components/version-history-drawer";
-import { ConfirmDeactivationModal } from "@/app/components/confirm-deactivation-modal";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 
-interface FolderNode {
-  id: string;
-  name: string;
-  children?: FolderNode[];
+import { VersionHistoryDrawer } from "../components/version-history-drawer";
+import { ConfirmDeactivationModal } from "../components/confirm-deactivation-modal";
+import { CreateFolderModal } from "../components/create-folder-modal";
+import { UploadDocumentModal } from "../components/upload-document-modal";
+import {
+  ApiDocument,
+  ApiEmployee,
+  ApiFolder,
+  ApiVersion,
+  archiveDocument,
+  createFolder,
+  downloadFolderZip,
+  fetchDocuments,
+  fetchEmployees,
+  fetchFileUrl,
+  fetchFolders,
+  fetchVersions,
+  uploadDocument,
+  uploadNewVersion,
+} from "../../api/documentLibrary";
+
+interface FolderNode extends ApiFolder {
+  children: FolderNode[];
 }
 
-interface Document {
-  id: string;
-  name: string;
-  docId: string;
-  revision: string;
-  fileType: "pdf" | "doc" | "xls";
-  lastUpdated: {
-    date: string;
-    user: string;
-  };
-  expiryDate: string;
-  status: "valid" | "expiring" | "expired";
-}
+type UploadModalState =
+  | { mode: "new" }
+  | { mode: "version"; doc: ApiDocument }
+  | null;
 
-const folderStructure: FolderNode = {
-  id: "rss-global",
-  name: "RSS Global",
-  children: [
-    {
-      id: "client-a",
-      name: "Client Company A",
-      children: [
-        {
-          id: "jhb-site",
-          name: "Johannesburg Site",
-          children: [
-            {
-              id: "sheq-folders",
-              name: "SHEQ Folders",
-              children: [
-                {
-                  id: "policies",
-                  name: "01. Policies",
-                },
-                {
-                  id: "risk-assessments",
-                  name: "02. Risk Assessments",
-                },
-                {
-                  id: "legal-appointments",
-                  name: "03. Legal Appointments",
-                },
-                {
-                  id: "audit-reports",
-                  name: "04. Audit Reports",
-                },
-              ],
-            },
-          ],
-        },
-      ],
-    },
-  ],
+const formatDate = (iso: string | null) =>
+  iso
+    ? new Date(iso).toLocaleDateString("en-ZA", {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+      })
+    : "—";
+
+const formatSize = (bytes: number | null) => {
+  if (!bytes) return "—";
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 };
 
-const documents: Document[] = [
-  {
-    id: "1",
-    name: "Baseline Risk Assessment - Workshop",
-    docId: "RA-WSP-001",
-    revision: "3.0",
-    fileType: "pdf",
-    lastUpdated: {
-      date: "2024-01-15",
-      user: "Sarah Johnson",
-    },
-    expiryDate: "2025-10-15",
-    status: "valid",
-  },
-  {
-    id: "2",
-    name: "Risk Assessment - Chemical Storage",
-    docId: "RA-CHM-002",
-    revision: "2.1",
-    fileType: "pdf",
-    lastUpdated: {
-      date: "2023-11-20",
-      user: "Michael Chen",
-    },
-    expiryDate: "2024-11-20",
-    status: "expiring",
-  },
-  {
-    id: "3",
-    name: "Working at Heights Risk Matrix",
-    docId: "RA-HTH-003",
-    revision: "4.0",
-    fileType: "pdf",
-    lastUpdated: {
-      date: "2023-03-10",
-      user: "David van der Merwe",
-    },
-    expiryDate: "2024-03-10",
-    status: "expired",
-  },
-  {
-    id: "4",
-    name: "Confined Space Entry Assessment",
-    docId: "RA-CSE-004",
-    revision: "1.5",
-    fileType: "doc",
-    lastUpdated: {
-      date: "2024-06-05",
-      user: "Emma Thompson",
-    },
-    expiryDate: "2026-06-05",
-    status: "valid",
-  },
-  {
-    id: "5",
-    name: "Electrical Safety Risk Profile",
-    docId: "RA-ELC-005",
-    revision: "2.3",
-    fileType: "pdf",
-    lastUpdated: {
-      date: "2024-02-18",
-      user: "James Ndlovu",
-    },
-    expiryDate: "2025-02-18",
-    status: "valid",
-  },
-  {
-    id: "6",
-    name: "Fire Risk Assessment Report",
-    docId: "RA-FIR-006",
-    revision: "3.2",
-    fileType: "pdf",
-    lastUpdated: {
-      date: "2023-09-30",
-      user: "Lisa Botha",
-    },
-    expiryDate: "2024-09-30",
-    status: "expiring",
-  },
-  {
-    id: "7",
-    name: "Machinery Operations Risk Matrix",
-    docId: "RA-MCH-007",
-    revision: "1.0",
-    fileType: "xls",
-    lastUpdated: {
-      date: "2023-05-12",
-      user: "Peter van Zyl",
-    },
-    expiryDate: "2024-05-12",
-    status: "expired",
-  },
-  {
-    id: "8",
-    name: "Manual Handling Assessment",
-    docId: "RA-MHL-008",
-    revision: "2.0",
-    fileType: "pdf",
-    lastUpdated: {
-      date: "2024-08-22",
-      user: "Sarah Johnson",
-    },
-    expiryDate: "2026-08-22",
-    status: "valid",
-  },
-];
+function buildTree(folders: ApiFolder[]): FolderNode[] {
+  const map = new Map<number, FolderNode>();
+  folders.forEach((f) => map.set(f.id, { ...f, children: [] }));
+  const roots: FolderNode[] = [];
+  map.forEach((node) => {
+    if (node.parent_id && map.has(node.parent_id)) {
+      map.get(node.parent_id)!.children.push(node);
+    } else {
+      roots.push(node);
+    }
+  });
+  return roots;
+}
+
+function getFileKind(doc: ApiDocument): "pdf" | "doc" | "xls" | "other" {
+  const ext = doc.file_name.split(".").pop()?.toLowerCase() ?? "";
+  if (ext === "pdf") return "pdf";
+  if (["doc", "docx"].includes(ext)) return "doc";
+  if (["xls", "xlsx", "csv"].includes(ext)) return "xls";
+  return "other";
+}
+
+const STATUS_LABEL = {
+  valid: "Valid",
+  expiring: "Expiring Soon",
+  expired: "Expired",
+} as const;
 
 export function DocumentLibrary() {
-  const [expandedFolders, setExpandedFolders] = useState<string[]>([
-    "rss-global",
-    "client-a",
-    "jhb-site",
-    "sheq-folders",
-  ]);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const [uploadedDocument, setUploadedDocument] = useState<File | null>(null);
-  const [activeFolder, setActiveFolder] = useState("risk-assessments");
-  const [showActionMenu, setShowActionMenu] = useState<string | null>(null);
-  const [selectedDocument, setSelectedDocument] = useState<Document | null>(
+  const [folders, setFolders] = useState<ApiFolder[]>([]);
+  const [employees, setEmployees] = useState<ApiEmployee[]>([]);
+  const [documents, setDocuments] = useState<ApiDocument[]>([]);
+  const [expandedFolders, setExpandedFolders] = useState<number[]>([]);
+  const [activeFolderId, setActiveFolderId] = useState<number | null>(null);
+  const [loadingDocs, setLoadingDocs] = useState(false);
+  const [pageError, setPageError] = useState("");
+
+  const [menu, setMenu] = useState<{
+    doc: ApiDocument;
+    top: number;
+    right: number;
+  } | null>(null);
+
+  const [folderModal, setFolderModal] = useState<null | {
+    parent: ApiFolder | null;
+  }>(null);
+  const [uploadModal, setUploadModal] = useState<UploadModalState>(null);
+
+  const [selectedDocument, setSelectedDocument] = useState<ApiDocument | null>(
     null,
   );
-  const [showVersionDrawer, setShowVersionDrawer] = useState(false);
+  const [versions, setVersions] = useState<ApiVersion[]>([]);
+  const [loadingVersions, setLoadingVersions] = useState(false);
+
   const [showArchiveModal, setShowArchiveModal] = useState(false);
-  const [documentToArchive, setDocumentToArchive] = useState<Document | null>(
-    null,
-  );
+  const [documentToArchive, setDocumentToArchive] =
+    useState<ApiDocument | null>(null);
 
-  const toggleFolder = (folderId: string) => {
-    setExpandedFolders((prev) =>
-      prev.includes(folderId)
-        ? prev.filter((id) => id !== folderId)
-        : [...prev, folderId],
-    );
-  };
+  const tree = useMemo(() => buildTree(folders), [folders]);
+  const activeFolder = folders.find((f) => f.id === activeFolderId) ?? null;
 
-  const handleUploadClick = () => {
-    fileInputRef.current?.click();
-  };
+  // Breadcrumb: root → … → active folder
+  const breadcrumb = useMemo(() => {
+    const trail: ApiFolder[] = [];
+    let current = activeFolder;
+    while (current) {
+      trail.unshift(current);
+      current = folders.find((f) => f.id === current!.parent_id) ?? null;
+    }
+    return trail;
+  }, [activeFolder, folders]);
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (files && files[0]) {
-      const file = files[0];
+  /* ----------------------------- loading ----------------------------- */
 
-      console.log("Uploaded document:", file);
-
-      setUploadedDocument(file);
-
-      // Later:
-      // send to backend
+  const loadFolders = async () => {
+    try {
+      const data = await fetchFolders();
+      setFolders(data);
+      return data;
+    } catch (e: any) {
+      setPageError(e.message);
+      return [];
     }
   };
+
+  useEffect(() => {
+    (async () => {
+      const data = await loadFolders();
+      if (data.length > 0) {
+        const roots = data.filter((f) => !f.parent_id);
+        if (roots[0]) setActiveFolderId(roots[0].id);
+      }
+      try {
+        const emps = await fetchEmployees();
+        setEmployees(emps.filter((e) => e.status !== "Inactive"));
+      } catch {
+        /* dropdown will just be empty */
+      }
+    })();
+  }, []);
+
+  const loadDocuments = async (folderId: number | null) => {
+    if (!folderId) return setDocuments([]);
+    setLoadingDocs(true);
+    try {
+      setDocuments(await fetchDocuments(folderId));
+      setPageError("");
+    } catch (e: any) {
+      setPageError(e.message);
+    } finally {
+      setLoadingDocs(false);
+    }
+  };
+
+  useEffect(() => {
+    loadDocuments(activeFolderId);
+  }, [activeFolderId]);
+
+  /* ----------------------------- folders ----------------------------- */
+
+  const toggleFolder = (id: number) =>
+    setExpandedFolders((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
+    );
+
+  const handleCreateFolder = async (name: string) => {
+    const parent = folderModal?.parent ?? null;
+    const created = await createFolder(name, parent?.id ?? null);
+    await loadFolders();
+    if (parent) {
+      setExpandedFolders((prev) =>
+        prev.includes(parent.id) ? prev : [...prev, parent.id],
+      );
+    }
+    setActiveFolderId(created.id);
+  };
+
+  const handleDownloadZip = async () => {
+    if (!activeFolder) return;
+    try {
+      await downloadFolderZip(activeFolder);
+    } catch (e: any) {
+      alert(e.message);
+    }
+  };
+
+  /* ---------------------------- documents ---------------------------- */
+
+  const handleUploadSubmit = async (formData: FormData) => {
+    if (!uploadModal) return;
+    if (uploadModal.mode === "new") {
+      if (!activeFolderId) throw new Error("Select a folder first");
+      formData.append("folderId", String(activeFolderId));
+      await uploadDocument(formData);
+    } else {
+      await uploadNewVersion(uploadModal.doc.id, formData);
+    }
+    await loadDocuments(activeFolderId);
+  };
+
+  const openFile = async (
+    docId: number,
+    mode: "view" | "download",
+    versionId?: number,
+  ) => {
+    // Open the tab synchronously so popup blockers don't stop it
+    const win = mode === "view" ? window.open("", "_blank") : null;
+    try {
+      const url = await fetchFileUrl(docId, mode, versionId);
+      if (mode === "view" && win) win.location.href = url;
+      else window.location.href = url; // attachment header → downloads, page stays
+    } catch (e: any) {
+      win?.close();
+      alert(e.message);
+    }
+  };
+
+  const openVersionHistory = async (doc: ApiDocument) => {
+    setSelectedDocument(doc);
+    setLoadingVersions(true);
+    try {
+      setVersions(await fetchVersions(doc.id));
+    } catch (e: any) {
+      alert(e.message);
+    } finally {
+      setLoadingVersions(false);
+    }
+  };
+
+  const confirmArchive = async () => {
+    const doc = documentToArchive; // capture before the modal clears it
+    if (!doc) return;
+    try {
+      await archiveDocument(doc.id);
+      await loadDocuments(activeFolderId);
+    } catch (e: any) {
+      alert(e.message);
+    }
+  };
+
+  const openMenu = (e: React.MouseEvent, doc: ApiDocument) => {
+    e.stopPropagation();
+    if (menu?.doc.id === doc.id) return setMenu(null);
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    const MENU_HEIGHT = 200;
+    const top =
+      rect.bottom + MENU_HEIGHT > window.innerHeight
+        ? rect.top - MENU_HEIGHT - 4
+        : rect.bottom + 4;
+    setMenu({ doc, top, right: window.innerWidth - rect.right });
+  };
+
+  /* ----------------------------- register PDF ----------------------------- */
+
+  const handleDownloadRegister = () => {
+    if (!activeFolder) return;
+    const pdf = new jsPDF({ orientation: "landscape" });
+    const path = breadcrumb.map((f) => f.name).join(" / ");
+
+    pdf.setFontSize(16);
+    pdf.text("Document Register", 14, 16);
+    pdf.setFontSize(10);
+    pdf.text(path, 14, 23);
+    pdf.text(
+      `Generated: ${formatDate(new Date().toISOString().slice(0, 10))}`,
+      14,
+      29,
+    );
+
+    autoTable(pdf, {
+      startY: 35,
+      head: [
+        [
+          "Document Name",
+          "Revision",
+          "Last Updated",
+          "Updated By",
+          "Expiry Date",
+          "Status",
+        ],
+      ],
+      body: documents.map((d) => [
+        d.name,
+        `Rev ${d.current_version}`,
+        formatDate(d.last_updated_date),
+        d.updated_by_name ?? "—",
+        formatDate(d.expiry_date),
+        STATUS_LABEL[d.status],
+      ]),
+      headStyles: { fillColor: [30, 64, 175] },
+      styles: { fontSize: 9 },
+    });
+
+    pdf.save(`${activeFolder.name} - Register.pdf`);
+  };
+
+  /* ------------------------------- render ------------------------------- */
 
   return (
     <div className="h-full flex bg-background">
       {/* Left Column - Folder Navigation */}
       <aside
         className="w-80 border-r flex flex-col"
-        style={{
-          backgroundColor: "white",
-          borderColor: "var(--grey-200)",
-        }}
+        style={{ backgroundColor: "white", borderColor: "var(--grey-200)" }}
       >
-        {/* Sidebar Header */}
         <div
-          className="px-6 py-4 border-b"
+          className="px-6 py-4 border-b flex items-center justify-between"
           style={{ borderColor: "var(--grey-200)" }}
         >
           <h2
@@ -257,92 +338,139 @@ export function DocumentLibrary() {
           >
             Site Repositories
           </h2>
+          <button
+            onClick={() => setFolderModal({ parent: null })}
+            className="px-3 py-1.5 rounded-lg flex items-center gap-1.5 text-sm font-medium text-white transition-opacity hover:opacity-90"
+            style={{ backgroundColor: "var(--brand-blue)" }}
+          >
+            <FolderPlus className="size-4" />
+            Create folder
+          </button>
         </div>
 
-        {/* Folder Tree */}
         <div className="flex-1 overflow-y-auto p-4">
-          <FolderTree
-            node={folderStructure}
-            expandedFolders={expandedFolders}
-            activeFolder={activeFolder}
-            onToggle={toggleFolder}
-            onSelect={setActiveFolder}
-          />
+          {tree.length === 0 ? (
+            <p className="text-sm" style={{ color: "var(--grey-500)" }}>
+              No folders yet. Click “Create folder” to get started.
+            </p>
+          ) : (
+            tree.map((node) => (
+              <FolderTree
+                key={node.id}
+                node={node}
+                expandedFolders={expandedFolders}
+                activeFolder={activeFolderId}
+                onToggle={toggleFolder}
+                onSelect={setActiveFolderId}
+              />
+            ))
+          )}
         </div>
       </aside>
 
       {/* Right Column - File View */}
       <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Header with Breadcrumbs and Actions */}
         <div
           className="px-8 py-6 border-b"
-          style={{
-            backgroundColor: "white",
-            borderColor: "var(--grey-200)",
-          }}
+          style={{ backgroundColor: "white", borderColor: "var(--grey-200)" }}
         >
-          {/* Breadcrumb Navigation */}
-          <div className="flex items-center gap-2 mb-4 text-sm">
-            <span style={{ color: "var(--grey-500)" }}>Client Company A</span>
-            <ChevronRight
-              className="size-4"
-              style={{ color: "var(--grey-400)" }}
-            />
-            <span style={{ color: "var(--grey-500)" }}>JHB Site</span>
-            <ChevronRight
-              className="size-4"
-              style={{ color: "var(--grey-400)" }}
-            />
-            <span style={{ color: "var(--grey-900)" }} className="font-medium">
-              Risk Assessments
-            </span>
+          {/* Breadcrumb */}
+          <div className="flex items-center gap-2 mb-4 text-sm flex-wrap min-h-5">
+            {breadcrumb.length === 0 && (
+              <span style={{ color: "var(--grey-500)" }}>
+                No folder selected
+              </span>
+            )}
+            {breadcrumb.map((f, i) => (
+              <span key={f.id} className="flex items-center gap-2">
+                {i > 0 && (
+                  <ChevronRight
+                    className="size-4"
+                    style={{ color: "var(--grey-400)" }}
+                  />
+                )}
+                <span
+                  className={i === breadcrumb.length - 1 ? "font-medium" : ""}
+                  style={{
+                    color:
+                      i === breadcrumb.length - 1
+                        ? "var(--grey-900)"
+                        : "var(--grey-500)",
+                  }}
+                >
+                  {f.name}
+                </span>
+              </span>
+            ))}
           </div>
 
           {/* Action Buttons */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 flex-wrap">
             <button
-              onClick={handleUploadClick}
-              className="px-4 py-2 rounded-lg flex items-center gap-2 font-medium text-white transition-opacity hover:opacity-90"
+              onClick={() => setUploadModal({ mode: "new" })}
+              disabled={!activeFolder}
+              className="px-4 py-2 rounded-lg flex items-center gap-2 font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-40"
               style={{ backgroundColor: "var(--brand-blue)" }}
             >
               <Upload className="size-5" />
               Upload Document
             </button>
 
-            <input
-              type="file"
-              ref={fileInputRef}
-              className="hidden"
-              accept=".pdf,.doc,.docx,.xls,.xlsx"
-              onChange={handleFileChange}
-            />
             <button
-              className="px-4 py-2 rounded-lg flex items-center gap-2 font-medium transition-colors"
+              onClick={() => setFolderModal({ parent: activeFolder })}
+              disabled={!activeFolder}
+              className="px-4 py-2 rounded-lg flex items-center gap-2 font-medium transition-colors disabled:opacity-40"
               style={{
                 backgroundColor: "var(--grey-100)",
                 color: "var(--grey-900)",
               }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.backgroundColor = "var(--grey-200)";
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.backgroundColor = "var(--grey-100)";
+            >
+              <FolderPlus className="size-5" />
+              New Subfolder
+            </button>
+
+            <button
+              onClick={handleDownloadZip}
+              disabled={!activeFolder}
+              className="px-4 py-2 rounded-lg flex items-center gap-2 font-medium transition-colors disabled:opacity-40"
+              style={{
+                backgroundColor: "var(--grey-100)",
+                color: "var(--grey-900)",
               }}
             >
               <Download className="size-5" />
+              Download Folder (ZIP)
+            </button>
+
+            <button
+              onClick={handleDownloadRegister}
+              disabled={!activeFolder || documents.length === 0}
+              className="px-4 py-2 rounded-lg flex items-center gap-2 font-medium transition-colors disabled:opacity-40"
+              style={{
+                backgroundColor: "var(--grey-100)",
+                color: "var(--grey-900)",
+              }}
+            >
+              <FileText className="size-5" />
               Download Register (PDF)
             </button>
           </div>
+
+          {pageError && (
+            <p
+              className="text-sm mt-3"
+              style={{ color: "var(--compliance-danger)" }}
+            >
+              {pageError}
+            </p>
+          )}
         </div>
 
         {/* Document Table */}
         <div className="flex-1 overflow-auto p-8">
           <div
             className="rounded-lg border overflow-hidden"
-            style={{
-              backgroundColor: "white",
-              borderColor: "var(--grey-200)",
-            }}
+            style={{ backgroundColor: "white", borderColor: "var(--grey-200)" }}
           >
             <div className="overflow-x-auto">
               <table className="w-full">
@@ -354,85 +482,68 @@ export function DocumentLibrary() {
                       borderColor: "var(--grey-200)",
                     }}
                   >
-                    <th
-                      className="px-6 py-4 text-left text-sm font-medium"
-                      style={{ color: "var(--grey-700)" }}
-                    >
-                      Document Name
-                    </th>
-                    <th
-                      className="px-6 py-4 text-left text-sm font-medium"
-                      style={{ color: "var(--grey-700)" }}
-                    >
-                      Doc ID No
-                    </th>
-                    <th
-                      className="px-6 py-4 text-left text-sm font-medium"
-                      style={{ color: "var(--grey-700)" }}
-                    >
-                      Revision
-                    </th>
-                    <th
-                      className="px-6 py-4 text-left text-sm font-medium"
-                      style={{ color: "var(--grey-700)" }}
-                    >
-                      Last Updated
-                    </th>
-                    <th
-                      className="px-6 py-4 text-left text-sm font-medium"
-                      style={{ color: "var(--grey-700)" }}
-                    >
-                      Expiry Date
-                    </th>
-                    <th
-                      className="px-6 py-4 text-left text-sm font-medium"
-                      style={{ color: "var(--grey-700)" }}
-                    >
-                      Status
-                    </th>
-                    <th
-                      className="px-6 py-4 text-left text-sm font-medium"
-                      style={{ color: "var(--grey-700)" }}
-                    >
-                      Actions
-                    </th>
+                    {[
+                      "Document Name",
+                      "Revision",
+                      "Last Updated",
+                      "Expiry Date",
+                      "Status",
+                      "Actions",
+                    ].map((h) => (
+                      <th
+                        key={h}
+                        className="px-6 py-4 text-left text-sm font-medium"
+                        style={{ color: "var(--grey-700)" }}
+                      >
+                        {h}
+                      </th>
+                    ))}
                   </tr>
                 </thead>
                 <tbody>
+                  {documents.length === 0 && (
+                    <tr>
+                      <td
+                        colSpan={6}
+                        className="px-6 py-12 text-center text-sm"
+                        style={{ color: "var(--grey-500)" }}
+                      >
+                        {!activeFolder
+                          ? "Create or select a folder to see its documents."
+                          : loadingDocs
+                            ? "Loading…"
+                            : "No documents in this folder yet."}
+                      </td>
+                    </tr>
+                  )}
+
                   {documents.map((doc) => (
                     <tr
                       key={doc.id}
                       className="border-b hover:bg-secondary transition-colors cursor-pointer"
                       style={{ borderColor: "var(--grey-200)" }}
-                      onClick={() => {
-                        setSelectedDocument(doc);
-                        setShowVersionDrawer(true);
-                      }}
+                      onClick={() => openVersionHistory(doc)}
                     >
-                      {/* Document Name with Icon */}
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-3">
-                          <FileIcon fileType={doc.fileType} />
-                          <span
-                            className="text-sm font-medium"
-                            style={{ color: "var(--grey-900)" }}
-                          >
-                            {doc.name}
-                          </span>
+                          <FileIcon kind={getFileKind(doc)} />
+                          <div>
+                            <div
+                              className="text-sm font-medium"
+                              style={{ color: "var(--grey-900)" }}
+                            >
+                              {doc.name}
+                            </div>
+                            <div
+                              className="text-xs"
+                              style={{ color: "var(--grey-500)" }}
+                            >
+                              {doc.file_name} • {formatSize(doc.file_size)}
+                            </div>
+                          </div>
                         </div>
                       </td>
 
-                      {/* Doc ID */}
-                      <td className="px-6 py-4">
-                        <span
-                          className="text-sm font-mono"
-                          style={{ color: "var(--grey-700)" }}
-                        >
-                          {doc.docId}
-                        </span>
-                      </td>
-
-                      {/* Revision Badge */}
                       <td className="px-6 py-4">
                         <span
                           className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium"
@@ -441,138 +552,48 @@ export function DocumentLibrary() {
                             color: "var(--brand-blue)",
                           }}
                         >
-                          Rev {doc.revision}
+                          Rev {doc.current_version}
                         </span>
                       </td>
 
-                      {/* Last Updated */}
                       <td className="px-6 py-4">
                         <div className="text-sm">
                           <div style={{ color: "var(--grey-900)" }}>
-                            {new Date(doc.lastUpdated.date).toLocaleDateString(
-                              "en-ZA",
-                              {
-                                year: "numeric",
-                                month: "short",
-                                day: "numeric",
-                              },
-                            )}
+                            {formatDate(doc.last_updated_date)}
                           </div>
                           <div
                             className="text-xs"
                             style={{ color: "var(--grey-500)" }}
                           >
-                            by {doc.lastUpdated.user}
+                            by {doc.updated_by_name ?? "—"}
                           </div>
                         </div>
                       </td>
 
-                      {/* Expiry Date */}
                       <td className="px-6 py-4">
                         <span
                           className="text-sm"
                           style={{ color: "var(--grey-700)" }}
                         >
-                          {new Date(doc.expiryDate).toLocaleDateString(
-                            "en-ZA",
-                            {
-                              year: "numeric",
-                              month: "short",
-                              day: "numeric",
-                            },
-                          )}
+                          {formatDate(doc.expiry_date)}
                         </span>
                       </td>
 
-                      {/* Status Badge */}
                       <td className="px-6 py-4">
                         <StatusBadge status={doc.status} />
                       </td>
 
-                      {/* Actions */}
                       <td className="px-6 py-4">
-                        <div className="relative">
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setShowActionMenu(
-                                showActionMenu === doc.id ? null : doc.id,
-                              );
-                            }}
-                            className="p-2 rounded hover:bg-secondary transition-colors"
-                            aria-label="More actions"
-                          >
-                            <MoreVertical
-                              className="size-4"
-                              style={{ color: "var(--grey-600)" }}
-                            />
-                          </button>
-
-                          {/* Action Menu */}
-                          {showActionMenu === doc.id && (
-                            <div
-                              className="absolute right-0 top-full mt-1 w-56 rounded-lg border shadow-lg overflow-hidden z-10"
-                              style={{
-                                backgroundColor: "white",
-                                borderColor: "var(--grey-200)",
-                              }}
-                              onClick={(e) => e.stopPropagation()}
-                            >
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setShowActionMenu(null);
-                                }}
-                                className="w-full px-4 py-2 text-left flex items-center gap-2 text-sm hover:bg-secondary transition-colors"
-                                style={{ color: "var(--grey-700)" }}
-                              >
-                                <Download className="size-4" />
-                                Download
-                              </button>
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setShowActionMenu(null);
-                                }}
-                                className="w-full px-4 py-2 text-left flex items-center gap-2 text-sm hover:bg-secondary transition-colors"
-                                style={{ color: "var(--grey-700)" }}
-                              >
-                                <Upload className="size-4" />
-                                Upload New Version
-                              </button>
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setSelectedDocument(doc);
-                                  setShowVersionDrawer(true);
-                                  setShowActionMenu(null);
-                                }}
-                                className="w-full px-4 py-2 text-left flex items-center gap-2 text-sm hover:bg-secondary transition-colors"
-                                style={{ color: "var(--grey-700)" }}
-                              >
-                                <Clock className="size-4" />
-                                View Version History
-                              </button>
-                              <div
-                                className="border-t"
-                                style={{ borderColor: "var(--grey-200)" }}
-                              />
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setDocumentToArchive(doc);
-                                  setShowArchiveModal(true);
-                                  setShowActionMenu(null);
-                                }}
-                                className="w-full px-4 py-2 text-left flex items-center gap-2 text-sm hover:bg-secondary transition-colors"
-                                style={{ color: "var(--compliance-danger)" }}
-                              >
-                                <Archive className="size-4" />
-                                Move to Archive
-                              </button>
-                            </div>
-                          )}
-                        </div>
+                        <button
+                          onClick={(e) => openMenu(e, doc)}
+                          className="p-2 rounded hover:bg-secondary transition-colors"
+                          aria-label="More actions"
+                        >
+                          <MoreVertical
+                            className="size-4"
+                            style={{ color: "var(--grey-600)" }}
+                          />
+                        </button>
                       </td>
                     </tr>
                   ))}
@@ -583,44 +604,154 @@ export function DocumentLibrary() {
         </div>
       </div>
 
-      {/* Version History Drawer */}
-      {selectedDocument && (
-        <VersionHistoryDrawer
-          isOpen={showVersionDrawer}
-          onClose={() => {
-            setShowVersionDrawer(false);
-            setSelectedDocument(null);
-          }}
-          documentName={selectedDocument.name}
-          docId={selectedDocument.docId}
-          currentRevision={selectedDocument.revision}
-          versions={getVersionHistory(selectedDocument.docId)}
+      {/* Action menu (fixed so the table's overflow never clips it) */}
+      {menu && (
+        <>
+          <div className="fixed inset-0 z-10" onClick={() => setMenu(null)} />
+          <div
+            className="fixed w-56 rounded-lg border shadow-lg overflow-hidden z-20"
+            style={{
+              top: menu.top,
+              right: menu.right,
+              backgroundColor: "white",
+              borderColor: "var(--grey-200)",
+            }}
+          >
+            <MenuItem
+              icon={<Download className="size-4" />}
+              label="Download"
+              onClick={() => {
+                openFile(menu.doc.id, "download");
+                setMenu(null);
+              }}
+            />
+            <MenuItem
+              icon={<Upload className="size-4" />}
+              label="Upload New Version"
+              onClick={() => {
+                setUploadModal({ mode: "version", doc: menu.doc });
+                setMenu(null);
+              }}
+            />
+            <MenuItem
+              icon={<Clock className="size-4" />}
+              label="View Version History"
+              onClick={() => {
+                openVersionHistory(menu.doc);
+                setMenu(null);
+              }}
+            />
+            <div
+              className="border-t"
+              style={{ borderColor: "var(--grey-200)" }}
+            />
+            <MenuItem
+              icon={<Archive className="size-4" />}
+              label="Move to Archive"
+              danger
+              onClick={() => {
+                setDocumentToArchive(menu.doc);
+                setShowArchiveModal(true);
+                setMenu(null);
+              }}
+            />
+          </div>
+        </>
+      )}
+
+      {/* Modals */}
+      {folderModal && (
+        <CreateFolderModal
+          parentName={folderModal.parent?.name}
+          onClose={() => setFolderModal(null)}
+          onCreate={handleCreateFolder}
         />
       )}
 
-      {/* Archive Confirmation Modal */}
+      {uploadModal && (
+        <UploadDocumentModal
+          mode={uploadModal.mode}
+          documentName={
+            uploadModal.mode === "version" ? uploadModal.doc.name : undefined
+          }
+          defaultExpiry={
+            uploadModal.mode === "version" ? uploadModal.doc.expiry_date : null
+          }
+          employees={employees}
+          onClose={() => setUploadModal(null)}
+          onSubmit={handleUploadSubmit}
+        />
+      )}
+
+      {selectedDocument && (
+        <VersionHistoryDrawer
+          isOpen
+          onClose={() => {
+            setSelectedDocument(null);
+            setVersions([]);
+          }}
+          documentName={selectedDocument.name}
+          currentRevision={String(selectedDocument.current_version)}
+          loading={loadingVersions}
+          versions={versions.map((v) => ({
+            id: v.id,
+            revision: String(v.version_number),
+            date: v.created_at,
+            user: v.updated_by_name ?? "—",
+            fileSize: formatSize(v.file_size),
+            fileName: v.file_name,
+            changes: v.change_summary ?? "",
+          }))}
+          fetchUrl={(versionId, mode) =>
+            fetchFileUrl(selectedDocument.id, mode, versionId)
+          }
+        />
+      )}
+
       <ConfirmDeactivationModal
         isOpen={showArchiveModal}
         onClose={() => {
           setShowArchiveModal(false);
           setDocumentToArchive(null);
         }}
-        onConfirm={() => {
-          console.log("Archiving document:", documentToArchive);
-          // In a real app, this would call an API to archive the document
-        }}
+        onConfirm={confirmArchive}
         itemName={documentToArchive?.name}
       />
     </div>
   );
 }
 
+/* ------------------------------ sub-components ------------------------------ */
+
+function MenuItem({
+  icon,
+  label,
+  onClick,
+  danger,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  onClick: () => void;
+  danger?: boolean;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className="w-full px-4 py-2 text-left flex items-center gap-2 text-sm hover:bg-secondary transition-colors"
+      style={{ color: danger ? "var(--compliance-danger)" : "var(--grey-700)" }}
+    >
+      {icon}
+      {label}
+    </button>
+  );
+}
+
 interface FolderTreeProps {
   node: FolderNode;
-  expandedFolders: string[];
-  activeFolder: string;
-  onToggle: (folderId: string) => void;
-  onSelect: (folderId: string) => void;
+  expandedFolders: number[];
+  activeFolder: number | null;
+  onToggle: (id: number) => void;
+  onSelect: (id: number) => void;
   level?: number;
 }
 
@@ -634,12 +765,10 @@ function FolderTree({
 }: FolderTreeProps) {
   const isExpanded = expandedFolders.includes(node.id);
   const isActive = activeFolder === node.id;
-  const hasChildren = node.children && node.children.length > 0;
+  const hasChildren = node.children.length > 0;
 
   const handleClick = () => {
-    if (hasChildren) {
-      onToggle(node.id);
-    }
+    if (hasChildren) onToggle(node.id);
     onSelect(node.id);
   };
 
@@ -654,17 +783,14 @@ function FolderTree({
           color: isActive ? "var(--brand-blue)" : "var(--grey-700)",
         }}
         onMouseEnter={(e) => {
-          if (!isActive) {
+          if (!isActive)
             e.currentTarget.style.backgroundColor = "var(--grey-100)";
-          }
         }}
         onMouseLeave={(e) => {
-          if (!isActive) {
-            e.currentTarget.style.backgroundColor = "transparent";
-          }
+          if (!isActive) e.currentTarget.style.backgroundColor = "transparent";
         }}
       >
-        {hasChildren && (
+        {hasChildren ? (
           <span className="flex-shrink-0">
             {isExpanded ? (
               <ChevronDown
@@ -682,10 +808,11 @@ function FolderTree({
               />
             )}
           </span>
+        ) : (
+          <span className="w-4" />
         )}
-        {!hasChildren && <span className="w-4" />}
         <span className="flex-shrink-0">
-          {isExpanded ? (
+          {isExpanded && hasChildren ? (
             <FolderOpen
               className="size-4"
               style={{
@@ -706,7 +833,7 @@ function FolderTree({
 
       {hasChildren && isExpanded && (
         <div className="mt-1">
-          {node.children!.map((child) => (
+          {node.children.map((child) => (
             <FolderTree
               key={child.id}
               node={child}
@@ -723,8 +850,8 @@ function FolderTree({
   );
 }
 
-function FileIcon({ fileType }: { fileType: "pdf" | "doc" | "xls" }) {
-  const iconConfig = {
+function FileIcon({ kind }: { kind: "pdf" | "doc" | "xls" | "other" }) {
+  const config = {
     pdf: {
       color: "var(--compliance-danger)",
       bgColor: "var(--compliance-danger)10",
@@ -734,13 +861,12 @@ function FileIcon({ fileType }: { fileType: "pdf" | "doc" | "xls" }) {
       color: "var(--compliance-success)",
       bgColor: "var(--compliance-success)10",
     },
-  };
-
-  const config = iconConfig[fileType];
+    other: { color: "var(--grey-600)", bgColor: "var(--grey-100)" },
+  }[kind];
 
   return (
     <div
-      className="size-8 rounded flex items-center justify-center"
+      className="size-8 rounded flex items-center justify-center flex-shrink-0"
       style={{ backgroundColor: config.bgColor }}
     >
       <FileText className="size-4" style={{ color: config.color }} />
@@ -748,12 +874,8 @@ function FileIcon({ fileType }: { fileType: "pdf" | "doc" | "xls" }) {
   );
 }
 
-interface StatusBadgeProps {
-  status: "valid" | "expiring" | "expired";
-}
-
-function StatusBadge({ status }: StatusBadgeProps) {
-  const badgeConfig = {
+function StatusBadge({ status }: { status: "valid" | "expiring" | "expired" }) {
+  const config = {
     valid: {
       label: "Valid",
       color: "var(--compliance-success)",
@@ -769,9 +891,7 @@ function StatusBadge({ status }: StatusBadgeProps) {
       color: "var(--compliance-danger)",
       icon: <XCircle className="size-4" />,
     },
-  };
-
-  const config = badgeConfig[status];
+  }[status];
 
   return (
     <div
@@ -781,72 +901,5 @@ function StatusBadge({ status }: StatusBadgeProps) {
       {config.icon}
       {config.label}
     </div>
-  );
-}
-
-// Mock function to generate version history
-function getVersionHistory(docId: string) {
-  const versionHistory: Record<string, any[]> = {
-    "RA-WSP-001": [
-      {
-        revision: "3.0",
-        date: "2024-01-15T10:30:00",
-        user: "Sarah Johnson",
-        fileSize: "2.4 MB",
-        changes:
-          "Updated risk controls and added new PPE requirements based on Q4 2023 audit findings",
-      },
-      {
-        revision: "2.0",
-        date: "2023-06-10T14:15:00",
-        user: "Michael Chen",
-        fileSize: "2.1 MB",
-        changes:
-          "Revised hazard identification section and updated emergency response procedures",
-      },
-      {
-        revision: "1.0",
-        date: "2022-11-05T09:00:00",
-        user: "David van der Merwe",
-        fileSize: "1.8 MB",
-        changes: "Initial baseline risk assessment for workshop operations",
-      },
-    ],
-    "RA-CHM-002": [
-      {
-        revision: "2.1",
-        date: "2023-11-20T11:45:00",
-        user: "Michael Chen",
-        fileSize: "1.9 MB",
-        changes: "Minor updates to chemical storage temperature requirements",
-      },
-      {
-        revision: "2.0",
-        date: "2023-05-18T13:20:00",
-        user: "Sarah Johnson",
-        fileSize: "1.8 MB",
-        changes:
-          "Complete revision following new SANS regulations for hazardous material storage",
-      },
-      {
-        revision: "1.0",
-        date: "2022-09-15T10:00:00",
-        user: "Emma Thompson",
-        fileSize: "1.5 MB",
-        changes: "Initial chemical storage risk assessment",
-      },
-    ],
-  };
-
-  return (
-    versionHistory[docId] || [
-      {
-        revision: "1.0",
-        date: new Date().toISOString(),
-        user: "System",
-        fileSize: "1.0 MB",
-        changes: "Initial document version",
-      },
-    ]
   );
 }

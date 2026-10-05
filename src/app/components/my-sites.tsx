@@ -4,7 +4,7 @@ import { useTheme } from "../contexts/theme-context";
 import { useSiteFilter } from "../contexts/site-filter-context";
 import { ImageWithFallback } from "../components/figma/ImageWithFallback";
 import { toast } from "sonner";
-import { getSites } from "@/api/siteAPI";
+import { getSites } from "../../api/siteAPI";
 
 interface Site {
   id: string;

@@ -1,4 +1,10 @@
-import { createContext, useContext, useState, ReactNode } from "react";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+  ReactNode,
+} from "react";
 
 export interface RecycleItem {
   id: string;
@@ -18,40 +24,31 @@ const RecycleBinContext = createContext<RecycleBinContextType | undefined>(
   undefined,
 );
 
-export function RecycleBinProvider({
-  children,
-}: {
-  children: ReactNode;
-}) {
-  const [items, setItems] = useState<RecycleItem[]>(
-  JSON.parse(
-    localStorage.getItem("recycleBin") || "[]"
-  )
-);
+const STORAGE_KEY = "recycleBin";
 
-  const moveToRecycleBin = (item: RecycleItem) => {
+export function RecycleBinProvider({ children }: { children: ReactNode }) {
+  const [items, setItems] = useState<RecycleItem[]>(() => {
+    try {
+      return JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
+    } catch {
+      return [];
+    }
+  });
 
-  const updated = [item, ...items];
+  // Single place that persists, so add and restore can never drift apart
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
+  }, [items]);
 
-  setItems(updated);
+  const moveToRecycleBin = (item: RecycleItem) =>
+    setItems((prev) => [item, ...prev]);
 
-  localStorage.setItem(
-    "recycleBin",
-    JSON.stringify(updated)
-  );
-};
-
-  const restoreItem = (id: string) => {
+  const restoreItem = (id: string) =>
     setItems((prev) => prev.filter((x) => x.id !== id));
-  };
 
   return (
     <RecycleBinContext.Provider
-      value={{
-        items,
-        moveToRecycleBin,
-        restoreItem,
-      }}
+      value={{ items, moveToRecycleBin, restoreItem }}
     >
       {children}
     </RecycleBinContext.Provider>
@@ -60,12 +57,8 @@ export function RecycleBinProvider({
 
 export function useRecycleBin() {
   const context = useContext(RecycleBinContext);
-
   if (!context) {
-    throw new Error(
-      "useRecycleBin must be used inside RecycleBinProvider",
-    );
+    throw new Error("useRecycleBin must be used inside RecycleBinProvider");
   }
-
   return context;
 }

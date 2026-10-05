@@ -22,6 +22,7 @@ const riskAssessmentRoutes_1 = __importDefault(require("./routes/riskAssessmentR
 const admin_2 = __importDefault(require("./routes/admin"));
 const firstAiderRoutes_1 = __importDefault(require("./routes/firstAiderRoutes"));
 const legalAppointmentRoutes_1 = __importDefault(require("./routes/legalAppointmentRoutes"));
+const documentLibraryRoutes_1 = __importDefault(require("./routes/documentLibraryRoutes"));
 const app = (0, express_1.default)();
 const PORT = process.env.PORT || 3000;
 const corsOptions = {
@@ -54,6 +55,7 @@ app.use("/risk-assessments", riskAssessmentRoutes_1.default);
 app.use("/admin", admin_2.default);
 app.use("/admin", firstAiderRoutes_1.default);
 app.use("/legal-appointments", legalAppointmentRoutes_1.default);
+app.use("/document-library", documentLibraryRoutes_1.default);
 async function startServer() {
     try {
         await (0, initDatabase_1.initializeDatabase)();

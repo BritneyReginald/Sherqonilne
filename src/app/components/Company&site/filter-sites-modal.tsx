@@ -1,4 +1,4 @@
-import { SiteFilters } from "@/app/types/site-filter";
+import { SiteFilters } from "../../types/site-filter";
 import { X } from "lucide-react";
 
 interface FilterSitesModalProps {

@@ -1022,6 +1022,82 @@ CREATE INDEX IF NOT EXISTS idx_training_records_expiry_date
   ALTER TABLE first_aid_entries
   ADD COLUMN IF NOT EXISTS first_aider_signature JSONB;`);
 
+    /*
+     * ============================================================
+     * DOCUMENT LIBRARY
+     * ============================================================
+     *
+     * document_folders : self-referencing tree (parent_id NULL = top level)
+     * documents        : one row per logical document (current state)
+     * document_versions: one row per uploaded file. Every revision is
+     *                    kept forever for audit; only Blob metadata is
+     *                    stored here, the file lives in Azure Blob Storage.
+     *
+     * "status" (valid / expiring / expired) is NOT stored. It is derived
+     * from expiry_date at read time so it can never go stale.
+     */
+
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS document_folders (
+        id SERIAL PRIMARY KEY,
+        name VARCHAR(255) NOT NULL,
+        parent_id INTEGER REFERENCES document_folders(id) ON DELETE CASCADE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+
+    // No two sibling folders with the same name (case-insensitive)
+    await client.query(`
+      CREATE UNIQUE INDEX IF NOT EXISTS uniq_document_folder_name
+        ON document_folders (COALESCE(parent_id, 0), LOWER(name));
+    `);
+
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS documents (
+        id SERIAL PRIMARY KEY,
+        folder_id INTEGER NOT NULL
+          REFERENCES document_folders(id) ON DELETE CASCADE,
+        name TEXT NOT NULL,
+        current_version INTEGER NOT NULL DEFAULT 1,
+        updated_by_employee_id INTEGER
+          REFERENCES employees(id) ON DELETE SET NULL,
+        updated_by_name TEXT,
+        last_updated_date DATE NOT NULL DEFAULT CURRENT_DATE,
+        expiry_date DATE,
+        is_archived BOOLEAN NOT NULL DEFAULT FALSE,
+        archived_at TIMESTAMP,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS document_versions (
+        id SERIAL PRIMARY KEY,
+        document_id INTEGER NOT NULL
+          REFERENCES documents(id) ON DELETE CASCADE,
+        version_number INTEGER NOT NULL,
+        file_blob_name TEXT NOT NULL,
+        file_name TEXT NOT NULL,
+        file_size INTEGER,
+        file_mime_type VARCHAR(255),
+        updated_by_employee_id INTEGER
+          REFERENCES employees(id) ON DELETE SET NULL,
+        updated_by_name TEXT,
+        updated_date DATE,
+        change_summary TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE (document_id, version_number)
+      );
+    `);
+
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_documents_folder_id ON documents(folder_id);
+      CREATE INDEX IF NOT EXISTS idx_documents_expiry_date ON documents(expiry_date);
+      CREATE INDEX IF NOT EXISTS idx_document_folders_parent_id ON document_folders(parent_id);
+      CREATE INDEX IF NOT EXISTS idx_document_versions_document_id ON document_versions(document_id);
+    `);
+
     await client.query("COMMIT");
 
     console.log("✅ Database initialization/migration successful");

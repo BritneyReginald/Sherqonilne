@@ -19,8 +19,8 @@ import {
 } from "../contexts/legal-appointments-context";
 import { appointmentTypeMap } from "../templates/appointment-templates";
 import { LegalAppointmentDetailModal } from "../components/legal-appointment-detail-modal";
-import { getEmployees, EmployeeOption } from "@/api/employees";
-import { getSites } from "@/api/siteAPI";
+import { getEmployees, EmployeeOption } from "../../api/employees";
+import { getSites } from "../../api/siteAPI";
 
 interface LegalAppointmentsProps {
   employeeId?: string;
