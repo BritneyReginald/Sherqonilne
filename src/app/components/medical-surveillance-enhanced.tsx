@@ -10,6 +10,7 @@ import {
   Info,
   Loader2,
   Download,
+  Trash2,
 } from "lucide-react";
 import { AlertBanner } from "../components/alert-banner";
 import { useAlerts } from "../contexts/alert-context";
@@ -58,6 +59,16 @@ const FITNESS_STATUSES = [
   { value: "unfit", label: "Unfit for Duty" },
 ];
 
+function authHeaders(): Record<string, string> {
+  try {
+    const stored = localStorage.getItem("sherq_auth");
+    const token = stored ? JSON.parse(stored).token : null;
+    return token ? { Authorization: `Bearer ${token}` } : {};
+  } catch {
+    return {};
+  }
+}
+
 export function MedicalSurveillanceEnhanced({
   employeeId,
 }: {
@@ -87,6 +98,11 @@ export function MedicalSurveillanceEnhanced({
   const [showRecordModal, setShowRecordModal] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+
+  // Delete (moves to Recycle Bin)
+  const [deleteTarget, setDeleteTarget] = useState<MedicalRecord | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const emptyForm = {
     employeeId: "",
@@ -318,6 +334,40 @@ export function MedicalSurveillanceEnhanced({
     }
   };
 
+  const openDeleteConfirm = (record: MedicalRecord) => {
+    setDeleteError(null);
+    setDeleteTarget(record);
+  };
+
+  const closeDeleteConfirm = () => {
+    if (isDeleting) return;
+    setDeleteTarget(null);
+    setDeleteError(null);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!deleteTarget) return;
+    setIsDeleting(true);
+    setDeleteError(null);
+    try {
+      const response = await fetch(`${API_URL}/medicals/${deleteTarget.id}`, {
+        method: "DELETE",
+        headers: authHeaders(),
+      });
+      if (!response.ok) {
+        const errBody = await response.json().catch(() => ({}));
+        throw new Error(errBody.error || "Failed to delete medical record");
+      }
+      await fetchRecords();
+      setDeleteTarget(null);
+    } catch (error: any) {
+      console.error("Error deleting medical record:", error);
+      setDeleteError(error.message || "Something went wrong. Please try again.");
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   const totalRecords = filteredRecords.length;
   const fitCount = filteredRecords.filter((r) => r.fitnessStatus === "fit").length;
   const restrictedCount = filteredRecords.filter((r) => r.fitnessStatus === "fit-with-restrictions").length;
@@ -486,7 +536,7 @@ export function MedicalSurveillanceEnhanced({
                         <th className="px-6 py-4 text-left whitespace-nowrap"><span className="text-sm font-medium" style={{ color: "rgba(255, 255, 255, 0.9)" }}>Exam Date</span></th>
                         <th className="px-6 py-4 text-left whitespace-nowrap"><span className="text-sm font-medium" style={{ color: "rgba(255, 255, 255, 0.9)" }}>Expiry Date</span></th>
                         <th className="px-6 py-4 text-left whitespace-nowrap"><span className="text-sm font-medium" style={{ color: "rgba(255, 255, 255, 0.9)" }}>Fitness Status</span></th>
-                        <th className="px-6 py-4 text-center whitespace-nowrap"><span className="text-sm font-medium" style={{ color: "rgba(255, 255, 255, 0.9)" }}>Medical File</span></th>
+                        <th className="px-6 py-4 text-center whitespace-nowrap"><span className="text-sm font-medium" style={{ color: "rgba(255, 255, 255, 0.9)" }}>Actions</span></th>
                       </tr>
                     </thead>
                     <tbody>
@@ -569,6 +619,15 @@ export function MedicalSurveillanceEnhanced({
                                     title="Clinical Notes (Admin Only)"
                                   >
                                     <EyeOff className="size-4" style={{ color: "var(--compliance-danger)" }} />
+                                  </button>
+                                  <button
+                                    onClick={() => openDeleteConfirm(record)}
+                                    className="p-2 rounded-lg transition-colors hover:bg-red-500/10"
+                                    style={{ backgroundColor: "rgba(255, 255, 255, 0.05)", border: "1px solid rgba(255, 255, 255, 0.1)" }}
+                                    title="Delete (moves to Recycle Bin)"
+                                    aria-label={`Delete medical record for ${record.employeeName}`}
+                                  >
+                                    <Trash2 className="size-4" style={{ color: "var(--compliance-danger)" }} />
                                   </button>
                                 </div>
                               </td>
@@ -757,6 +816,57 @@ export function MedicalSurveillanceEnhanced({
                   >
                     {isSaving && <Loader2 className="size-4 animate-spin" />}
                     {isSaving ? "Saving…" : "Save Medical Exam"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </>
+        )}
+
+        {/* Delete confirmation */}
+        {deleteTarget && (
+          <>
+            <div className="fixed inset-0 bg-black bg-opacity-50 z-40" onClick={closeDeleteConfirm} />
+            <div className="fixed inset-0 flex items-center justify-center z-50 p-8">
+              <div className="w-full max-w-md rounded-lg shadow-2xl" style={{ backgroundColor: "white" }}>
+                <div className="p-6">
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="size-10 rounded-full flex items-center justify-center" style={{ backgroundColor: "var(--compliance-danger)10" }}>
+                      <Trash2 className="size-5" style={{ color: "var(--compliance-danger)" }} />
+                    </div>
+                    <h3 className="font-medium" style={{ color: "var(--grey-900)" }}>Delete this medical record?</h3>
+                  </div>
+                  <p className="text-sm mb-2" style={{ color: "var(--grey-700)" }}>
+                    <strong>{getExamTypeBadge(deleteTarget.examType).label}</strong> exam for{" "}
+                    <strong>{deleteTarget.employeeName}</strong> on{" "}
+                    {new Date(deleteTarget.examDate).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}.
+                  </p>
+                  <p className="text-sm" style={{ color: "var(--grey-600)" }}>
+                    It will move to the Recycle Bin. Medical records are kept indefinitely and can be restored at any time.
+                  </p>
+                  {deleteError && (
+                    <div className="mt-4 p-3 rounded-lg text-sm" style={{ backgroundColor: "var(--compliance-danger)10", color: "var(--compliance-danger)" }}>
+                      {deleteError}
+                    </div>
+                  )}
+                </div>
+                <div className="px-6 py-4 border-t flex justify-end gap-3" style={{ borderColor: "var(--grey-200)" }}>
+                  <button
+                    onClick={closeDeleteConfirm}
+                    disabled={isDeleting}
+                    className="px-5 py-2 rounded-lg text-sm"
+                    style={{ backgroundColor: "var(--grey-100)", color: "var(--grey-700)" }}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleConfirmDelete}
+                    disabled={isDeleting}
+                    className="px-5 py-2 rounded-lg text-sm font-medium text-white disabled:opacity-60 flex items-center gap-2"
+                    style={{ backgroundColor: "var(--compliance-danger)" }}
+                  >
+                    {isDeleting && <Loader2 className="size-4 animate-spin" />}
+                    {isDeleting ? "Deleting…" : "Move to Recycle Bin"}
                   </button>
                 </div>
               </div>

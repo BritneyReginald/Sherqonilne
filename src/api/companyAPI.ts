@@ -1,63 +1,57 @@
+// src/api/companyAPI.ts
+
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
 
 function authHeaders() {
-  const stored = localStorage.getItem("sherq_auth");
-  const token = stored ? JSON.parse(stored).token : null;
+  try {
+    const stored = localStorage.getItem("sherq_auth");
+    const token = stored ? JSON.parse(stored).token : null;
 
-  return {
-    "Content-Type": "application/json",
-    ...(token ? { Authorization: `Bearer ${token}` } : {}),
-  };
-}
-
-export async function getCompanies() {
-  const res = await fetch(`${API_URL}/companies`, {
-    headers: authHeaders(),
-  });
-
-  if (!res.ok) {
-    throw new Error("Failed to load companies");
+    return {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    };
+  } catch {
+    return { "Content-Type": "application/json" };
   }
-
-  return res.json();
 }
 
-export async function getMyCompany() {
-  const res = await fetch(`${API_URL}/companies/me`, {
-    headers: authHeaders(),
-  });
-
-  if (!res.ok) {
-    throw new Error("Failed to load your company");
-  }
-
-  return res.json();
-}
-
-export async function createCompany(company: {
+export interface CompanyProfile {
   name: string;
-  logo: string;
-  email: string;
-  contactPerson: string;
-  contactNumber: string;
-}) {
-  const res = await fetch(`${API_URL}/companies`, {
-    method: "POST",
+  logo: string | null;
+}
+
+export async function getCompanyProfile(): Promise<CompanyProfile> {
+  const res = await fetch(`${API_URL}/company`, {
     headers: authHeaders(),
-    body: JSON.stringify({
-      name: company.name,
-      logo: company.logo,
-      email: company.email,
-      contactPerson: company.contactPerson,
-      contactNumber: company.contactNumber,
-    }),
   });
 
   if (!res.ok) {
     const error = await res.json().catch(() => ({}));
-
-    throw new Error(error.error || "Failed to create company");
+    throw new Error(error.error || "Failed to load company profile");
   }
 
   return res.json();
+}
+
+/**
+ * Send only the fields you want to change (name and/or logo).
+ */
+export async function updateCompanyProfile(changes: {
+  name?: string;
+  logo?: string;
+}): Promise<CompanyProfile> {
+  const res = await fetch(`${API_URL}/company`, {
+    method: "PUT",
+    headers: authHeaders(),
+    body: JSON.stringify(changes),
+  });
+
+  const data = await res.json().catch(() => ({}));
+
+  if (!res.ok) {
+    throw new Error(data.error || "Failed to update company profile");
+  }
+
+  return data;
 }

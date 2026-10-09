@@ -1,8 +1,13 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getMedicalRecordFileUrl = exports.deleteMedicalRecordController = exports.editMedicalRecord = exports.getMedicalRecord = exports.getAllMedicalRecords = exports.addMedicalRecord = void 0;
+exports.getMedicalRecordFileUrl = exports.restoreMedicalRecordController = exports.listArchivedMedicalRecords = exports.deleteMedicalRecordController = exports.editMedicalRecord = exports.getMedicalRecord = exports.getAllMedicalRecords = exports.addMedicalRecord = void 0;
 const medicals_1 = require("../models/medicals");
 const azureBlob_1 = require("../services/azureBlob");
+// Returns the logged-in user's id if an auth middleware attached one,
+// otherwise null. Used only to record deleted_by; it is NOT a permission
+// check. Adjust if your auth middleware attaches the user under a
+// different key.
+const currentUserId = (req) => req.user?.id ?? null;
 // multipart/form-data arrives with every field as a string, so
 // restriction_type comes through as a JSON string if present.
 function parseMedicalBody(body) {
@@ -123,25 +128,50 @@ const editMedicalRecord = async (req, res) => {
     }
 };
 exports.editMedicalRecord = editMedicalRecord;
+/**
+ * SOFT delete. The row and its Azure file are KEPT indefinitely
+ * (OHS Act 40-year retention). Nothing is removed from Azure here.
+ */
 const deleteMedicalRecordController = async (req, res) => {
     try {
-        const deleted = await (0, medicals_1.deleteMedicalRecord)(Number(req.params.id));
+        const deleted = await (0, medicals_1.softDeleteMedicalRecord)(Number(req.params.id), currentUserId(req));
         if (!deleted) {
             res.status(404).json({ message: "Medical record not found" });
             return;
         }
-        // Clean up the file in Azure so we don't orphan POPI-protected
-        // documents once the DB row referencing them is gone.
-        if (deleted.file_blob_name) {
-            await (0, azureBlob_1.deleteMedicalFile)(deleted.file_blob_name);
-        }
-        res.json({ message: "Medical record permanently deleted", id: deleted.id });
+        res.json({
+            message: "Medical record moved to the recycle bin",
+            id: deleted.id,
+        });
     }
     catch (err) {
         res.status(500).json({ error: err.message });
     }
 };
 exports.deleteMedicalRecordController = deleteMedicalRecordController;
+const listArchivedMedicalRecords = async (req, res) => {
+    try {
+        res.json(await (0, medicals_1.getArchivedMedicalRecords)());
+    }
+    catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+};
+exports.listArchivedMedicalRecords = listArchivedMedicalRecords;
+const restoreMedicalRecordController = async (req, res) => {
+    try {
+        const restored = await (0, medicals_1.restoreMedicalRecord)(Number(req.params.id));
+        if (!restored) {
+            res.status(404).json({ message: "Deleted medical record not found" });
+            return;
+        }
+        res.json({ message: "Medical record restored", id: restored.id });
+    }
+    catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+};
+exports.restoreMedicalRecordController = restoreMedicalRecordController;
 // Returns a short-lived signed URL so the frontend can open/download
 // the file without the blob ever being publicly accessible.
 const getMedicalRecordFileUrl = async (req, res) => {

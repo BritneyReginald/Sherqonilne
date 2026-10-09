@@ -5,6 +5,7 @@ import {
   verifyPassword,
   buildTokenForUser,
   issueCredentials,
+  provisionInspector,
 } from "../services/authService";
 import pool from "../config/db";
 
@@ -24,25 +25,42 @@ export async function loginFirstAider(req: Request, res: Response) {
   return handleLogin(req, res, "first_aider");
 }
 
+// Returns the configured login URL, or null if it's missing. This avoids the
+// old behaviour where a missing variable became the literal text "undefined"
+// inside the credentials email.
+function getLoginUrl(
+  name: "CLIENT_LOGIN_URL" | "INSPECTOR_LOGIN_URL",
+): string | null {
+  const value = process.env[name]?.trim();
+  return value ? value : null;
+}
+
 async function handleLogin(
   req: Request,
   res: Response,
   role: "rss_staff" | "client" | "inspector" | "first_aider",
 ) {
   try {
-    const { email, password } = req.body;
+    // Inspectors and first aiders log in with a generated username (stored in
+    // users.email). Accept either `username` or `email` in the body so
+    // existing clients keep working.
+    const { email, username, password } = req.body;
+    const identifier = String(username ?? email ?? "").trim();
 
-    if (!email || !password) {
+    const usesUsername = role === "inspector" || role === "first_aider";
+    const identifierLabel = usesUsername ? "username" : "email";
+
+    if (!identifier || !password) {
       return res.status(400).json({
-        error: "Email and password are required",
+        error: `${usesUsername ? "Username" : "Email"} and password are required`,
       });
     }
 
-    const user = await findUserByEmailAndRole(email, role);
+    const user = await findUserByEmailAndRole(identifier, role);
 
     if (!user) {
       return res.status(401).json({
-        error: "Invalid email or password",
+        error: `Invalid ${identifierLabel} or password`,
       });
     }
 
@@ -56,7 +74,7 @@ async function handleLogin(
 
     if (!validPassword) {
       return res.status(401).json({
-        error: "Invalid email or password",
+        error: `Invalid ${identifierLabel} or password`,
       });
     }
 
@@ -124,6 +142,14 @@ export async function issueClientCredentials(req: Request, res: Response) {
       });
     }
 
+    const loginUrl = getLoginUrl("CLIENT_LOGIN_URL");
+    if (!loginUrl) {
+      console.error("CLIENT_LOGIN_URL is not set");
+      return res.status(500).json({
+        error: "Client login URL is not configured on the server",
+      });
+    }
+
     const siteResult = await pool.query(
       `SELECT name FROM sites WHERE id = $1`,
       [siteId],
@@ -145,7 +171,7 @@ export async function issueClientCredentials(req: Request, res: Response) {
       issuedByUserId,
       siteId,
       siteName,
-      loginUrl: `${process.env.CLIENT_LOGIN_URL}`,
+      loginUrl,
     });
 
     return res.status(201).json({
@@ -165,28 +191,63 @@ export async function issueClientCredentials(req: Request, res: Response) {
   }
 }
 
+// Inspectors log in with a generated username (from their full name) and are
+// assigned to one or more sites at creation time. The assignment is written to
+// inspector_assignments, the same table the Security & Privacy page reads.
 export async function issueInspectorCredentials(req: Request, res: Response) {
   try {
-    const { email, siteIds } = req.body;
-    if (!email || !Array.isArray(siteIds) || siteIds.length === 0) {
-      return res
-        .status(400)
-        .json({ error: "email and a non-empty siteIds array are required" });
+    const { employeeNumber, fullName, surname, siteIds } = req.body;
+
+    if (
+      !employeeNumber ||
+      !fullName ||
+      !surname ||
+      !Array.isArray(siteIds) ||
+      siteIds.length === 0
+    ) {
+      return res.status(400).json({
+        error:
+          "employeeNumber, fullName, surname and a non-empty siteIds array are required",
+      });
+    }
+
+    const cleanSiteIds: number[] = [...new Set<number>(siteIds.map(Number))];
+    if (!cleanSiteIds.every((id) => Number.isInteger(id) && id > 0)) {
+      return res.status(400).json({ error: "siteIds must be valid site ids" });
+    }
+
+    const loginUrl = getLoginUrl("INSPECTOR_LOGIN_URL");
+    if (!loginUrl) {
+      console.error("INSPECTOR_LOGIN_URL is not set");
+      return res.status(500).json({
+        error: "Inspector login URL is not configured on the server",
+      });
+    }
+
+    const siteResult = await pool.query(
+      `SELECT id, name FROM sites WHERE id = ANY($1)`,
+      [cleanSiteIds],
+    );
+
+    if (siteResult.rows.length !== cleanSiteIds.length) {
+      return res.status(404).json({ error: "One or more sites not found" });
     }
 
     const issuedByUserId = req.user!.id;
 
-    const { user, deliveryStatus } = await issueCredentials({
-      email,
-      role: "inspector",
+    const { user, deliveryStatus } = await provisionInspector({
+      employeeNumber: String(employeeNumber).trim(),
+      fullName: String(fullName).trim(),
+      surname: String(surname).trim(),
+      siteIds: cleanSiteIds,
+      siteNames: siteResult.rows.map((row) => row.name),
       issuedByUserId,
-      siteIds,
-      loginUrl: `${process.env.INSPECTOR_LOGIN_URL}`,
+      loginUrl,
     });
 
     return res.status(201).json({
       message: "Inspector account created",
-      user: { id: user.id, email: user.email },
+      user: { id: user.id, username: user.username },
       deliveryStatus,
     });
   } catch (err) {

@@ -22,6 +22,9 @@ export interface MedicalFileMeta {
 // Every SELECT joins employees so the register always reflects the
 // employee's CURRENT name/department/site, same relational approach
 // as the rest of the compliance module.
+//
+// Soft-deleted rows (deleted_at IS NOT NULL) are excluded by every
+// caller below. They live in the Recycle Bin and are kept forever.
 const SELECT_BASE = `
   SELECT
     mr.id,
@@ -87,7 +90,7 @@ export async function getMedicalRecords(filters: {
   fitnessStatus?: string;
   employeeId?: number;
 }) {
-  const conditions: string[] = [];
+  const conditions: string[] = ["mr.deleted_at IS NULL"];
   const values: any[] = [];
 
   if (filters.employeeId) {
@@ -105,12 +108,8 @@ export async function getMedicalRecords(filters: {
     conditions.push(`mr.fitness_status = $${values.length}`);
   }
 
-  const whereClause = conditions.length
-    ? `WHERE ${conditions.join(" AND ")}`
-    : "";
-
   const result = await pool.query(
-    `${SELECT_BASE} ${whereClause} ORDER BY mr.exam_date DESC`,
+    `${SELECT_BASE} WHERE ${conditions.join(" AND ")} ORDER BY mr.exam_date DESC`,
     values,
   );
 
@@ -118,7 +117,10 @@ export async function getMedicalRecords(filters: {
 }
 
 export async function getMedicalRecordById(id: number) {
-  const result = await pool.query(`${SELECT_BASE} WHERE mr.id = $1`, [id]);
+  const result = await pool.query(
+    `${SELECT_BASE} WHERE mr.id = $1 AND mr.deleted_at IS NULL`,
+    [id],
+  );
   return result.rows[0] || null;
 }
 
@@ -155,7 +157,8 @@ export async function updateMedicalRecord(
   values.push(id);
 
   await pool.query(
-    `UPDATE medical_records SET ${fields.join(", ")} WHERE id = $${values.length}`,
+    `UPDATE medical_records SET ${fields.join(", ")}
+      WHERE id = $${values.length} AND deleted_at IS NULL`,
     values,
   );
 
@@ -168,7 +171,7 @@ export async function attachFileToRecord(id: number, file: MedicalFileMeta) {
     UPDATE medical_records
     SET file_blob_name = $1, file_name = $2, file_size = $3,
         file_mime_type = $4, updated_at = CURRENT_TIMESTAMP
-    WHERE id = $5
+    WHERE id = $5 AND deleted_at IS NULL
     `,
     [file.blobName, file.fileName, file.fileSize, file.mimeType, id],
   );
@@ -176,9 +179,44 @@ export async function attachFileToRecord(id: number, file: MedicalFileMeta) {
   return getMedicalRecordById(id);
 }
 
-export async function deleteMedicalRecord(id: number) {
+/*
+ * RECYCLE BIN — soft delete only. Medical records are NEVER permanently
+ * deleted (OHS Act 40-year retention), so there is intentionally no
+ * hard-delete function in this file any more.
+ */
+
+export async function softDeleteMedicalRecord(
+  id: number,
+  userId: number | null,
+) {
   const result = await pool.query(
-    `DELETE FROM medical_records WHERE id = $1 RETURNING id, file_blob_name`,
+    `UPDATE medical_records
+        SET deleted_at = NOW(), deleted_by = $2, updated_at = NOW()
+      WHERE id = $1 AND deleted_at IS NULL
+      RETURNING id`,
+    [id, userId],
+  );
+  return result.rows[0] || null;
+}
+
+export async function getArchivedMedicalRecords() {
+  const result = await pool.query(
+    `SELECT mr.id, mr.exam_type, mr.exam_date, mr.deleted_at,
+            e.full_name AS employee_name, e.employee_number
+       FROM medical_records mr
+       JOIN employees e ON e.id = mr.employee_id
+      WHERE mr.deleted_at IS NOT NULL
+      ORDER BY mr.deleted_at DESC`,
+  );
+  return result.rows;
+}
+
+export async function restoreMedicalRecord(id: number) {
+  const result = await pool.query(
+    `UPDATE medical_records
+        SET deleted_at = NULL, deleted_by = NULL, updated_at = NOW()
+      WHERE id = $1 AND deleted_at IS NOT NULL
+      RETURNING id`,
     [id],
   );
   return result.rows[0] || null;

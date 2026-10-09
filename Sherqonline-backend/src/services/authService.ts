@@ -8,7 +8,6 @@ import {
   UserRole,
   createUser,
   linkClientToSite,
-  assignInspectorToSites,
   logCredentialIssuance,
   markUserActiveAndLogin,
   updateLastLogin,
@@ -16,10 +15,8 @@ import {
   getInspectorSiteIds,
 } from "../models/user";
 import pool from "../config/db";
-// import { encryptPassword } from "./authServices";
 
 const JWT_SECRET = process.env.JWT_SECRET as string;
-// const JWT_EXPIRES_IN : jwt.SignOptions["expiresIn"]= process.env.JWT_EXPIRES_IN || "8h";
 const SALT_ROUNDS = 12;
 
 if (!JWT_SECRET) {
@@ -92,7 +89,7 @@ export function decryptPassword(encryptedHex: string, ivHex: string): string {
   );
 }
 
-// --- Temp password generation (for RSS-issued client/inspector accounts) ---
+// --- Temp password generation (for RSS-issued client accounts) ---
 
 export function generateTempPassword(): string {
   // 12 random bytes -> readable base64-ish string, trimmed of ambiguous chars
@@ -121,7 +118,7 @@ export function verifyToken(token: string): AuthTokenPayload {
   return jwt.verify(token, JWT_SECRET) as AuthTokenPayload;
 }
 
-// --- Login (shared logic used by all 3 role-specific controllers) ---
+// --- Login (shared logic used by all role-specific controllers) ---
 
 export async function buildTokenForUser(user: User): Promise<string> {
   const payload: AuthTokenPayload = {
@@ -153,7 +150,7 @@ export async function getInspectorSites(userId: number): Promise<number[]> {
   return getInspectorSiteIds(userId);
 }
 
-// --- Credential issuance (RSS-only) ---
+// --- Credential delivery email ---
 
 const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST,
@@ -165,37 +162,92 @@ const transporter = nodemailer.createTransport({
   },
 });
 
-interface IssueCredentialsParams {
-  email: string;
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+async function sendCredentialsEmail(args: {
+  identifierLabel: "Email" | "Username";
+  identifier: string;
+  tempPassword: string;
+  loginUrl: string;
   role: "client" | "inspector";
+  siteName?: string;
+}) {
+  const { identifierLabel, identifier, tempPassword, loginUrl, role, siteName } =
+    args;
+
+  // No hardcoded fallback address: credentials (including the plaintext
+  // password) must only ever go to an address configured for this environment.
+  const notifyTo = process.env.CREDENTIALS_NOTIFY_EMAIL;
+  if (!notifyTo) {
+    throw new Error(
+      "CREDENTIALS_NOTIFY_EMAIL is not set; cannot deliver credentials",
+    );
+  }
+
+  const subject =
+    role === "client"
+      ? `New client login created — ${siteName ?? "client"}`
+      : `New Fire Equipment Inspector login created${
+          siteName ? ` — ${siteName}` : ""
+        }`;
+
+  const roleLabel = role === "client" ? "client" : "Fire Equipment inspector";
+  const forSite = siteName ? ` for ${escapeHtml(siteName)}` : "";
+
+  const html = `
+    <p>Hello,</p>
+    <p>A new ${roleLabel} account${forSite} was created on the SHERQ Online platform.</p>
+    <p><strong>${identifierLabel}:</strong> ${escapeHtml(identifier)}</p>
+    <p><strong>Login link:</strong> <a href="${escapeHtml(loginUrl)}">${escapeHtml(loginUrl)}</a></p>
+    <p><strong>Password:</strong> ${escapeHtml(tempPassword)}</p>
+    <p>Please forward these details to the ${roleLabel} securely, or share them as you see fit.</p>
+  `;
+
+  await transporter.sendMail({
+    from: process.env.SMTP_FROM,
+    to: notifyTo,
+    subject,
+    html,
+  });
+}
+
+// --- Client credential issuance (RSS-only) ---
+
+interface IssueClientCredentialsParams {
+  email: string;
+  role: "client";
   issuedByUserId: number;
-  siteId?: number; // required if role = client
-  siteIds?: number[]; // required if role = inspector
+  siteId: number;
   siteName?: string; // for the email copy
   loginUrl: string; // e.g. https://yourapp.com/login/client
 }
 
-export async function issueCredentials(params: IssueCredentialsParams) {
-  const { email, role, issuedByUserId, siteId, siteIds, siteName, loginUrl } =
-    params;
+export async function issueCredentials(params: IssueClientCredentialsParams) {
+  const { email, role, issuedByUserId, siteId, siteName, loginUrl } = params;
+
+  if (!siteId) {
+    throw new Error("siteId is required for client accounts");
+  }
 
   const tempPassword = generateTempPassword();
   const passwordHash = await hashPassword(tempPassword);
 
   const user = await createUser(email, passwordHash, role, issuedByUserId);
 
-  if (role === "client") {
-    if (!siteId) {
-      throw new Error("siteId is required for client accounts");
-    }
-
-    await linkClientToSite(user.id, siteId);
-  }
+  await linkClientToSite(user.id, siteId);
 
   let deliveryStatus = "sent";
   try {
     await sendCredentialsEmail({
-      email,
+      identifierLabel: "Email",
+      identifier: email,
       tempPassword,
       loginUrl,
       role,
@@ -212,36 +264,7 @@ export async function issueCredentials(params: IssueCredentialsParams) {
   return { user, deliveryStatus };
 }
 
-async function sendCredentialsEmail(args: {
-  email: string;
-  tempPassword: string;
-  loginUrl: string;
-  role: "client" | "inspector";
-  siteName?: string;
-}) {
-  const { email, tempPassword, loginUrl, role, siteName } = args;
-
-  const subject =
-    role === "client"
-      ? `New client login created — ${siteName ?? "client"}`
-      : `New Fire Equipment Inspector login created`;
-
-  const html = `
-    <p>Hello,</p>
-    <p>A new ${role} account for ${siteName} was created on the SHERQ Online platform.</p>
-    <p><strong>Client email:</strong> ${email}</p>
-    <p><strong>Login link:</strong> <a href="${loginUrl}">${loginUrl}</a></p>
-    <p><strong>Password:</strong> ${tempPassword}</p>
-    <p>Please forward these details to the client securely, or share them as you see fit.</p>
-  `;
-
-  await transporter.sendMail({
-    from: process.env.SMTP_FROM,
-    to: process.env.CREDENTIALS_NOTIFY_EMAIL || "milly.reginald@gmail.com",
-    subject,
-    html,
-  });
-}
+// --- Username / password generation for staff-style accounts ---
 
 function generateUsername(fullName: string): string {
   // literal name, trimmed and collapsed to single spaces
@@ -259,6 +282,8 @@ function generateInspectorPassword(
 
   return `${employeeNumber}${capitalizedSurname}`;
 }
+
+// --- Inspectors: generated username, assigned to sites in one transaction ---
 
 export async function createInspectorStaff(
   employeeNumber: string,
@@ -322,7 +347,7 @@ export async function createInspectorStaff(
       [user.id, employeeNumber, fullName, surname],
     );
 
-    // Assign sites
+    // Assign sites (this is what the Security & Privacy page reads)
     for (const siteId of siteIds) {
       await client.query(
         `
@@ -349,6 +374,64 @@ export async function createInspectorStaff(
   }
 }
 
+interface ProvisionInspectorParams {
+  employeeNumber: string;
+  fullName: string;
+  surname: string;
+  siteIds: number[];
+  siteNames: string[]; // for the email copy
+  issuedByUserId: number;
+  loginUrl: string; // INSPECTOR_LOGIN_URL
+}
+
+/**
+ * Creates an inspector (generated username, sites assigned) and sends the
+ * login details + hosted login link to the RSS notify address.
+ */
+export async function provisionInspector(params: ProvisionInspectorParams) {
+  const {
+    employeeNumber,
+    fullName,
+    surname,
+    siteIds,
+    siteNames,
+    issuedByUserId,
+    loginUrl,
+  } = params;
+
+  const created = await createInspectorStaff(
+    employeeNumber,
+    fullName,
+    surname,
+    siteIds,
+    issuedByUserId,
+  );
+
+  let deliveryStatus = "sent";
+  try {
+    await sendCredentialsEmail({
+      identifierLabel: "Username",
+      identifier: created.username,
+      tempPassword: created.plainPassword,
+      loginUrl,
+      role: "inspector",
+      siteName: siteNames.join(", "),
+    });
+  } catch (err) {
+    console.error("Failed to send inspector credentials email:", err);
+    deliveryStatus = "failed";
+  }
+
+  await logCredentialIssuance(
+    created.id,
+    issuedByUserId,
+    "email",
+    deliveryStatus,
+  );
+
+  return { user: { id: created.id, username: created.username }, deliveryStatus };
+}
+
 export async function deleteInspector(userId: number) {
   await pool.query(
     `DELETE FROM users
@@ -357,6 +440,8 @@ export async function deleteInspector(userId: number) {
     [userId],
   );
 }
+
+// --- First aiders ---
 
 function generateFirstAiderPassword(
   employeeNumber: string,

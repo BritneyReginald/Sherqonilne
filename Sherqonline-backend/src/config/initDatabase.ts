@@ -927,6 +927,24 @@ CREATE INDEX IF NOT EXISTS idx_training_records_expiry_date
     ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
 `);
 
+    await client.query(`
+  ALTER TABLE legal_appointments
+    DROP CONSTRAINT IF EXISTS legal_appointments_appointment_type_check;
+  ALTER TABLE legal_appointments
+    ADD CONSTRAINT legal_appointments_appointment_type_check
+    CHECK (appointment_type IN (
+      'First Aid Officer',
+      'HSE/SHE Representative',
+      'Incident Investigator',
+      'Fire Fighter',
+      'Forklift Operator',
+      'Excavator Operator',
+      'Supervisor',
+      'PPE Inspector',
+      'GMR 2(1) Appointee'
+    ));
+`);
+
     /*
      * MIGRATION: company name + logo now come from the selected site,
      * so the old per-appointment columns are removed.
@@ -1097,6 +1115,44 @@ CREATE INDEX IF NOT EXISTS idx_training_records_expiry_date
       CREATE INDEX IF NOT EXISTS idx_document_folders_parent_id ON document_folders(parent_id);
       CREATE INDEX IF NOT EXISTS idx_document_versions_document_id ON document_versions(document_id);
     `);
+
+    /*
+     * ============================================================
+     * MIGRATION: SOFT DELETE (Recycle Bin)
+     * ============================================================
+     *
+     * medical_records : soft-deleted, kept INDEFINITELY (OHS Act, 40-year
+     *                   retention). Never purged by any job.
+     * ppe_transactions: soft-deleted, permanently purged 30 days after
+     *                   deleted_at by services/purgeJobs.ts.
+     *
+     * A row with deleted_at IS NOT NULL is "in the recycle bin".
+     */
+    await client.query(`
+      ALTER TABLE medical_records
+        ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP,
+        ADD COLUMN IF NOT EXISTS deleted_by INTEGER
+          REFERENCES users(id) ON DELETE SET NULL;
+
+      ALTER TABLE ppe_transactions
+        ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP,
+        ADD COLUMN IF NOT EXISTS deleted_by INTEGER
+          REFERENCES users(id) ON DELETE SET NULL;
+
+      CREATE INDEX IF NOT EXISTS idx_medical_records_deleted_at
+        ON medical_records(deleted_at);
+      CREATE INDEX IF NOT EXISTS idx_ppe_transactions_deleted_at
+        ON ppe_transactions(deleted_at);
+    `);
+
+    await client.query(`
+     CREATE TABLE IF NOT EXISTS company_profile (
+       id INTEGER PRIMARY KEY DEFAULT 1 CHECK (id = 1),
+       name TEXT NOT NULL DEFAULT 'RSS',
+       logo TEXT,
+       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+     );
+   `);
 
     await client.query("COMMIT");
 

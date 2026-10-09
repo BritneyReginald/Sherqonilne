@@ -10,6 +10,25 @@ function authHeaders() {
   };
 }
 
+// Throws an Error carrying the server's `error` message when there is one,
+// otherwise the fallback text. The status is attached for callers that care.
+async function throwApiError(res: Response, fallback: string): Promise<never> {
+  let message = fallback;
+
+  try {
+    const body = await res.json();
+    if (typeof body?.error === "string" && body.error) {
+      message = body.error;
+    }
+  } catch {
+    // response had no JSON body — keep the fallback
+  }
+
+  const error = new Error(message) as Error & { status?: number };
+  error.status = res.status;
+  throw error;
+}
+
 export async function createInspector(data: any) {
   const res = await fetch(`${API_URL}/admin/inspectors`, {
     method: "POST",
@@ -18,7 +37,7 @@ export async function createInspector(data: any) {
   });
 
   if (!res.ok) {
-    throw new Error("Failed to create inspector");
+    await throwApiError(res, "Failed to create inspector");
   }
 
   return res.json();
@@ -30,7 +49,7 @@ export async function getInspectors() {
   });
 
   if (!res.ok) {
-    throw new Error("Failed to load inspectors");
+    await throwApiError(res, "Failed to load inspectors");
   }
 
   return res.json();
@@ -44,7 +63,7 @@ export async function resetInspectorPassword(id: number, newPassword: string) {
   });
 
   if (!res.ok) {
-    throw new Error("Failed to reset password");
+    await throwApiError(res, "Failed to reset password");
   }
 
   return res.json();
@@ -61,7 +80,7 @@ export async function updateInspectorSites(
   });
 
   if (!res.ok) {
-    throw new Error("Failed to update inspector sites");
+    await throwApiError(res, "Failed to update inspector sites");
   }
 
   return res.json();
@@ -78,7 +97,7 @@ export async function updateInspectorStatus(
   });
 
   if (!res.ok) {
-    throw new Error("Failed to update status");
+    await throwApiError(res, "Failed to update status");
   }
 
   return res.json();
@@ -91,7 +110,7 @@ export async function deleteInspector(id: number) {
   });
 
   if (!res.ok) {
-    throw new Error("Failed to delete inspector");
+    await throwApiError(res, "Failed to delete inspector");
   }
 
   return res.json();
@@ -103,7 +122,7 @@ export async function createFirstAider(data: any) {
     headers: authHeaders(),
     body: JSON.stringify(data),
   });
-  if (!res.ok) throw new Error("Failed to create first aider");
+  if (!res.ok) await throwApiError(res, "Failed to create first aider");
   return res.json();
 }
 
@@ -111,7 +130,7 @@ export async function getFirstAiders() {
   const res = await fetch(`${API_URL}/admin/first-aiders`, {
     headers: authHeaders(),
   });
-  if (!res.ok) throw new Error("Failed to load first aiders");
+  if (!res.ok) await throwApiError(res, "Failed to load first aiders");
   return res.json();
 }
 
@@ -124,7 +143,7 @@ export async function resetFirstAiderPassword(id: number, newPassword: string) {
       body: JSON.stringify({ newPassword }),
     },
   );
-  if (!res.ok) throw new Error("Failed to reset password");
+  if (!res.ok) await throwApiError(res, "Failed to reset password");
   return res.json();
 }
 
@@ -134,7 +153,7 @@ export async function updateFirstAiderSites(id: number, siteIds: number[]) {
     headers: authHeaders(),
     body: JSON.stringify({ siteIds }),
   });
-  if (!res.ok) throw new Error("Failed to update sites");
+  if (!res.ok) await throwApiError(res, "Failed to update sites");
   return res.json();
 }
 
@@ -147,7 +166,7 @@ export async function updateFirstAiderStatus(
     headers: authHeaders(),
     body: JSON.stringify({ status }),
   });
-  if (!res.ok) throw new Error("Failed to update status");
+  if (!res.ok) await throwApiError(res, "Failed to update status");
   return res.json();
 }
 
@@ -156,6 +175,6 @@ export async function deleteFirstAider(id: number) {
     method: "DELETE",
     headers: authHeaders(),
   });
-  if (!res.ok) throw new Error("Failed to delete first aider");
+  if (!res.ok) await throwApiError(res, "Failed to delete first aider");
   return res.json();
 }

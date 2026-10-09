@@ -9,7 +9,6 @@ dotenv_1.default.config({ quiet: true });
 const express_1 = __importDefault(require("express"));
 const employeeRoutes_1 = __importDefault(require("./routes/employeeRoutes"));
 const initDatabase_1 = require("./config/initDatabase");
-const companies_1 = __importDefault(require("./routes/companies"));
 const sites_1 = __importDefault(require("./routes/sites"));
 const auth_1 = __importDefault(require("./routes/auth"));
 const admin_1 = __importDefault(require("./routes/admin"));
@@ -23,6 +22,8 @@ const admin_2 = __importDefault(require("./routes/admin"));
 const firstAiderRoutes_1 = __importDefault(require("./routes/firstAiderRoutes"));
 const legalAppointmentRoutes_1 = __importDefault(require("./routes/legalAppointmentRoutes"));
 const documentLibraryRoutes_1 = __importDefault(require("./routes/documentLibraryRoutes"));
+const purgeJobs_1 = require("./services/purgeJobs");
+const companyRoutes_1 = __importDefault(require("./routes/companyRoutes"));
 const app = (0, express_1.default)();
 const PORT = process.env.PORT || 3000;
 const corsOptions = {
@@ -42,7 +43,7 @@ app.get("/", (_, res) => {
 });
 // Register routes
 app.use("/employees", employeeRoutes_1.default);
-app.use("/companies", companies_1.default);
+// app.use("/companies", companyRoutes);
 app.use("/sites", sites_1.default);
 app.use("/auth", auth_1.default);
 app.use("/admin", admin_1.default);
@@ -56,6 +57,7 @@ app.use("/admin", admin_2.default);
 app.use("/admin", firstAiderRoutes_1.default);
 app.use("/legal-appointments", legalAppointmentRoutes_1.default);
 app.use("/document-library", documentLibraryRoutes_1.default);
+app.use("/company", companyRoutes_1.default);
 async function startServer() {
     try {
         await (0, initDatabase_1.initializeDatabase)();
@@ -65,6 +67,7 @@ async function startServer() {
             console.log(`Server running on port ${PORT}`);
             console.log("=================================");
         });
+        (0, purgeJobs_1.startPurgeJobs)();
     }
     catch (error) {
         console.error("❌ Failed to initialize database");

@@ -5,15 +5,26 @@ import {
   getPPETransactions,
   getPPETransactionById,
   IssuePPEItem,
+  softDeletePPETransaction,
+  getArchivedPPETransactions,
+  restorePPETransaction,
 } from "../models/ppeTransaction";
 
 export const issuePPE = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { employeeId, employeeName, jobTitle, siteLocation, items, signatureData } =
-      req.body;
+    const {
+      employeeId,
+      employeeName,
+      jobTitle,
+      siteLocation,
+      items,
+      signatureData,
+    } = req.body;
 
     if (!employeeId || !employeeName) {
-      res.status(400).json({ error: "employeeId and employeeName are required" });
+      res
+        .status(400)
+        .json({ error: "employeeId and employeeName are required" });
       return;
     }
 
@@ -45,7 +56,9 @@ export const issuePPE = async (req: Request, res: Response): Promise<void> => {
     res.status(201).json(created);
   } catch (err: any) {
     console.error(err);
-    res.status(500).json({ error: err.message, detail: err.detail, code: err.code });
+    res
+      .status(500)
+      .json({ error: err.message, detail: err.detail, code: err.code });
   }
 };
 
@@ -55,7 +68,9 @@ export const getAllPPETransactions = async (
 ): Promise<void> => {
   try {
     const transactions = await getPPETransactions({
-      employeeId: req.query.employeeId ? Number(req.query.employeeId) : undefined,
+      employeeId: req.query.employeeId
+        ? Number(req.query.employeeId)
+        : undefined,
       category: req.query.category as string | undefined,
       siteLocation: req.query.site as string | undefined,
     });
@@ -78,6 +93,61 @@ export const getPPETransaction = async (
       return;
     }
     res.json(transaction);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+// Returns the logged-in user's id if an auth middleware attached one,
+// otherwise null. Used only to record deleted_by; it is NOT a permission
+// check.
+const currentUserId = (req: Request): number | null =>
+  ((req as any).user as { id?: number } | undefined)?.id ?? null;
+
+export const deletePPETransactionController = async (
+  req: Request,
+  res: Response,
+) => {
+  try {
+    const deleted = await softDeletePPETransaction(
+      Number(req.params.id),
+      currentUserId(req),
+    );
+    if (!deleted) {
+      res.status(404).json({ error: "PPE record not found" });
+      return;
+    }
+    res.json({
+      message: "PPE record moved to the recycle bin",
+      id: deleted.id,
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+export const listArchivedPPETransactions = async (
+  req: Request,
+  res: Response,
+) => {
+  try {
+    res.json(await getArchivedPPETransactions());
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+export const restorePPETransactionController = async (
+  req: Request,
+  res: Response,
+) => {
+  try {
+    const restored = await restorePPETransaction(Number(req.params.id));
+    if (!restored) {
+      res.status(404).json({ error: "Deleted PPE record not found" });
+      return;
+    }
+    res.json({ message: "PPE record restored", id: restored.id });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }

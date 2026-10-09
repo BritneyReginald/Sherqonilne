@@ -3,8 +3,24 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.deleteLegalAppointment = exports.updateLegalAppointment = exports.createLegalAppointment = exports.getLegalAppointments = exports.getLegalAppointmentById = void 0;
+exports.deleteLegalAppointment = exports.updateLegalAppointment = exports.createLegalAppointment = exports.getLegalAppointments = exports.getLegalAppointmentById = exports.LEGAL_APPOINTMENT_TYPES = void 0;
 const db_1 = __importDefault(require("../config/db"));
+/**
+ * Single source of truth for the appointment types the backend accepts.
+ * Must match appointmentTypeMap on the frontend and the CHECK constraint
+ * in initializeDatabase (legal_appointments_appointment_type_check).
+ */
+exports.LEGAL_APPOINTMENT_TYPES = [
+    "First Aid Officer",
+    "HSE/SHE Representative",
+    "Incident Investigator",
+    "Fire Fighter",
+    "Forklift Operator",
+    "Excavator Operator",
+    "Supervisor",
+    "PPE Inspector",
+    "GMR 2(1) Appointee",
+];
 /**
  * Single-appointment read. Joins sites so the letter can use the
  * site's registered logo (returned as `site_logo`). The list query
@@ -27,6 +43,9 @@ const getLegalAppointments = async () => {
 };
 exports.getLegalAppointments = getLegalAppointments;
 const createLegalAppointment = async (input) => {
+    if (!exports.LEGAL_APPOINTMENT_TYPES.includes(input.appointmentType)) {
+        throw new Error(`Unsupported appointment type: ${input.appointmentType}`);
+    }
     const result = await db_1.default.query(`
     INSERT INTO legal_appointments (
       employee_id,
@@ -77,6 +96,10 @@ const createLegalAppointment = async (input) => {
 };
 exports.createLegalAppointment = createLegalAppointment;
 const updateLegalAppointment = async (id, updates) => {
+    if (updates.appointmentType !== undefined &&
+        !exports.LEGAL_APPOINTMENT_TYPES.includes(updates.appointmentType)) {
+        throw new Error(`Unsupported appointment type: ${updates.appointmentType}`);
+    }
     const fieldMap = {
         employeeId: "employee_id",
         employeeName: "employee_name",

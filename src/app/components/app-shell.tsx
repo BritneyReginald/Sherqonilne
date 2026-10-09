@@ -17,7 +17,7 @@ import {
   Menu,
   Search,
   Bell,
-  ChevronDown,
+  LogOut,
   ChevronRight,
   Flame,
 } from "lucide-react";
@@ -102,8 +102,9 @@ const navigationItems: NavigationItem[] = [
     ],
   },
   {
+    // id stays "inspectors" so existing routing/role logic keeps working
     id: "inspectors",
-    label: "Inspectors",
+    label: "Onboarding Page",
     icon: <ShieldCheck className="size-4" />,
   },
   {
@@ -261,7 +262,6 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
     }
   }, [user]);
 
-  const [showUserMenu, setShowUserMenu] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [showSearchResults, setShowSearchResults] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
@@ -437,7 +437,7 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
                   : activeItem === "workforce"
                     ? "Workforce"
                     : activeItem === "inspectors"
-                      ? "InspectorsPage"
+                      ? "Onboarding Page"
                       : activeItem === "training"
                         ? "Training"
                         : activeItem === "document-library"
@@ -471,7 +471,7 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
             </h2>
           </div>
 
-          {/* Right Side: Search, Notifications & User Profile */}
+          {/* Right Side: Search, Notifications & Log out */}
           <div className="flex items-center gap-4">
             {/* Search Bar */}
             <div className="relative">
@@ -657,66 +657,23 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
               )}
             </div>
 
-            {/* User Profile Dropdown */}
-            <div className="relative text-gray-600">
-              <button
-                onClick={() => setShowUserMenu(!showUserMenu)}
-                className="flex items-center gap-2 px-3 py-2 rounded-lg transition-colors"
-                style={{
-                  backgroundColor: "transparent",
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor =
-                    "rgba(255, 255, 255, 0.1)";
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.backgroundColor = "transparent";
-                }}
-              >
-                <div
-                  className="size-8 rounded-full flex items-center justify-center text-white font-medium"
-                  style={{ backgroundColor: "var(--brand-blue)" }}
-                >
-                  AU
-                </div>
-                <span className="text-sm" style={{ color: navTextColor }}>
-                  Admin User
-                </span>
-                <ChevronDown
-                  className="size-4"
-                  style={{ color: navTextColor }}
-                />
-              </button>
-
-              {/* Dropdown Menu */}
-              {showUserMenu && (
-                <div
-                  className="absolute right-0 top-full mt-2 w-48 rounded-lg border shadow-lg overflow-hidden z-50"
-                  style={{
-                    backgroundColor: "white",
-                    borderColor: "var(--grey-200)",
-                  }}
-                >
-                  <div className="px-4 py-3 border-b space-y-2">
-                    <p className="font-medium">Admin User</p>
-                    <p className="text-sm text-gray-500">admin@sherq.com</p>
-
-                    <div className="px-4 py-3 border-b space-y-2">
-                      <p className="font-medium">{user?.email}</p>
-                      <p className="text-sm text-gray-500 capitalize">
-                        {user?.role.replace("_", " ")}
-                      </p>
-                      <button
-                        onClick={logout}
-                        className="w-full text-sm px-2 py-1.5 rounded border text-left hover:bg-gray-50"
-                      >
-                        Log out
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
+            {/* Log out (replaces the old "Admin User" dropdown) */}
+            <button
+              onClick={logout}
+              className="p-2 rounded-lg transition-colors"
+              aria-label="Log out"
+              title="Log out"
+              style={{ backgroundColor: "transparent" }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor =
+                  "rgba(255, 255, 255, 0.1)";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = "transparent";
+              }}
+            >
+              <LogOut className="size-5" style={{ color: navTextColor }} />
+            </button>
           </div>
         </header>
 
@@ -774,8 +731,10 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
                   className="text-2xl mb-2"
                   style={{ color: "var(--grey-700)" }}
                 >
-                  activeItem ? activeItem.charAt(0).toUpperCase() +
-                  activeItem.slice(1).replace("-", " ") : ""
+                  {activeItem
+                    ? activeItem.charAt(0).toUpperCase() +
+                      activeItem.slice(1).replace("-", " ")
+                    : ""}
                 </h2>
                 <p style={{ color: "var(--grey-500)" }}>
                   This section is under development

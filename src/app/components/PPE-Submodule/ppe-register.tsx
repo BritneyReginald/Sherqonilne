@@ -8,6 +8,7 @@ import {
   ShieldCheck,
   AlertTriangle,
   Loader2,
+  Trash2,
 } from "lucide-react";
 import {
   IssuePPEModal,
@@ -34,6 +35,16 @@ interface PPETransaction {
   signOffDate: string | null;
 }
 
+function authHeaders(): Record<string, string> {
+  try {
+    const stored = localStorage.getItem("sherq_auth");
+    const token = stored ? JSON.parse(stored).token : null;
+    return token ? { Authorization: `Bearer ${token}` } : {};
+  } catch {
+    return {};
+  }
+}
+
 export function PPERegister({ employeeId }: { employeeId?: string }) {
   const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
   const { dismissAlert } = useAlerts();
@@ -51,6 +62,11 @@ export function PPERegister({ employeeId }: { employeeId?: string }) {
   const [selectedCategory, setSelectedCategory] = useState("All PPE Types");
   const [selectedEmployeeFilter, setSelectedEmployeeFilter] =
     useState("All Employees");
+
+  // Delete (moves to Recycle Bin)
+  const [deleteTarget, setDeleteTarget] = useState<PPETransaction | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   useEffect(() => {
     fetchAll();
@@ -168,6 +184,42 @@ export function PPERegister({ employeeId }: { employeeId?: string }) {
     setShowIssueModal(false);
   };
 
+  const openDeleteConfirm = (t: PPETransaction) => {
+    setDeleteError(null);
+    setDeleteTarget(t);
+  };
+
+  const closeDeleteConfirm = () => {
+    if (isDeleting) return;
+    setDeleteTarget(null);
+    setDeleteError(null);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!deleteTarget) return;
+    setIsDeleting(true);
+    setDeleteError(null);
+    try {
+      const response = await fetch(
+        `${API_URL}/ppe/transactions/${deleteTarget.id}`,
+        { method: "DELETE", headers: authHeaders() },
+      );
+      if (!response.ok) {
+        const errBody = await response.json().catch(() => ({}));
+        throw new Error(errBody.error || "Failed to delete PPE record");
+      }
+      await Promise.all([fetchTransactions(), fetchCatalogueItems()]);
+      setDeleteTarget(null);
+    } catch (error: any) {
+      console.error("Error deleting PPE record:", error);
+      setDeleteError(
+        error.message || "Something went wrong. Please try again.",
+      );
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   const sites = [
     "All Sites",
     ...(Array.from(
@@ -248,6 +300,21 @@ export function PPERegister({ employeeId }: { employeeId?: string }) {
   const thStyle = {
     color: "#94A3B8",
   };
+
+  const DeleteButton = ({ t }: { t: PPETransaction }) => (
+    <button
+      onClick={() => openDeleteConfirm(t)}
+      className="p-2 rounded-lg transition-colors hover:bg-red-500/10"
+      style={{ border: "1px solid rgba(255, 255, 255, 0.1)" }}
+      title="Delete (moves to Recycle Bin)"
+      aria-label={`Delete PPE record for ${t.employeeName}`}
+    >
+      <Trash2
+        className="size-4"
+        style={{ color: "var(--compliance-danger)" }}
+      />
+    </button>
+  );
 
   return (
     <div
@@ -533,6 +600,7 @@ export function PPERegister({ employeeId }: { employeeId?: string }) {
                                 <Clock className="size-4" /> Pending
                               </span>
                             )}
+                            <DeleteButton t={t} />
                           </div>
                         </div>
                       );
@@ -590,13 +658,19 @@ export function PPERegister({ employeeId }: { employeeId?: string }) {
                         >
                           Sign-Off
                         </th>
+                        <th
+                          className="text-center px-6 py-3 text-xs font-medium uppercase tracking-wider"
+                          style={thStyle}
+                        >
+                          Actions
+                        </th>
                       </tr>
                     </thead>
                     <tbody>
                       {filteredTransactions.length === 0 ? (
                         <tr>
                           <td
-                            colSpan={7}
+                            colSpan={8}
                             className="text-center py-10 text-sm"
                             style={{ color: "#94A3B8" }}
                           >
@@ -722,6 +796,11 @@ export function PPERegister({ employeeId }: { employeeId?: string }) {
                                   </span>
                                 )}
                               </td>
+                              <td className="px-6 py-4">
+                                <div className="flex items-center justify-center">
+                                  <DeleteButton t={t} />
+                                </div>
+                              </td>
                             </tr>
                           );
                         })
@@ -747,6 +826,90 @@ export function PPERegister({ employeeId }: { employeeId?: string }) {
         onClose={() => setShowCatalogue(false)}
         onCatalogueChanged={fetchCatalogueItems}
       />
+
+      {/* Delete confirmation */}
+      {deleteTarget && (
+        <>
+          <div
+            className="fixed inset-0 bg-black bg-opacity-50 z-40"
+            onClick={closeDeleteConfirm}
+          />
+          <div className="fixed inset-0 flex items-center justify-center z-50 p-8">
+            <div
+              className="w-full max-w-md rounded-lg shadow-2xl"
+              style={{ backgroundColor: "white" }}
+            >
+              <div className="p-6">
+                <div className="flex items-center gap-3 mb-3">
+                  <div
+                    className="size-10 rounded-full flex items-center justify-center"
+                    style={{ backgroundColor: "var(--compliance-danger)10" }}
+                  >
+                    <Trash2
+                      className="size-5"
+                      style={{ color: "var(--compliance-danger)" }}
+                    />
+                  </div>
+                  <h3
+                    className="font-medium"
+                    style={{ color: "var(--grey-900)" }}
+                  >
+                    Delete this PPE record?
+                  </h3>
+                </div>
+                <p
+                  className="text-sm mb-2"
+                  style={{ color: "var(--grey-700)" }}
+                >
+                  <strong>{deleteTarget.ppeItemName}</strong> issued to{" "}
+                  <strong>{deleteTarget.employeeName}</strong> on{" "}
+                  {formatDate(deleteTarget.issueDate)}.
+                </p>
+                <p className="text-sm" style={{ color: "var(--grey-600)" }}>
+                  It will move to the Recycle Bin and be permanently deleted
+                  after 30 days. You can restore it from there until then.
+                </p>
+                {deleteError && (
+                  <div
+                    className="mt-4 p-3 rounded-lg text-sm"
+                    style={{
+                      backgroundColor: "var(--compliance-danger)10",
+                      color: "var(--compliance-danger)",
+                    }}
+                  >
+                    {deleteError}
+                  </div>
+                )}
+              </div>
+              <div
+                className="px-6 py-4 border-t flex justify-end gap-3"
+                style={{ borderColor: "var(--grey-200)" }}
+              >
+                <button
+                  onClick={closeDeleteConfirm}
+                  disabled={isDeleting}
+                  className="px-5 py-2 rounded-lg text-sm"
+                  style={{
+                    backgroundColor: "var(--grey-100)",
+                    color: "var(--grey-700)",
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleConfirmDelete}
+                  disabled={isDeleting}
+                  className="px-5 py-2 rounded-lg text-sm font-medium text-white disabled:opacity-60 flex items-center gap-2"
+                  style={{ backgroundColor: "var(--compliance-danger)" }}
+                >
+                  {isDeleting && <Loader2 className="size-4 animate-spin" />}
+                  {isDeleting ? "Deleting…" : "Move to Recycle Bin"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }

@@ -13,7 +13,7 @@ const FIRE_EQUIPMENT_URL =
 export function LoginInspector() {
   const { loginInspector } = useAuth();
   const { colors } = useTheme();
-  const [email, setEmail] = useState("");
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -23,7 +23,9 @@ export function LoginInspector() {
     setError("");
     setLoading(true);
     try {
-      await loginInspector(email, password);
+      // The generated username is stored server-side in the same column
+      // that holds emails for other roles, so the auth call is unchanged.
+      await loginInspector(username.trim(), password);
       // NOTE: this is a placeholder redirect only — see flag below about
       // the token handoff this still needs.
       window.location.href = FIRE_EQUIPMENT_URL;
@@ -44,42 +46,64 @@ export function LoginInspector() {
         {error && (
           <div
             className="px-3 py-2 rounded-lg text-sm"
-            style={{ backgroundColor: "rgba(239, 68, 68, 0.1)", color: "var(--compliance-danger)" }}
+            style={{
+              backgroundColor: "rgba(239, 68, 68, 0.1)",
+              color: "var(--compliance-danger)",
+            }}
           >
             {error}
           </div>
         )}
         <div>
-          <label className="block text-sm font-medium mb-1" style={{ color: colors.primaryText }}>
-            Email
+          <label
+            className="block text-sm font-medium mb-1"
+            style={{ color: colors.primaryText }}
+          >
+            Username
           </label>
           <input
-            type="email"
+            type="text"
             required
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            autoComplete="username"
+            autoCorrect="off"
+            spellCheck={false}
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
             className="w-full px-3 py-2 rounded-lg border outline-none"
-            style={{ backgroundColor: colors.background, color: colors.primaryText }}
+            style={{
+              backgroundColor: colors.background,
+              color: colors.primaryText,
+            }}
           />
         </div>
         <div>
-          <label className="block text-sm font-medium mb-1" style={{ color: colors.primaryText }}>
+          <label
+            className="block text-sm font-medium mb-1"
+            style={{ color: colors.primaryText }}
+          >
             Password
           </label>
           <input
             type="password"
             required
+            autoComplete="current-password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             className="w-full px-3 py-2 rounded-lg border outline-none"
-            style={{ backgroundColor: colors.background, color: colors.primaryText }}
+            style={{
+              backgroundColor: colors.background,
+              color: colors.primaryText,
+            }}
           />
         </div>
         <button
           type="submit"
           disabled={loading}
           className="w-full py-2.5 rounded-lg font-medium text-white transition-opacity"
-          style={{ backgroundColor: "var(--brand-blue)", opacity: loading ? 0.7 : 1 }}
+          style={{
+            backgroundColor: "var(--brand-blue)",
+            opacity: loading ? 0.7 : 1,
+          }}
         >
           {loading ? "Logging in..." : "Log in"}
         </button>

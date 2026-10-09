@@ -13,6 +13,9 @@ import { updateInspectorSites } from "../controllers/userController";
 
 const router = express.Router();
 
+const INSPECTOR_ALREADY_ONBOARDED =
+  "Inspector already onboarded, check Security & Privacy page";
+
 // Extra gate on top of authorize("rss_staff") — only the flagged super admin
 // (your boss) can reach anything in this file.
 async function requireSuperAdmin(
@@ -91,11 +94,23 @@ router.post(
   requireSuperAdmin,
   async (req, res) => {
     try {
-      const { employeeNumber, fullName, surname, siteIds } = req.body;
+      const { fullName, surname, siteIds } = req.body;
+      const employeeNumber = String(req.body.employeeNumber ?? "").trim();
+
       if (!employeeNumber || !fullName || !surname) {
         return res.status(400).json({
           error: "employeeNumber, fullName, and surname are required",
         });
+      }
+
+      // Friendly pre-check: has this employee number already been onboarded?
+      const existing = await pool.query(
+        `SELECT 1 FROM inspector_profiles WHERE employee_number = $1 LIMIT 1`,
+        [employeeNumber],
+      );
+
+      if (existing.rows.length > 0) {
+        return res.status(409).json({ error: INSPECTOR_ALREADY_ONBOARDED });
       }
 
       const result = await createInspectorStaff(
@@ -109,10 +124,9 @@ router.post(
       res.status(201).json(result);
     } catch (err: any) {
       console.error("Create inspector error:", err);
+      // Safety net for a race between the pre-check and the insert
       if (err.code === "23505") {
-        return res
-          .status(409)
-          .json({ error: "That employee number is already in use" });
+        return res.status(409).json({ error: INSPECTOR_ALREADY_ONBOARDED });
       }
       res.status(500).json({ error: "Failed to create inspector account" });
     }
@@ -190,56 +204,6 @@ router.patch(
     }
   },
 );
-
-// router.delete(
-//   "/inspectors/:id",
-//   authenticate,
-//   authorize("rss_staff"),
-//   requireSuperAdmin,
-//   async (req, res) => {
-//     const client = await pool.connect();
-
-//     try {
-//       await client.query("BEGIN");
-
-//       const userId = req.params.id;
-
-//       await client.query(
-//         `DELETE FROM inspector_assignments
-//          WHERE user_id = $1`,
-//         [userId],
-//       );
-
-//       await client.query(
-//         `DELETE FROM inspector_profiles
-//          WHERE user_id = $1`,
-//         [userId],
-//       );
-
-//       await client.query(
-//         `DELETE FROM users
-//          WHERE id = $1`,
-//         [userId],
-//       );
-
-//       await client.query("COMMIT");
-
-//       res.json({
-//         message: "Inspector deleted successfully",
-//       });
-//     } catch (err) {
-//       await client.query("ROLLBACK");
-
-//       console.error(err);
-
-//       res.status(500).json({
-//         error: "Failed to delete inspector",
-//       });
-//     } finally {
-//       client.release();
-//     }
-//   },
-// );
 
 router.delete(
   "/inspectors/:id",

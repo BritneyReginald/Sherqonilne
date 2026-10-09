@@ -8,6 +8,8 @@ import {
   Clock,
   CheckCircle2,
   Loader2,
+  Heart,
+  ShieldCheck,
 } from "lucide-react";
 
 import { useRecycleBin } from "../contexts/recycle-bin-context";
@@ -17,17 +19,30 @@ import {
   restoreDocument,
 } from "../../api/documentLibrary";
 
-type Filter = "all" | "documents" | "workforce";
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
+const RETENTION_DAYS = 30;
+
+type Filter = "all" | "documents" | "medicals" | "ppe" | "workforce";
+type Source = "document" | "local" | "medical" | "ppe";
 
 interface BinRow {
   key: string;
-  source: "document" | "local";
+  source: Source;
   id: string | number;
   name: string;
   kind: string;
   subtitle: string;
   deletedAt: string;
+  /** Days left before permanent deletion (medical + PPE only). */
+  daysLeft?: number;
 }
+
+const EXAM_TYPE_LABELS: Record<string, string> = {
+  "pre-placement": "Pre-Placement",
+  periodic: "Periodic (Annual)",
+  exit: "Exit",
+  "return-to-work": "Return to Work",
+};
 
 const formatDateTime = (iso: string) =>
   new Date(iso).toLocaleDateString("en-ZA", {
@@ -38,6 +53,13 @@ const formatDateTime = (iso: string) =>
     minute: "2-digit",
   });
 
+const formatDate = (iso: string) =>
+  new Date(iso).toLocaleDateString("en-GB", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
+
 const initials = (name: string) =>
   name
     .split(" ")
@@ -46,10 +68,27 @@ const initials = (name: string) =>
     .map((n) => n[0]?.toUpperCase())
     .join("");
 
+const daysLeftFrom = (deletedAt: string) => {
+  const elapsed = (Date.now() - new Date(deletedAt).getTime()) / 86_400_000;
+  return Math.max(0, Math.ceil(RETENTION_DAYS - elapsed));
+};
+
+function authHeaders(): Record<string, string> {
+  try {
+    const stored = localStorage.getItem("sherq_auth");
+    const token = stored ? JSON.parse(stored).token : null;
+    return token ? { Authorization: `Bearer ${token}` } : {};
+  } catch {
+    return {};
+  }
+}
+
 export function RecycleBin() {
   const { items: localItems, restoreItem } = useRecycleBin();
 
   const [archivedDocs, setArchivedDocs] = useState<ApiArchivedDocument[]>([]);
+  const [archivedMedicals, setArchivedMedicals] = useState<any[]>([]);
+  const [archivedPPE, setArchivedPPE] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -59,13 +98,45 @@ export function RecycleBin() {
 
   useEffect(() => {
     (async () => {
-      try {
-        setArchivedDocs(await fetchArchivedDocuments());
-      } catch (e: any) {
-        setError(e.message || "Failed to load archived documents");
-      } finally {
-        setLoading(false);
-      }
+      const [docs, medicals, ppe] = await Promise.allSettled([
+        fetchArchivedDocuments(),
+        fetch(`${API_URL}/medicals/archived`, { headers: authHeaders() }).then(
+          (r) => {
+            if (!r.ok)
+              throw new Error("Failed to load deleted medical records");
+            return r.json();
+          },
+        ),
+        fetch(`${API_URL}/ppe/transactions/archived`, {
+          headers: authHeaders(),
+        }).then((r) => {
+          if (!r.ok) throw new Error("Failed to load deleted PPE records");
+          return r.json();
+        }),
+      ]);
+
+      const problems: string[] = [];
+
+      if (docs.status === "fulfilled") setArchivedDocs(docs.value);
+      else
+        problems.push(
+          docs.reason?.message || "Failed to load archived documents",
+        );
+
+      if (medicals.status === "fulfilled") setArchivedMedicals(medicals.value);
+      else
+        problems.push(
+          medicals.reason?.message || "Failed to load deleted medical records",
+        );
+
+      if (ppe.status === "fulfilled") setArchivedPPE(ppe.value);
+      else
+        problems.push(
+          ppe.reason?.message || "Failed to load deleted PPE records",
+        );
+
+      if (problems.length) setError(problems.join(" · "));
+      setLoading(false);
     })();
   }, []);
 
@@ -80,6 +151,27 @@ export function RecycleBin() {
       deletedAt: d.archived_at,
     }));
 
+    const medicalRows: BinRow[] = archivedMedicals.map((m) => ({
+      key: `medical-${m.id}`,
+      source: "medical",
+      id: m.id,
+      name: m.employee_name,
+      kind: "Medical",
+      subtitle: `${EXAM_TYPE_LABELS[m.exam_type] ?? m.exam_type} exam · ${formatDate(m.exam_date)}`,
+      deletedAt: m.deleted_at,
+    }));
+
+    const ppeRows: BinRow[] = archivedPPE.map((p) => ({
+      key: `ppe-${p.id}`,
+      source: "ppe",
+      id: p.id,
+      name: p.employee_name,
+      kind: "PPE",
+      subtitle: `${p.ppe_item_name} · issued ${formatDate(p.issue_date)}`,
+      deletedAt: p.deleted_at,
+      daysLeft: daysLeftFrom(p.deleted_at),
+    }));
+
     const localRows: BinRow[] = localItems.map((i) => ({
       key: `local-${i.id}`,
       source: "local",
@@ -92,24 +184,32 @@ export function RecycleBin() {
       deletedAt: i.deletedAt,
     }));
 
-    return [...docRows, ...localRows].sort(
+    return [...docRows, ...medicalRows, ...ppeRows, ...localRows].sort(
       (a, b) =>
         new Date(b.deletedAt).getTime() - new Date(a.deletedAt).getTime(),
     );
-  }, [archivedDocs, localItems]);
+  }, [archivedDocs, archivedMedicals, archivedPPE, localItems]);
 
   const counts = useMemo(
     () => ({
       all: rows.length,
       documents: rows.filter((r) => r.source === "document").length,
+      medicals: rows.filter((r) => r.source === "medical").length,
+      ppe: rows.filter((r) => r.source === "ppe").length,
       workforce: rows.filter((r) => r.source === "local").length,
     }),
     [rows],
   );
 
+  const filterToSource: Record<Exclude<Filter, "all">, Source> = {
+    documents: "document",
+    medicals: "medical",
+    ppe: "ppe",
+    workforce: "local",
+  };
+
   const visible = rows.filter((r) => {
-    if (filter === "documents" && r.source !== "document") return false;
-    if (filter === "workforce" && r.source !== "local") return false;
+    if (filter !== "all" && r.source !== filterToSource[filter]) return false;
     const q = search.trim().toLowerCase();
     return (
       !q ||
@@ -130,13 +230,37 @@ export function RecycleBin() {
 
     setRestoringKey(row.key);
     try {
-      await restoreDocument(Number(row.id));
-      setArchivedDocs((prev) => prev.filter((d) => d.id !== row.id));
-      setNotice(
-        `“${row.name}” was restored to ${row.subtitle.split(" · ")[0]}.`,
-      );
+      if (row.source === "document") {
+        await restoreDocument(Number(row.id));
+        setArchivedDocs((prev) => prev.filter((d) => d.id !== row.id));
+        setNotice(
+          `“${row.name}” was restored to ${row.subtitle.split(" · ")[0]}.`,
+        );
+      } else if (row.source === "medical") {
+        const res = await fetch(`${API_URL}/medicals/${row.id}/restore`, {
+          method: "POST",
+          headers: authHeaders(),
+        });
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({}));
+          throw new Error(body.error || "Failed to restore medical record");
+        }
+        setArchivedMedicals((prev) => prev.filter((m) => m.id !== row.id));
+        setNotice(`Medical record for “${row.name}” was restored.`);
+      } else if (row.source === "ppe") {
+        const res = await fetch(
+          `${API_URL}/ppe/transactions/${row.id}/restore`,
+          { method: "POST", headers: authHeaders() },
+        );
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({}));
+          throw new Error(body.error || "Failed to restore PPE record");
+        }
+        setArchivedPPE((prev) => prev.filter((p) => p.id !== row.id));
+        setNotice(`PPE record for “${row.name}” was restored.`);
+      }
     } catch (e: any) {
-      setError(e.message || "Failed to restore document");
+      setError(e.message || "Failed to restore item");
     } finally {
       setRestoringKey(null);
     }
@@ -145,6 +269,8 @@ export function RecycleBin() {
   const tabs: { id: Filter; label: string }[] = [
     { id: "all", label: "All" },
     { id: "documents", label: "Documents" },
+    { id: "medicals", label: "Medicals" },
+    { id: "ppe", label: "PPE" },
     { id: "workforce", label: "Workforce" },
   ];
 
@@ -167,17 +293,20 @@ export function RecycleBin() {
               Recycle Bin
             </h1>
             <p className="text-sm mt-1" style={{ color: "var(--grey-500)" }}>
-              For legal audit purposes, records are never permanently deleted.
-              Restore anything you need.
+              Deleted PPE records are permanently removed after {RETENTION_DAYS}{" "}
+              days. Medical records and documents are kept indefinitely. Restore
+              anything you need.
             </p>
           </div>
         </div>
 
         {/* Summary cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-4 mb-6">
           {[
             { label: "Total items", value: counts.all, icon: Trash2 },
             { label: "Documents", value: counts.documents, icon: FileText },
+            { label: "Medicals", value: counts.medicals, icon: Heart },
+            { label: "PPE", value: counts.ppe, icon: ShieldCheck },
             { label: "Workforce", value: counts.workforce, icon: Users },
           ].map(({ label, value, icon: Icon }) => (
             <div
@@ -214,7 +343,7 @@ export function RecycleBin() {
           className="rounded-lg border p-3 mb-4 flex items-center justify-between gap-3 flex-wrap"
           style={{ backgroundColor: "white", borderColor: "var(--grey-200)" }}
         >
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1 flex-wrap">
             {tabs.map((t) => {
               const active = filter === t.id;
               return (
@@ -311,15 +440,16 @@ export function RecycleBin() {
             </p>
             <p className="text-sm mt-1" style={{ color: "var(--grey-500)" }}>
               {rows.length === 0
-                ? "Archived documents and deactivated records will show up here."
+                ? "Deleted documents, medical records, PPE records and deactivated employees will show up here."
                 : "Try a different tab or search term."}
             </p>
           </div>
         ) : (
           <div className="space-y-3">
             {visible.map((row) => {
-              const isDoc = row.source === "document";
               const restoring = restoringKey === row.key;
+              const expiringSoon =
+                row.daysLeft !== undefined && row.daysLeft <= 7;
 
               return (
                 <div
@@ -331,7 +461,7 @@ export function RecycleBin() {
                   }}
                 >
                   <div className="flex items-center gap-4 min-w-0">
-                    {isDoc ? (
+                    {row.source === "document" ? (
                       <div
                         className="size-10 rounded-lg flex items-center justify-center flex-shrink-0"
                         style={{ backgroundColor: "var(--brand-blue)10" }}
@@ -369,6 +499,19 @@ export function RecycleBin() {
                       >
                         <Clock className="size-3" />
                         Deleted {formatDateTime(row.deletedAt)}
+                        {row.daysLeft !== undefined && (
+                          <span
+                            className="ml-2 font-medium"
+                            style={{
+                              color: expiringSoon
+                                ? "var(--compliance-danger)"
+                                : "var(--grey-500)",
+                            }}
+                          >
+                            · Permanently deleted in {row.daysLeft}{" "}
+                            {row.daysLeft === 1 ? "day" : "days"}
+                          </span>
+                        )}
                       </p>
                     </div>
                   </div>

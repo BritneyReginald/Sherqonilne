@@ -1,15 +1,31 @@
 import pool from "../config/db";
 
+/**
+ * Single source of truth for the appointment types the backend accepts.
+ * Must match appointmentTypeMap on the frontend and the CHECK constraint
+ * in initializeDatabase (legal_appointments_appointment_type_check).
+ */
+export const LEGAL_APPOINTMENT_TYPES = [
+  "First Aid Officer",
+  "HSE/SHE Representative",
+  "Incident Investigator",
+  "Fire Fighter",
+  "Forklift Operator",
+  "Excavator Operator",
+  "Supervisor",
+  "PPE Inspector",
+  "GMR 2(1) Appointee",
+] as const;
+
+export type LegalAppointmentType = (typeof LEGAL_APPOINTMENT_TYPES)[number];
+
 export interface LegalAppointmentInput {
   employeeId?: number | null;
   employeeName: string;
   employeeNumber?: string;
   jobTitle?: string;
 
-  appointmentType:
-    | "First Aid Officer"
-    | "HSE/SHE Representative"
-    | "Incident Investigator";
+  appointmentType: LegalAppointmentType;
   legalSection: string;
   department?: string;
 
@@ -58,6 +74,10 @@ export const getLegalAppointments = async () => {
 };
 
 export const createLegalAppointment = async (input: LegalAppointmentInput) => {
+  if (!LEGAL_APPOINTMENT_TYPES.includes(input.appointmentType)) {
+    throw new Error(`Unsupported appointment type: ${input.appointmentType}`);
+  }
+
   const result = await pool.query(
     `
     INSERT INTO legal_appointments (
@@ -124,6 +144,13 @@ export const updateLegalAppointment = async (
     signedAt?: string | null;
   },
 ) => {
+  if (
+    updates.appointmentType !== undefined &&
+    !LEGAL_APPOINTMENT_TYPES.includes(updates.appointmentType)
+  ) {
+    throw new Error(`Unsupported appointment type: ${updates.appointmentType}`);
+  }
+
   const fieldMap: Record<string, string> = {
     employeeId: "employee_id",
     employeeName: "employee_name",

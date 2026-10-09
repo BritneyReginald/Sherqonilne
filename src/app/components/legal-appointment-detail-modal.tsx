@@ -120,6 +120,46 @@ async function getFreshDocumentUrl(appointmentId: string, fallback?: string) {
   }
 }
 
+/** Two-column label/value table used for the summary and appendix tables */
+function LetterTable({
+  rows,
+  labelClass,
+  borderColor,
+  textColor,
+}: {
+  rows: { label: string; value: string }[];
+  labelClass?: string;
+  borderColor: string;
+  textColor: string;
+}) {
+  return (
+    <div
+      className="rounded overflow-hidden text-sm"
+      style={{ border: `1px solid ${borderColor}`, color: textColor }}
+    >
+      {rows.map((row, i) => (
+        <div
+          key={i}
+          className="grid grid-cols-3"
+          style={{
+            borderTop: i === 0 ? "none" : `1px solid ${borderColor}`,
+          }}
+        >
+          <div
+            className={`col-span-1 p-2 font-semibold ${labelClass ?? ""}`}
+            style={{ borderRight: `1px solid ${borderColor}` }}
+          >
+            {row.label}
+          </div>
+          <div className="col-span-2 p-2 whitespace-pre-line">
+            {row.value || "—"}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export function LegalAppointmentDetailModal({
   appointment,
   onClose,
@@ -146,6 +186,12 @@ export function LegalAppointmentDetailModal({
     };
   }, [appointment.id, appointment.siteId]);
 
+  const hasSignature = !!appointment.signatureData;
+
+  // Once signed (on-screen, or a signed document uploaded) the acknowledgement
+  // shows the employee's name and number
+  const isSigned = hasSignature || appointment.signatureStatus === "Signed";
+
   const templateKey =
     appointmentTypeMap[appointment.appointmentType]?.templateKey;
 
@@ -153,6 +199,9 @@ export function LegalAppointmentDetailModal({
   const letter = templateKey
     ? generateAppointmentLetter(templateKey, {
         employeeName: appointment.employeeName,
+        jobTitle: appointment.jobTitle,
+        employeeNumber: appointment.employeeNumber,
+        signed: isSigned,
         companyName: appointment.siteName,
         siteName: appointment.siteName,
         appointerName: appointment.appointerName,
@@ -167,12 +216,25 @@ export function LegalAppointmentDetailModal({
       : letter.duties.slice(0, DUTIES_PREVIEW_COUNT)
     : [];
 
+  const extraDutiesCount = letter
+    ? Math.max(letter.duties.length - DUTIES_PREVIEW_COUNT, 0)
+    : 0;
+
+  // Anything that only shows once the letter is expanded
+  const hasExtraContent =
+    !!letter &&
+    (extraDutiesCount > 0 ||
+      !!letter.reportingLine ||
+      !!letter.summaryRows?.length ||
+      !!letter.appendices?.length ||
+      !!letter.acknowledgement ||
+      !!letter.legalReferences?.length);
+
   const daysRemaining = calculateDaysRemaining(appointment.endDate);
 
   // Either an on-screen signature OR an uploaded signed document
   // satisfies this appointment — Milly's requirement: if the
   // employee signed electronically, an uploaded document isn't needed.
-  const hasSignature = !!appointment.signatureData;
   const isFulfilled = appointment.documentUploaded || hasSignature;
 
   const downloadPDF = async () => {
@@ -182,7 +244,96 @@ export function LegalAppointmentDetailModal({
       const logoForExport = siteLogo ?? (await fetchSiteLogo(appointment.id));
 
       const doc = new jsPDF();
+      const LEFT = 10;
+      const WIDTH = 190;
+      const PAGE_BOTTOM = 280;
       let y = 15;
+
+      /* ---------- layout helpers ---------- */
+
+      const ensureSpace = (needed: number) => {
+        if (y + needed > PAGE_BOTTOM) {
+          doc.addPage();
+          y = 15;
+        }
+      };
+
+      /** Writes wrapped text line by line so long blocks flow across pages. */
+      const writeBlock = (
+        text: string,
+        opts: {
+          size?: number;
+          bold?: boolean;
+          x?: number;
+          width?: number;
+          gap?: number;
+        } = {},
+      ) => {
+        const {
+          size = 10,
+          bold = false,
+          x = LEFT,
+          width = WIDTH,
+          gap = 4,
+        } = opts;
+        const lineHeight = size * 0.5;
+        doc.setFontSize(size);
+        doc.setFont("helvetica", bold ? "bold" : "normal");
+        const lines: string[] = doc.splitTextToSize(text, width);
+        lines.forEach((line) => {
+          ensureSpace(lineHeight);
+          doc.text(line, x, y);
+          y += lineHeight;
+        });
+        y += gap;
+        doc.setFont("helvetica", "normal");
+      };
+
+      /** Bordered two-column table (summary + appendices). */
+      const drawTable = (
+        rows: { label: string; value: string }[],
+        labelWidth: number,
+      ) => {
+        const pad = 2;
+        const valueWidth = WIDTH - labelWidth;
+        doc.setFontSize(9);
+        doc.setFont("helvetica", "normal");
+        doc.setDrawColor(150);
+
+        rows.forEach((row) => {
+          const valueLines = row.value
+            .split("\n")
+            .flatMap(
+              (l) =>
+                doc.splitTextToSize(l || " ", valueWidth - pad * 2) as string[],
+            );
+          const rowHeight = Math.max(valueLines.length, 1) * 4.5 + pad * 2;
+          ensureSpace(rowHeight);
+
+          doc.rect(LEFT, y, labelWidth, rowHeight);
+          doc.rect(LEFT + labelWidth, y, valueWidth, rowHeight);
+
+          doc.setFont("helvetica", "bold");
+          doc.text(row.label, LEFT + pad, y + pad + 3);
+          doc.setFont("helvetica", "normal");
+          valueLines.forEach((line, i) => {
+            doc.text(line, LEFT + labelWidth + pad, y + pad + 3 + i * 4.5);
+          });
+
+          y += rowHeight;
+        });
+
+        doc.setDrawColor(0);
+        y += 6;
+      };
+
+      /* ---------- header: doc number, logo, company name ---------- */
+
+      if (letter.docNo) {
+        doc.setFontSize(8);
+        doc.setFont("helvetica", "normal");
+        doc.text(letter.docNo, 200, 10, { align: "right" });
+      }
 
       // Site logo on the left, site (company) name next to it
       const logoSize = 26;
@@ -230,50 +381,65 @@ export function LegalAppointmentDetailModal({
 
       y += logoLoaded || letter.companyName ? logoSize + 10 : 0;
 
-      doc.setFontSize(11);
-      doc.setFont("helvetica", "bold");
-      const headerLines = doc.splitTextToSize(letter.headerTitle, 190);
-      doc.text(headerLines, 10, y);
-      doc.setFont("helvetica", "normal");
-      y += headerLines.length * 5 + 6;
+      /* ---------- title, summary table, appointing text ---------- */
 
-      doc.setFontSize(10);
-      const appointingText = letter.appointingParagraph
-        .map((s) => s.text)
-        .join("");
-      const appointingLines = doc.splitTextToSize(appointingText, 190);
-      doc.text(appointingLines, 10, y);
-      y += appointingLines.length * 5 + 4;
+      writeBlock(letter.headerTitle, { size: 11, bold: true, gap: 6 });
 
-      const validityLines = doc.splitTextToSize(letter.validityLine, 190);
-      doc.text(validityLines, 10, y);
-      y += validityLines.length * 5 + 4;
-
-      const dutiesIntroLines = doc.splitTextToSize(letter.dutiesIntro, 190);
-      doc.text(dutiesIntroLines, 10, y);
-      y += dutiesIntroLines.length * 5 + 4;
-
-      letter.duties.forEach((duty) => {
-        const lines = doc.splitTextToSize(`•  ${duty}`, 185);
-        if (y + lines.length * 5 > 280) {
-          doc.addPage();
-          y = 15;
-        }
-        doc.text(lines, 12, y);
-        y += lines.length * 5 + 2;
-      });
-
-      if (y > 260) {
-        doc.addPage();
-        y = 15;
+      if (letter.summaryRows?.length) {
+        drawTable(letter.summaryRows, 50);
       }
 
-      const reportingLines = doc.splitTextToSize(letter.reportingLine, 190);
-      doc.text(reportingLines, 10, y);
-      y += reportingLines.length * 5 + 14;
+      writeBlock(letter.appointingParagraph.map((s) => s.text).join(""));
+      writeBlock(letter.validityLine);
 
-      // Footer: DATE ______ / Signature ______ — filled in with the
-      // captured signature image and its date when available.
+      letter.introParagraphs?.forEach((p) => writeBlock(p));
+
+      writeBlock(letter.dutiesIntro);
+
+      letter.duties.forEach((duty) => {
+        writeBlock(`•  ${duty}`, { x: 12, width: 185, gap: 2 });
+      });
+
+      y += 2;
+      if (letter.reportingLine) {
+        writeBlock(letter.reportingLine, { gap: 10 });
+      } else {
+        y += 8;
+      }
+
+      /* ---------- appendices table (GMR 2(1) letter) ---------- */
+
+      if (letter.appendices?.length) {
+        if (letter.appendicesIntro) writeBlock(letter.appendicesIntro);
+        drawTable(
+          letter.appendices.map((a) => ({
+            label: a.reference,
+            value: a.requirement,
+          })),
+          30,
+        );
+      }
+
+      /* ---------- 16(2) signature + acknowledgement (newer letters) ---------- */
+
+      // if (letter.acknowledgement) {
+      //   ensureSpace(60);
+      //   y += 4;
+      //   doc.line(10, y, 90, y);
+      //   doc.line(110, y, 190, y);
+      //   y += 5;
+      //   doc.setFontSize(9);
+      //   doc.text("SIGNATURE 16(2)", 10, y);
+      //   doc.text("DATE", 110, y);
+      //   y += 12;
+
+      //   writeBlock("ACKNOWLEDGEMENT OF DESIGNATION", { bold: true, gap: 2 });
+      //   writeBlock(letter.acknowledgement, { gap: 14 });
+      // }
+
+      /* ---------- employee footer: DATE / Signature ---------- */
+
+      // Filled in with the captured signature image and its date when available.
       if (y > 250) {
         doc.addPage();
         y = 20;
@@ -299,6 +465,23 @@ export function LegalAppointmentDetailModal({
             console.error("Failed to embed signature in PDF:", err);
           }
         }
+      }
+
+      /* ---------- attached legal references ---------- */
+
+      if (letter.legalReferences?.length) {
+        doc.addPage();
+        y = 15;
+        letter.legalReferences.forEach((ref) => {
+          writeBlock(ref.title, { bold: true, gap: 2 });
+          if (ref.heading) {
+            writeBlock(ref.heading, { size: 9, bold: true, gap: 2 });
+          }
+          ref.body.forEach((paragraph) =>
+            writeBlock(paragraph, { size: 9, gap: 1.5 }),
+          );
+          y += 5;
+        });
       }
 
       doc.save(
@@ -364,6 +547,8 @@ export function LegalAppointmentDetailModal({
       setIsSavingSignature(false);
     }
   };
+
+  const letterBorder = "rgba(148, 163, 184, 0.3)";
 
   return (
     <div
@@ -552,6 +737,15 @@ export function LegalAppointmentDetailModal({
                   : "rgba(0, 0, 0, 0.02)",
             }}
           >
+            {letter.docNo && (
+              <p
+                className="text-xs text-right mb-2"
+                style={{ color: colors.subText }}
+              >
+                {letter.docNo}
+              </p>
+            )}
+
             {(letter.logoUrl || letter.companyName) && (
               <div className="flex items-center gap-3 mb-4">
                 {letter.logoUrl && (
@@ -582,6 +776,16 @@ export function LegalAppointmentDetailModal({
               {letter.headerTitle}
             </p>
 
+            {showFullLetter && letter.summaryRows?.length ? (
+              <div className="mb-3">
+                <LetterTable
+                  rows={letter.summaryRows}
+                  borderColor={letterBorder}
+                  textColor={colors.primaryText}
+                />
+              </div>
+            ) : null}
+
             <p className="text-sm mb-3" style={{ color: colors.primaryText }}>
               {letter.appointingParagraph.map((seg, i) =>
                 seg.bold ? (
@@ -595,6 +799,16 @@ export function LegalAppointmentDetailModal({
             <p className="text-sm mb-3" style={{ color: colors.primaryText }}>
               {letter.validityLine}
             </p>
+
+            {letter.introParagraphs?.map((paragraph, i) => (
+              <p
+                key={i}
+                className="text-sm mb-3"
+                style={{ color: colors.primaryText }}
+              >
+                {paragraph}
+              </p>
+            ))}
 
             <p className="text-sm mb-2" style={{ color: colors.primaryText }}>
               {letter.dutiesIntro}
@@ -613,7 +827,7 @@ export function LegalAppointmentDetailModal({
               ))}
             </ul>
 
-            {letter.duties.length > DUTIES_PREVIEW_COUNT && (
+            {hasExtraContent && (
               <button
                 onClick={() => setShowFullLetter((v) => !v)}
                 className="flex items-center gap-1 text-xs font-medium mb-3"
@@ -625,8 +839,9 @@ export function LegalAppointmentDetailModal({
                   </>
                 ) : (
                   <>
-                    View full letter (
-                    {letter.duties.length - DUTIES_PREVIEW_COUNT} more){" "}
+                    {extraDutiesCount > 0
+                      ? `View full letter (${extraDutiesCount} more)`
+                      : "View full letter"}{" "}
                     <ChevronDown className="size-3.5" />
                   </>
                 )}
@@ -634,9 +849,85 @@ export function LegalAppointmentDetailModal({
             )}
 
             {showFullLetter && (
-              <p className="text-sm" style={{ color: colors.primaryText }}>
-                {letter.reportingLine}
-              </p>
+              <div className="space-y-4">
+                {letter.reportingLine && (
+                  <p className="text-sm" style={{ color: colors.primaryText }}>
+                    {letter.reportingLine}
+                  </p>
+                )}
+
+                {letter.appendices?.length ? (
+                  <div className="space-y-2">
+                    {letter.appendicesIntro && (
+                      <p
+                        className="text-sm"
+                        style={{ color: colors.primaryText }}
+                      >
+                        {letter.appendicesIntro}
+                      </p>
+                    )}
+                    <LetterTable
+                      rows={letter.appendices.map((a) => ({
+                        label: a.reference,
+                        value: a.requirement,
+                      }))}
+                      borderColor={letterBorder}
+                      textColor={colors.primaryText}
+                    />
+                  </div>
+                ) : null}
+
+                {letter.acknowledgement && (
+                  <div>
+                    <p
+                      className="text-xs font-bold uppercase mb-1"
+                      style={{ color: colors.primaryText }}
+                    >
+                      Acknowledgement of designation
+                    </p>
+                    <p
+                      className="text-sm"
+                      style={{ color: colors.primaryText }}
+                    >
+                      {letter.acknowledgement}
+                    </p>
+                  </div>
+                )}
+
+                {letter.legalReferences?.map((ref, i) => (
+                  <div
+                    key={i}
+                    className="rounded p-3"
+                    style={{ border: `1px solid ${letterBorder}` }}
+                  >
+                    <p
+                      className="text-xs font-bold uppercase mb-1"
+                      style={{ color: colors.primaryText }}
+                    >
+                      {ref.title}
+                    </p>
+                    {ref.heading && (
+                      <p
+                        className="text-sm font-semibold mb-2"
+                        style={{ color: colors.primaryText }}
+                      >
+                        {ref.heading}
+                      </p>
+                    )}
+                    <div className="max-h-48 overflow-y-auto space-y-2 pr-1">
+                      {ref.body.map((paragraph, j) => (
+                        <p
+                          key={j}
+                          className="text-xs"
+                          style={{ color: colors.subText }}
+                        >
+                          {paragraph}
+                        </p>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
             )}
           </div>
         )}

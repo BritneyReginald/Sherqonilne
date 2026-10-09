@@ -5,7 +5,9 @@ import {
   getMedicalRecords,
   getMedicalRecordById,
   updateMedicalRecord,
-  deleteMedicalRecord,
+  softDeleteMedicalRecord,
+  getArchivedMedicalRecords,
+  restoreMedicalRecord,
   MedicalRecordInput,
 } from "../models/medicals";
 
@@ -14,6 +16,13 @@ import {
   getMedicalFileSasUrl,
   deleteMedicalFile,
 } from "../services/azureBlob";
+
+// Returns the logged-in user's id if an auth middleware attached one,
+// otherwise null. Used only to record deleted_by; it is NOT a permission
+// check. Adjust if your auth middleware attaches the user under a
+// different key.
+const currentUserId = (req: Request): number | null =>
+  ((req as any).user as { id?: number } | undefined)?.id ?? null;
 
 // multipart/form-data arrives with every field as a string, so
 // restriction_type comes through as a JSON string if present.
@@ -169,25 +178,58 @@ export const editMedicalRecord = async (
   }
 };
 
+/**
+ * SOFT delete. The row and its Azure file are KEPT indefinitely
+ * (OHS Act 40-year retention). Nothing is removed from Azure here.
+ */
 export const deleteMedicalRecordController = async (
   req: Request,
   res: Response,
 ): Promise<void> => {
   try {
-    const deleted = await deleteMedicalRecord(Number(req.params.id));
+    const deleted = await softDeleteMedicalRecord(
+      Number(req.params.id),
+      currentUserId(req),
+    );
 
     if (!deleted) {
       res.status(404).json({ message: "Medical record not found" });
       return;
     }
 
-    // Clean up the file in Azure so we don't orphan POPI-protected
-    // documents once the DB row referencing them is gone.
-    if (deleted.file_blob_name) {
-      await deleteMedicalFile(deleted.file_blob_name);
+    res.json({
+      message: "Medical record moved to the recycle bin",
+      id: deleted.id,
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+export const listArchivedMedicalRecords = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {
+  try {
+    res.json(await getArchivedMedicalRecords());
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+export const restoreMedicalRecordController = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {
+  try {
+    const restored = await restoreMedicalRecord(Number(req.params.id));
+
+    if (!restored) {
+      res.status(404).json({ message: "Deleted medical record not found" });
+      return;
     }
 
-    res.json({ message: "Medical record permanently deleted", id: deleted.id });
+    res.json({ message: "Medical record restored", id: restored.id });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }

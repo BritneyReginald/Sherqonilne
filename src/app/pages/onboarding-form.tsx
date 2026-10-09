@@ -20,6 +20,27 @@ const ROLE_CREATE: Record<Role, (data: any) => Promise<any>> = {
   first_aider: createFirstAider,
 };
 
+// Pulls the server's error message out of whatever shape the API layer throws
+// (axios-style, a fetch wrapper's custom error, or a plain Error).
+function getServerMessage(err: any): string | undefined {
+  const fromBody = err?.response?.data?.error ?? err?.data?.error;
+  if (typeof fromBody === "string" && fromBody) return fromBody;
+
+  if (
+    err instanceof Error &&
+    err.message &&
+    !err.message.startsWith("Request failed")
+  ) {
+    return err.message;
+  }
+
+  return undefined;
+}
+
+function isConflict(err: any): boolean {
+  return err?.response?.status === 409 || err?.status === 409;
+}
+
 export function OnboardingForm({ role }: { role: Role }) {
   const [employeeNumber, setEmployeeNumber] = useState("");
   const [fullName, setFullName] = useState("");
@@ -82,7 +103,7 @@ export function OnboardingForm({ role }: { role: Role }) {
 
     try {
       const result = await ROLE_CREATE[role]({
-        employeeNumber,
+        employeeNumber: employeeNumber.trim(),
         fullName,
         surname,
         siteIds: selectedSites,
@@ -99,7 +120,18 @@ export function OnboardingForm({ role }: { role: Role }) {
       setSelectedSites([]);
     } catch (err) {
       console.error(err);
-      alert(`Failed to create ${ROLE_LABEL[role].toLowerCase()}.`);
+
+      if (isConflict(err)) {
+        alert(
+          getServerMessage(err) ??
+            `${ROLE_LABEL[role]} already onboarded, check Security & Privacy page`,
+        );
+      } else {
+        alert(
+          getServerMessage(err) ??
+            `Failed to create ${ROLE_LABEL[role].toLowerCase()}.`,
+        );
+      }
     } finally {
       setLoading(false);
     }

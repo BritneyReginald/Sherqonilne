@@ -3,12 +3,18 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.PPE_RETENTION_DAYS = void 0;
 exports.createPPETransactions = createPPETransactions;
 exports.getPPETransactions = getPPETransactions;
 exports.getPPETransactionById = getPPETransactionById;
+exports.softDeletePPETransaction = softDeletePPETransaction;
+exports.getArchivedPPETransactions = getArchivedPPETransactions;
+exports.restorePPETransaction = restorePPETransaction;
+exports.purgeExpiredPPETransactions = purgeExpiredPPETransactions;
 const db_1 = __importDefault(require("../config/db"));
 const ppeCatalogue_1 = require("./ppeCatalogue");
-const SELECT_ALL = `SELECT * FROM ppe_transactions ORDER BY issue_date DESC, id DESC`;
+exports.PPE_RETENTION_DAYS = 30;
+const SELECT_ALL = `SELECT * FROM ppe_transactions WHERE deleted_at IS NULL ORDER BY issue_date DESC, id DESC`;
 /**
  * Issues one or more PPE items to an employee in a single atomic
  * operation: every item gets its own transaction row AND has its
@@ -79,7 +85,7 @@ async function createPPETransactions(data) {
     }
 }
 async function getPPETransactions(filters) {
-    const conditions = [];
+    const conditions = ["deleted_at IS NULL"];
     const values = [];
     if (filters.employeeId) {
         values.push(filters.employeeId);
@@ -93,13 +99,47 @@ async function getPPETransactions(filters) {
         values.push(filters.siteLocation);
         conditions.push(`site_location = $${values.length}`);
     }
-    const whereClause = conditions.length
-        ? `WHERE ${conditions.join(" AND ")}`
-        : "";
-    const result = await db_1.default.query(`SELECT * FROM ppe_transactions ${whereClause} ORDER BY issue_date DESC, id DESC`, values);
+    const result = await db_1.default.query(`SELECT * FROM ppe_transactions WHERE ${conditions.join(" AND ")} ORDER BY issue_date DESC, id DESC`, values);
     return result.rows;
 }
 async function getPPETransactionById(id) {
-    const result = await db_1.default.query(`SELECT * FROM ppe_transactions WHERE id = $1`, [id]);
+    const result = await db_1.default.query(`SELECT * FROM ppe_transactions WHERE id = $1 AND deleted_at IS NULL`, [id]);
     return result.rows[0] || null;
+}
+/*
+ * ------------------------------------------------------------
+ * RECYCLE BIN (soft delete, purged after PPE_RETENTION_DAYS)
+ * ------------------------------------------------------------
+ * Catalogue stock is NOT adjusted on delete/restore: a deleted
+ * record is an admin correction to the log, not a return of
+ * physical stock. Adjust stock in the catalogue if needed.
+ */
+async function softDeletePPETransaction(id, userId) {
+    const result = await db_1.default.query(`UPDATE ppe_transactions
+        SET deleted_at = NOW(), deleted_by = $2
+      WHERE id = $1 AND deleted_at IS NULL
+      RETURNING id`, [id, userId]);
+    return result.rows[0] || null;
+}
+async function getArchivedPPETransactions() {
+    const result = await db_1.default.query(`SELECT id, employee_name, ppe_item_name, issue_date, deleted_at
+       FROM ppe_transactions
+      WHERE deleted_at IS NOT NULL
+      ORDER BY deleted_at DESC`);
+    return result.rows;
+}
+async function restorePPETransaction(id) {
+    const result = await db_1.default.query(`UPDATE ppe_transactions
+        SET deleted_at = NULL, deleted_by = NULL
+      WHERE id = $1 AND deleted_at IS NOT NULL
+      RETURNING id`, [id]);
+    return result.rows[0] || null;
+}
+/** Permanently removes PPE rows that have been in the bin longer than 30 days. */
+async function purgeExpiredPPETransactions() {
+    const result = await db_1.default.query(`DELETE FROM ppe_transactions
+      WHERE deleted_at IS NOT NULL
+        AND deleted_at < NOW() - ($1 || ' days')::interval
+      RETURNING id`, [String(exports.PPE_RETENTION_DAYS)]);
+    return result.rowCount ?? 0;
 }

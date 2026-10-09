@@ -4,7 +4,7 @@ dotenv.config({ quiet: true });
 import express from "express";
 import employeeRoutes from "./routes/employeeRoutes";
 import { initializeDatabase } from "./config/initDatabase";
-import companyRoutes from "./routes/companies";
+
 import siteRoutes from "./routes/sites";
 import authRoutes from "./routes/auth";
 import adminRoutes from "./routes/admin";
@@ -18,12 +18,8 @@ import adminRouter from "./routes/admin";
 import firstAidersRouter from "./routes/firstAiderRoutes";
 import legalAppointmentRoutes from "./routes/legalAppointmentRoutes";
 import documentLibraryRoutes from "./routes/documentLibraryRoutes";
-
-
-
-
-
-
+import { startPurgeJobs } from "./services/purgeJobs";
+import companyRoutes from "./routes/companyRoutes";
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -49,7 +45,7 @@ app.get("/", (_, res) => {
 // Register routes
 app.use("/employees", employeeRoutes);
 
-app.use("/companies", companyRoutes);
+// app.use("/companies", companyRoutes);
 app.use("/sites", siteRoutes);
 app.use("/auth", authRoutes);
 app.use("/admin", adminRoutes);
@@ -63,6 +59,7 @@ app.use("/admin", adminRouter);
 app.use("/admin", firstAidersRouter);
 app.use("/legal-appointments", legalAppointmentRoutes);
 app.use("/document-library", documentLibraryRoutes);
+app.use("/company", companyRoutes);
 
 async function startServer() {
   try {
@@ -74,6 +71,7 @@ async function startServer() {
       console.log(`Server running on port ${PORT}`);
       console.log("=================================");
     });
+    startPurgeJobs();
   } catch (error) {
     console.error("❌ Failed to initialize database");
     console.error(error);

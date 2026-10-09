@@ -1,6 +1,8 @@
 import pool from "../config/db";
 import { getCatalogueItemById, decrementStockWithClient } from "./ppeCatalogue";
 
+export const PPE_RETENTION_DAYS = 30;
+
 export interface IssuePPEItem {
   itemId: number;
   size?: string | null;
@@ -16,7 +18,7 @@ export interface IssuePPEInput {
   signatureData: string; // base64 dataURL captured client-side
 }
 
-const SELECT_ALL = `SELECT * FROM ppe_transactions ORDER BY issue_date DESC, id DESC`;
+const SELECT_ALL = `SELECT * FROM ppe_transactions WHERE deleted_at IS NULL ORDER BY issue_date DESC, id DESC`;
 
 /**
  * Issues one or more PPE items to an employee in a single atomic
@@ -110,7 +112,7 @@ export async function getPPETransactions(filters: {
   category?: string;
   siteLocation?: string;
 }) {
-  const conditions: string[] = [];
+  const conditions: string[] = ["deleted_at IS NULL"];
   const values: any[] = [];
 
   if (filters.employeeId) {
@@ -128,12 +130,8 @@ export async function getPPETransactions(filters: {
     conditions.push(`site_location = $${values.length}`);
   }
 
-  const whereClause = conditions.length
-    ? `WHERE ${conditions.join(" AND ")}`
-    : "";
-
   const result = await pool.query(
-    `SELECT * FROM ppe_transactions ${whereClause} ORDER BY issue_date DESC, id DESC`,
+    `SELECT * FROM ppe_transactions WHERE ${conditions.join(" AND ")} ORDER BY issue_date DESC, id DESC`,
     values,
   );
 
@@ -141,6 +139,65 @@ export async function getPPETransactions(filters: {
 }
 
 export async function getPPETransactionById(id: number) {
-  const result = await pool.query(`SELECT * FROM ppe_transactions WHERE id = $1`, [id]);
+  const result = await pool.query(
+    `SELECT * FROM ppe_transactions WHERE id = $1 AND deleted_at IS NULL`,
+    [id],
+  );
   return result.rows[0] || null;
+}
+
+/*
+ * ------------------------------------------------------------
+ * RECYCLE BIN (soft delete, purged after PPE_RETENTION_DAYS)
+ * ------------------------------------------------------------
+ * Catalogue stock is NOT adjusted on delete/restore: a deleted
+ * record is an admin correction to the log, not a return of
+ * physical stock. Adjust stock in the catalogue if needed.
+ */
+
+export async function softDeletePPETransaction(
+  id: number,
+  userId: number | null,
+) {
+  const result = await pool.query(
+    `UPDATE ppe_transactions
+        SET deleted_at = NOW(), deleted_by = $2
+      WHERE id = $1 AND deleted_at IS NULL
+      RETURNING id`,
+    [id, userId],
+  );
+  return result.rows[0] || null;
+}
+
+export async function getArchivedPPETransactions() {
+  const result = await pool.query(
+    `SELECT id, employee_name, ppe_item_name, issue_date, deleted_at
+       FROM ppe_transactions
+      WHERE deleted_at IS NOT NULL
+      ORDER BY deleted_at DESC`,
+  );
+  return result.rows;
+}
+
+export async function restorePPETransaction(id: number) {
+  const result = await pool.query(
+    `UPDATE ppe_transactions
+        SET deleted_at = NULL, deleted_by = NULL
+      WHERE id = $1 AND deleted_at IS NOT NULL
+      RETURNING id`,
+    [id],
+  );
+  return result.rows[0] || null;
+}
+
+/** Permanently removes PPE rows that have been in the bin longer than 30 days. */
+export async function purgeExpiredPPETransactions() {
+  const result = await pool.query(
+    `DELETE FROM ppe_transactions
+      WHERE deleted_at IS NOT NULL
+        AND deleted_at < NOW() - ($1 || ' days')::interval
+      RETURNING id`,
+    [String(PPE_RETENTION_DAYS)],
+  );
+  return result.rowCount ?? 0;
 }

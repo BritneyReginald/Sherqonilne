@@ -17,7 +17,10 @@ import {
   useLegalAppointments,
   LegalAppointment,
 } from "../contexts/legal-appointments-context";
-import { appointmentTypeMap } from "../templates/appointment-templates";
+import {
+  appointmentTypeMap,
+  appointmentGroups,
+} from "../templates/appointment-templates";
 import { LegalAppointmentDetailModal } from "../components/legal-appointment-detail-modal";
 import { getEmployees, EmployeeOption } from "../../api/employees";
 import { getSites } from "../../api/siteAPI";
@@ -32,7 +35,35 @@ interface SiteOption {
   name: string;
 }
 
-const appointmentTypeOptions = Object.keys(appointmentTypeMap);
+/**
+ * Appointment types bucketed by group, in the order defined by
+ * appointmentGroups. Used for the <optgroup>s in both the filter bar
+ * and the Add Appointment modal.
+ */
+const groupedAppointmentTypes = appointmentGroups
+  .map((group) => ({
+    group,
+    types: Object.keys(appointmentTypeMap).filter(
+      (type) => appointmentTypeMap[type].group === group,
+    ),
+  }))
+  .filter((g) => g.types.length > 0);
+
+function AppointmentTypeOptions() {
+  return (
+    <>
+      {groupedAppointmentTypes.map(({ group, types }) => (
+        <optgroup key={group} label={group}>
+          {types.map((type) => (
+            <option key={type} value={type}>
+              {type}
+            </option>
+          ))}
+        </optgroup>
+      ))}
+    </>
+  );
+}
 
 export function LegalAppointments({ employeeId }: LegalAppointmentsProps) {
   const isEmployeeView = !!employeeId;
@@ -186,6 +217,11 @@ export function LegalAppointments({ employeeId }: LegalAppointmentsProps) {
       alert(
         "Please select an employee, appointment type, site, and start date.",
       );
+      return;
+    }
+
+    if (formData.endDate && formData.endDate < formData.startDate) {
+      alert("The end date cannot be before the start date.");
       return;
     }
 
@@ -395,11 +431,7 @@ export function LegalAppointments({ employeeId }: LegalAppointmentsProps) {
                     }}
                   >
                     <option value="all">All Types</option>
-                    {appointmentTypeOptions.map((type) => (
-                      <option key={type} value={type}>
-                        {type}
-                      </option>
-                    ))}
+                    <AppointmentTypeOptions />
                   </select>
 
                   <select
@@ -715,7 +747,8 @@ export function LegalAppointments({ employeeId }: LegalAppointmentsProps) {
                 className={`${inputClass} bg-gray-100`}
               />
 
-              {/* Appointment type FIRST — department is derived from it */}
+              {/* Appointment type FIRST — legal section and department are
+                  derived from it. Grouped by area of responsibility. */}
               <div>
                 <label className="block text-sm font-medium mb-1">
                   Appointment Type
@@ -727,12 +760,22 @@ export function LegalAppointments({ employeeId }: LegalAppointmentsProps) {
                   className={inputClass}
                 >
                   <option value="">Select Appointment Type</option>
-                  {appointmentTypeOptions.map((type) => (
-                    <option key={type} value={type}>
-                      {type}
-                    </option>
-                  ))}
+                  <AppointmentTypeOptions />
                 </select>
+              </div>
+
+              {/* Legal section — auto-filled from the appointment type, read-only */}
+              <div>
+                <label className="block text-sm font-medium mb-1">
+                  Legal Section
+                </label>
+                <input
+                  type="text"
+                  placeholder="Select an appointment type"
+                  value={selectedTypeConfig?.legalSection || ""}
+                  readOnly
+                  className={`${inputClass} bg-gray-100`}
+                />
               </div>
 
               {/* Department — auto-filled from the appointment type, read-only */}
@@ -772,20 +815,33 @@ export function LegalAppointments({ employeeId }: LegalAppointmentsProps) {
                 className={inputClass}
               />
 
-              <input
-                type="date"
-                name="startDate"
-                value={formData.startDate}
-                onChange={handleChange}
-                className={inputClass}
-              />
-              <input
-                type="date"
-                name="endDate"
-                value={formData.endDate}
-                onChange={handleChange}
-                className={inputClass}
-              />
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium mb-1">
+                    Start Date
+                  </label>
+                  <input
+                    type="date"
+                    name="startDate"
+                    value={formData.startDate}
+                    onChange={handleChange}
+                    className={inputClass}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">
+                    End Date
+                  </label>
+                  <input
+                    type="date"
+                    name="endDate"
+                    min={formData.startDate || undefined}
+                    value={formData.endDate}
+                    onChange={handleChange}
+                    className={inputClass}
+                  />
+                </div>
+              </div>
 
               <div className="flex justify-end gap-2 mt-4">
                 <button
