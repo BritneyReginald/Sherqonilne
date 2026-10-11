@@ -116,19 +116,10 @@
                         name="inspector_name" 
                         id="inspectorName" 
                         class="form-control border-success" 
-                        placeholder="Type to search or select your name..." 
-                        list="registered_inspectors" 
+                        placeholder="Enter your full name and surname" 
                         autocomplete="off" 
                         required
                     >
-                    <datalist id="registered_inspectors">
-                        {% for emp in employees %}
-                            <option value="{{ emp.full_name }}"></option>
-                        {% endfor %}
-                    </datalist>
-                    <div id="inspector_error_msg" class="text-danger fw-bold mt-2 d-none" style="font-size: 0.9rem;">
-                        ⚠️ Access Denied: Your name is not found in the official system database. Please contact management.
-                    </div>
                 </div>
             </div>
 
@@ -147,33 +138,6 @@
         const attachMenu = document.getElementById('attachMenu');
         const fileNameDisplay = document.getElementById('selectedFileName');
         const inspectorInput = document.getElementById('inspectorName');
-        const inspectorError = document.getElementById('inspector_error_msg');
-
-        // FIX: Directly parsing via JSON conversion filters to satisfy the IDE's Javascript syntax analyzer cleanly
-        const validInspectors = JSON.parse('{{ employees | map(attribute="full_name") | list | tojson | safe }}');
-
-        // Handles live dynamic matching validation 
-        function verifyInspectorProfile() {
-            const enteredName = inspectorInput.value.trim();
-            if (enteredName === "") {
-                inspectorError.classList.add("d-none");
-                inspectorInput.setCustomValidity("");
-                return true;
-            }
-            const isValid = validInspectors.some(name => name.toLowerCase() === enteredName.toLowerCase());
-            if (!isValid) {
-                inspectorError.classList.remove("d-none");
-                inspectorInput.setCustomValidity("Invalid Profile");
-                return false;
-            } else {
-                inspectorError.classList.add("d-none");
-                inspectorInput.setCustomValidity("");
-                return true;
-            }
-        }
-
-        inspectorInput.addEventListener('input', verifyInspectorProfile);
-        inspectorInput.addEventListener('change', verifyInspectorProfile);
 
         document.querySelectorAll('.btn-check').forEach(radio => {
             radio.addEventListener('change', function() {
@@ -207,8 +171,6 @@
             
             if (!inspectorInput.value.trim()) {
                 errors.push("Inspector name is required.");
-            } else if (!verifyInspectorProfile()) {
-                errors.push("Access Denied: Your name is not found in the official system database.");
             }
 
             if (errors.length > 0) {

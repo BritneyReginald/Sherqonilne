@@ -9,6 +9,8 @@ import io
 from fpdf import FPDF  # Pure Python PDF generation - works perfectly on Python 3.14
 from werkzeug.utils import secure_filename
 from werkzeug.security import check_password_hash
+from sqlalchemy import inspect, text
+import bcrypt
 
 app = Flask(__name__)
 
@@ -39,6 +41,13 @@ if not db_url:
 
 app.config['SQLALCHEMY_DATABASE_URI'] = db_url
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
+# Login-only connection to Resego's SHERQ Online database (ohs-online), where the
+# inspector accounts live. Set AUTH_DATABASE_URL on Azure; leave it unset locally
+# and login falls back to your own database.
+auth_db_url = os.environ.get('AUTH_DATABASE_URL')
+if auth_db_url:
+    app.config['SQLALCHEMY_BINDS'] = {'auth': auth_db_url}
 
 UPLOAD_FOLDER = 'static/uploads'
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
@@ -511,16 +520,11 @@ def details(qr_code_id):
 
 @app.route('/questionnaire/<string:qr_code_id>')
 def load_questionnaire(qr_code_id):
-    if not session.get('admin_logged_in'):
-        return redirect(url_for('login', next=request.url))
     unit, category = get_unit_and_category(qr_code_id)
     return render_template('questionnaire.html', unit=unit, category=category, today_date=date.today().isoformat(), employees=Employee.query.order_by(Employee.full_name.asc()).all()) if unit else ("Not Found", 404)
 
 @app.route('/recovery/<string:qr_code_id>')
 def load_recovery(qr_code_id):
-    # Only redirect to login if they are NOT logged in
-    if not session.get('admin_logged_in'):
-        return redirect(url_for('login', next=request.url))
     unit, category = get_unit_and_category(qr_code_id)
     return render_template('recovery.html', unit=unit, category=category, employees=Employee.query.order_by(Employee.full_name.asc()).all()) if unit else ("Not Found", 404)
 
@@ -641,24 +645,77 @@ from werkzeug.security import check_password_hash
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
-        # Get the input from your HTML form (e.g. name="username" or name="email")
-        login_input = request.form.get('username')
-        password_input = request.form.get('password')
-        
-        # Query using Resego's exact 'Email' column name in the User model
-        # (If your User model attribute is uppercase `Email`, use User.Email)
-        user = User.query.filter_by(Email=login_input).first()
-        
-        # Verify the password against her hashed password column
-        if user and check_password_hash(user.password_hash, password_input):
+        login_input = (request.form.get('username') or '').strip()
+        password_input = request.form.get('password') or ''
+
+        user = find_login_user(login_input, password_input)
+
+        if user == 'disabled':
+            flash("This account has been disabled. Please contact management.", "danger")
+        elif user:
             session['admin_logged_in'] = True
-            session['username'] = user.Email
+            session['username'] = user
             flash("Logged in successfully!", "success")
             return redirect(url_for('admin_dashboard'))
         else:
-            flash("Invalid email or password.", "danger")
-            
+            flash("Invalid username or password.", "danger")
+
     return render_template('login.html')
+
+
+def check_any_password(plain, stored):
+    """Checks a password against bcrypt, werkzeug or (old local) plain-text values."""
+    if not stored:
+        return False
+    if stored.startswith(('$2a$', '$2b$', '$2y$')):
+        try:
+            return bcrypt.checkpw(plain.encode('utf-8'), stored.encode('utf-8'))
+        except ValueError:
+            return False
+    if stored.startswith(('pbkdf2:', 'scrypt:')):
+        return check_password_hash(stored, plain)
+    return plain == stored
+
+
+def find_login_user(login_input, password_input):
+    """
+    Azure: reads Resego's users table in ohs-online (via AUTH_DATABASE_URL), which has
+    id/email/role/status.
+    Only inspectors may log in; their username is stored in the email column.
+
+    Local (old database): the users table has user_id/username/password_hash,
+    so we fall back to that and your local test login keeps working.
+    """
+    if not login_input or not password_input:
+        return None
+
+    engine = db.engines['auth'] if auth_db_url else db.engine
+    user_columns = {col['name'] for col in inspect(engine).get_columns('users')}
+
+    if 'role' in user_columns:
+        with engine.connect() as conn:
+            row = conn.execute(
+                text("""
+                    SELECT email, password_hash, status
+                    FROM users
+                    WHERE LOWER(TRIM(email)) = LOWER(:login)
+                      AND role = 'inspector'
+                """),
+                {'login': login_input},
+            ).mappings().first()
+        if not row or not check_any_password(password_input, row['password_hash']):
+            return None
+        if row['status'] == 'disabled':
+            return 'disabled'
+        return row['email']
+
+    row = db.session.execute(
+        text("SELECT username, password_hash FROM users WHERE username = :login"),
+        {'login': login_input},
+    ).mappings().first()
+    if row and check_any_password(password_input, row['password_hash']):
+        return row['username']
+    return None
 
 @app.route('/logout')
 def logout():
