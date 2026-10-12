@@ -18,11 +18,32 @@
         .badge-status { font-size: 0.85rem; padding: 6px 10px; }
         .add-btn { background-color: #99cc33; color: #003366; font-weight: bold; border: none; }
         .add-btn:hover { background-color: #88bb22; color: white; }
+        .print-only { display: none; }
+
+        /* ---------- PRINT: show the whole register on paper ---------- */
+        @media print {
+            @page { size: A4 landscape; margin: 10mm; }
+            body { background: #fff !important; font-size: 11px; }
+            .no-print { display: none !important; }
+            .print-only { display: block !important; }
+            .print-header { margin-bottom: 12px; border-bottom: 3px solid #99cc33; }
+            .print-header h3 { color: #003366; font-size: 18px; margin: 0 0 4px; }
+            .print-header p { margin: 0 0 6px; font-size: 11px; }
+            .container { max-width: 100% !important; width: 100% !important; padding: 0 !important; }
+            .table-responsive { overflow: visible !important; }
+            .table-container { box-shadow: none !important; padding: 0 !important; margin-bottom: 18px !important; border-radius: 0; }
+            .table { width: 100% !important; font-size: 11px; }
+            .table th, .table td { padding: 4px 6px !important; white-space: normal !important; word-break: break-word; }
+            thead { display: table-header-group; }
+            tr { page-break-inside: avoid; break-inside: avoid; }
+            .section-title { page-break-after: avoid; break-after: avoid; }
+            * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+        }
     </style>
 </head>
 <body>
 
-    <nav class="navbar navbar-dark shadow mb-4">
+    <nav class="navbar navbar-dark shadow mb-4 no-print">
         <div class="container py-2">
             <a class="navbar-brand fw-bold" href="{{ url_for('admin_dashboard') }}">
                 REGINALD<span class="brand-green">SHERQ</span> REGISTER
@@ -35,12 +56,16 @@
     </nav>
 
     <div class="container">
-        
+        <div class="print-only print-header">
+            <h3>REGINALD SHERQ &ndash; Fire Equipment Asset Register</h3>
+            <p>Printed: <span id="printDate"></span></p>
+        </div>
+
         <!-- Fire Extinguishers -->
         <div class="table-container">
             <div class="d-flex justify-content-between align-items-center mb-3">
                 <h4 class="section-title m-0">🧯 Fire Extinguishers</h4>
-                <a href="{{ url_for('add_asset', category='extinguisher') }}" class="btn btn-sm add-btn">+ Add Extinguisher</a>
+                <a href="{{ url_for('add_asset', category='extinguisher') }}" class="btn btn-sm add-btn no-print">+ Add Extinguisher</a>
             </div>
             <div class="table-responsive">
                 <table class="table table-hover align-middle">
@@ -50,11 +75,11 @@
                             <th>Type</th>
                             <th>Unit Weight</th> 
                             <th>Location</th>
-                            <th>Scanner</th>
+                            <th class="no-print">Scanner</th>
                             <th>Status</th>
-                            <th>Reports</th> 
-                            <th class="text-center">Modify</th>
-                            <th class="text-center">Availability</th>
+                            <th class="no-print">Reports</th> 
+                            <th class="no-print text-center">Modify</th>
+                            <th class="no-print text-center">Availability</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -64,15 +89,15 @@
                             <td>{{ item.type }}</td>
                             <td>{{ item.unit_weight }}</td> 
                             <td>{{ item.location }}</td>
-                            <td class="text-center">
+                            <td class="text-center no-print">
                                 <a href="{{ url_for('print_qr', qr_code_id=item.qr_code_id) }}" target="_blank"><i class="fa-solid fa-qrcode" style="font-size: 1.2rem; color: #003366;"></i></a>
                             </td>
                             <td>
                                 <span class="badge badge-status {% if item.status == 'In Position' %}bg-success{% else %}bg-danger{% endif %}">{{ item.status }}</span>
                             </td>
-                            <td><a href="{{ url_for('view_history', qr_id=item.qr_code_id) }}" class="btn btn-view btn-sm">View Reports</a></td>
-                            <td class="text-center"><a href="{{ url_for('edit_asset', category='extinguisher', qr_id=item.qr_code_id) }}" class="btn btn-warning btn-sm fw-bold">Edit</a></td>
-                            <td class="text-center"><a href="{{ url_for('toggle_inactive', category='extinguisher', qr_id=item.qr_code_id) }}" class="btn btn-outline-danger btn-sm">Inactive</a></td>
+                            <td class="no-print"><a href="{{ url_for('view_history', qr_id=item.qr_code_id) }}" class="btn btn-view btn-sm">View Reports</a></td>
+                            <td class="text-center no-print"><a href="{{ url_for('edit_asset', category='extinguisher', qr_id=item.qr_code_id) }}" class="btn btn-warning btn-sm fw-bold">Edit</a></td>
+                            <td class="text-center no-print"><a href="{{ url_for('toggle_inactive', category='extinguisher', qr_id=item.qr_code_id) }}" class="btn btn-outline-danger btn-sm">Inactive</a></td>
                         </tr>
                         {% endfor %}
                     </tbody>
@@ -84,7 +109,7 @@
         <div class="table-container">
             <div class="d-flex justify-content-between align-items-center mb-3">
                 <h4 class="section-title m-0">🧵 Fire Hose Reels</h4>
-                <a href="{{ url_for('add_asset', category='hose') }}" class="btn btn-sm add-btn">+ Add Hose Reel</a>
+                <a href="{{ url_for('add_asset', category='hose') }}" class="btn btn-sm add-btn no-print">+ Add Hose Reel</a>
             </div>
             <div class="table-responsive">
                 <table class="table table-hover align-middle">
@@ -93,11 +118,11 @@
                             <th>QR ID</th>
                             <th>Unit Weight</th>
                             <th>Location</th>
-                            <th>Scanner</th>
+                            <th class="no-print">Scanner</th>
                             <th>Status</th>
-                            <th>Reports</th>
-                            <th class="text-center">Modify</th>
-                            <th class="text-center">Availability</th>
+                            <th class="no-print">Reports</th>
+                            <th class="no-print text-center">Modify</th>
+                            <th class="no-print text-center">Availability</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -106,15 +131,15 @@
                             <td class="fw-bold">{{ item.qr_code_id }}</td>
                             <td>{{ item.unit_weight }}</td>
                             <td>{{ item.location }}</td>
-                            <td class="text-center">
+                            <td class="text-center no-print">
                                 <a href="{{ url_for('print_qr', qr_code_id=item.qr_code_id) }}" target="_blank"><i class="fa-solid fa-qrcode" style="font-size: 1.2rem; color: #003366;"></i></a>
                             </td>
                             <td>
                                 <span class="badge badge-status {% if item.status == 'In Position' %}bg-success{% else %}bg-danger{% endif %}">{{ item.status }}</span>
                             </td>
-                            <td><a href="{{ url_for('view_history', qr_id=item.qr_code_id) }}" class="btn btn-view btn-sm">View Reports</a></td>
-                            <td class="text-center"><a href="{{ url_for('edit_asset', category='hose', qr_id=item.qr_code_id) }}" class="btn btn-warning btn-sm fw-bold">Edit</a></td>
-                            <td class="text-center"><a href="{{ url_for('toggle_inactive', category='hose', qr_id=item.qr_code_id) }}" class="btn btn-outline-danger btn-sm">Inactive</a></td>
+                            <td class="no-print"><a href="{{ url_for('view_history', qr_id=item.qr_code_id) }}" class="btn btn-view btn-sm">View Reports</a></td>
+                            <td class="text-center no-print"><a href="{{ url_for('edit_asset', category='hose', qr_id=item.qr_code_id) }}" class="btn btn-warning btn-sm fw-bold">Edit</a></td>
+                            <td class="text-center no-print"><a href="{{ url_for('toggle_inactive', category='hose', qr_id=item.qr_code_id) }}" class="btn btn-outline-danger btn-sm">Inactive</a></td>
                         </tr>
                         {% endfor %}
                     </tbody>
@@ -126,7 +151,7 @@
         <div class="table-container">
             <div class="d-flex justify-content-between align-items-center mb-3">
                 <h4 class="section-title m-0">💧 Fire Hydrants</h4>
-                <a href="{{ url_for('add_asset', category='hydrant') }}" class="btn btn-sm add-btn">+ Add Hydrant</a>
+                <a href="{{ url_for('add_asset', category='hydrant') }}" class="btn btn-sm add-btn no-print">+ Add Hydrant</a>
             </div>
             <div class="table-responsive">
                 <table class="table table-hover align-middle">
@@ -135,11 +160,11 @@
                             <th>QR ID</th>
                             <th>Unit Weight</th>
                             <th>Location</th>
-                            <th>Scanner</th>
+                            <th class="no-print">Scanner</th>
                             <th>Status</th>
-                            <th>Reports</th>
-                            <th class="text-center">Modify</th>
-                            <th class="text-center">Availability</th>
+                            <th class="no-print">Reports</th>
+                            <th class="no-print text-center">Modify</th>
+                            <th class="no-print text-center">Availability</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -148,15 +173,15 @@
                             <td class="fw-bold">{{ item.qr_code_id }}</td>
                             <td>{{ item.unit_weight }}</td>
                             <td>{{ item.location }}</td>
-                            <td class="text-center">
+                            <td class="text-center no-print">
                                 <a href="{{ url_for('print_qr', qr_code_id=item.qr_code_id) }}" target="_blank"><i class="fa-solid fa-qrcode" style="font-size: 1.2rem; color: #003366;"></i></a>
                             </td>
                             <td>
                                 <span class="badge badge-status {% if item.status == 'In Position' %}bg-success{% else %}bg-danger{% endif %}">{{ item.status }}</span>
                             </td>
-                            <td><a href="{{ url_for('view_history', qr_id=item.qr_code_id) }}" class="btn btn-view btn-sm">View Reports</a></td>
-                            <td class="text-center"><a href="{{ url_for('edit_asset', category='hydrant', qr_id=item.qr_code_id) }}" class="btn btn-warning btn-sm fw-bold">Edit</a></td>
-                            <td class="text-center"><a href="{{ url_for('toggle_inactive', category='hydrant', qr_id=item.qr_code_id) }}" class="btn btn-outline-danger btn-sm">Inactive</a></td>
+                            <td class="no-print"><a href="{{ url_for('view_history', qr_id=item.qr_code_id) }}" class="btn btn-view btn-sm">View Reports</a></td>
+                            <td class="text-center no-print"><a href="{{ url_for('edit_asset', category='hydrant', qr_id=item.qr_code_id) }}" class="btn btn-warning btn-sm fw-bold">Edit</a></td>
+                            <td class="text-center no-print"><a href="{{ url_for('toggle_inactive', category='hydrant', qr_id=item.qr_code_id) }}" class="btn btn-outline-danger btn-sm">Inactive</a></td>
                         </tr>
                         {% endfor %}
                     </tbody>
@@ -166,6 +191,8 @@
     </div>
 
     <script>
+        document.getElementById('printDate').textContent = new Date().toLocaleString();
+
         function confirmLogout() {
             if (confirm("Are you sure you want to logout?")) {
                 window.location.href = "{{ url_for('logout') }}";

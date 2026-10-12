@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Inspection Reports | Reginald SHERQ</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
@@ -9,49 +10,75 @@
         .status-created { background-color: #ffc107; color: black; } /* Yellow */
         .status-progress { background-color: #0d6efd; color: white; } /* Blue */
         .status-complete { background-color: #198754; color: white; } /* Green */
+        .btn-download { background-color: #99cc33; color: #003366; font-weight: bold; border: none; }
+        .btn-download:hover { background-color: #88bb22; color: #ffffff; }
     </style>
 </head>
 <body class="bg-light">
     <nav class="navbar navbar-dark shadow mb-4">
         <div class="container py-2">
-            <span class="navbar-brand fw-bold">Inspection Reports Of: {{ qr_id }}</span>
-            <a href="/register" class="btn btn-sm btn-outline-light">Back to Register</a>
+            <span class="navbar-brand fw-bold">Inspection Reports Of: {{ qr_code_id }}</span>
+            <a href="{{ url_for('register') }}" class="btn btn-sm btn-outline-light">Back to Register</a>
         </div>
     </nav>
 
     <div class="container">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% for category_name, message in messages %}
+                <div class="alert alert-{{ category_name if category_name in ['success','warning','danger','info'] else 'info' }}">{{ message }}</div>
+            {% endfor %}
+        {% endwith %}
+
         <div class="card shadow-sm p-4">
-            <table class="table table-hover">
-                <thead class="table-dark">
-                    <tr>
-                        <th>Date</th>
-                        <th>Inspector</th>
-                        <th>Inspection Status</th> <th>Action</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for report in reports %}
-                    <tr>
-                        <td>{{ report.inspection_date }}</td>
-                        <td>{{ report.inspector_name }}</td>
-                        <td>
-                            {% if report.completion_status == 'complete' %}
-                                <span class="badge status-complete">Complete</span>
-                            {% elif report.has_due_dates %}
-                                <span class="badge status-progress">In Progress</span>
-                            {% else %}
-                                <span class="badge status-created">Created</span>
-                            {% endif %}
-                        </td>
-                        <td>
-                            <a href="/view_report/{{ report.id }}" class="btn btn-sm btn-primary">View Full Details</a>
-                        </td>
-                    </tr>
-                    {% else %}
-                    <tr><td colspan="4" class="text-center">No reports found for this equipment.</td></tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+            <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+                <div>
+                    <div class="fw-bold" style="color: #003366;">{{ category }}</div>
+                    {% if unit %}<div class="text-muted small">Location: {{ unit.authorized_location }}</div>{% endif %}
+                </div>
+                {% if reports %}
+                    <a href="{{ url_for('download_all_reports', qr_id=qr_code_id) }}" class="btn btn-download">
+                        Download All Reports (PDF)
+                    </a>
+                {% endif %}
+            </div>
+
+            <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>Date</th>
+                            <th>Inspector</th>
+                            <th>Type</th>
+                            <th>Inspection Status</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for report in reports %}
+                        <tr>
+                            <td>{{ report.inspection_date }}</td>
+                            <td>{{ report.inspector_name }}</td>
+                            <td>{{ 'Recovery' if report.category and 'Recovery' in report.category else 'Inspection' }}</td>
+                            <td>
+                                {% if report.report_status == 'Completed' %}
+                                    <span class="badge status-complete">Completed</span>
+                                {% elif report.report_status == 'In Progress' %}
+                                    <span class="badge status-progress">In Progress</span>
+                                {% else %}
+                                    <span class="badge status-created">{{ report.report_status or 'Created' }}</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-nowrap">
+                                <a href="{{ url_for('view_report', report_id=report.id) }}" class="btn btn-sm btn-primary">View Full Details</a>
+                                <a href="{{ url_for('download_report', report_id=report.id) }}" class="btn btn-sm btn-download">Download PDF</a>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr><td colspan="5" class="text-center">No reports found for this equipment.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
         </div>
     </div>
 </body>

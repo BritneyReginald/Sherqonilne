@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify
+from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify, send_file
 from flask_sqlalchemy import SQLAlchemy
 from flask_mail import Mail, Message
 from datetime import date, timedelta
@@ -387,6 +387,109 @@ def view_history(qr_id):
     unit, category = get_unit_and_category(qr_id)
     historical_reports = InspectionReport.query.filter_by(qr_code_id=qr_id).order_by(InspectionReport.inspection_date.desc()).all()
     return render_template('history.html', qr_code_id=qr_id, unit=unit, category=category, reports=historical_reports)
+
+# --- DOWNLOAD INSPECTION REPORTS AS PDF ---
+REPORT_QUESTIONS = {
+    'q1': 'Is it mounted correctly?', 'q2': 'Is it visible?', 'q3': 'No physical damage?',
+    'q4': 'Instructions legible?', 'q5': 'Safety pin in place?', 'q6': 'Tamper seal intact?',
+    'q7': 'Pressure gauge green?', 'q8': 'Full weight?', 'q9': 'Hose clear?',
+    'q10': 'Service tag present?', 'q11': 'Serviced in 12 months?', 'q12': 'Correct risk type?',
+    'h1': 'Hose accessible?', 'h2': 'Signage visible?', 'h3': 'Hose good condition?',
+    'h4': 'Drum secure?', 'h5': 'Valve opens?', 'h6': 'Water pressure OK?',
+    'h7': 'Unwinds smoothly?', 'h8': 'Nozzle works?', 'h9': 'Tags updated?', 'h10': 'Tested recently?',
+    'y1': 'Hydrant accessible?', 'y2': 'Clear signage?', 'y3': '1m clearance?', 'y4': 'No damage?',
+    'y5': 'Caps present?', 'y6': 'Threads clean?', 'y7': 'Properly painted?', 'y8': 'Valve smooth?',
+    'y9': 'No leakage?', 'y10': 'Stems good?', 'y11': 'Reliable supply?', 'y12': 'Pressure adequate?',
+    'y13': 'Flow test done?', 'y14': 'Couplings compatible?', 'y15': 'Gaskets good?', 'y16': 'Leak-free use?',
+    'y17': 'Drains properly?', 'y18': 'No pooling?', 'y19': 'Compliant?', 'y20': 'Inspected recently?',
+    'y21': 'Records updated?', 'y22': 'Maintenance records available?', 'y23': 'Serviced regularly?', 'y24': 'Repairs required?'
+}
+
+
+def _pdf_text(value):
+    # The PDF font only supports basic Latin characters; replace anything else
+    text_value = str(value if value is not None else '')
+    for fancy, plain in {'\u2013': '-', '\u2014': '-', '\u2018': "'", '\u2019': "'",
+                         '\u201c': '"', '\u201d': '"', '\u2026': '...'}.items():
+        text_value = text_value.replace(fancy, plain)
+    return text_value.encode('latin-1', 'replace').decode('latin-1')
+
+
+def build_reports_pdf(reports):
+    """Builds one PDF with a page per inspection report (same design as the emailed report)."""
+    pdf = SHERQ_PDF()
+    pdf.set_margins(15, 20, 15)
+    for report in reports:
+        unit, category = get_unit_and_category(report.qr_code_id)
+        try:
+            responses = json.loads(report.responses or '{}')
+        except ValueError:
+            responses = {}
+
+        pdf.add_page()
+        pdf.set_fill_color(247, 250, 252)
+        pdf.set_text_color(45, 55, 72)
+        pdf.set_font("Helvetica", "B", 10)
+        pdf.cell(90, 8, _pdf_text(f" Asset Reference: {report.qr_code_id}"), border=1, fill=True)
+        is_recovery = bool(report.category and 'Recovery' in report.category)
+        category_label = f"{category} (Recovery)" if is_recovery else category
+        pdf.cell(90, 8, _pdf_text(f" Asset Category: {category_label}"), border=1, fill=True, ln=True)
+        pdf.cell(90, 8, _pdf_text(f" Assigned Location: {unit.authorized_location if unit else 'N/A'}"), border=1, fill=True)
+        pdf.cell(90, 8, _pdf_text(f" Inspector: {report.inspector_name or 'N/A'}"), border=1, fill=True, ln=True)
+        pdf.cell(90, 8, _pdf_text(f" Inspection Date: {report.inspection_date}"), border=1, fill=True)
+        pdf.cell(90, 8, _pdf_text(f" Operational Status: {report.report_status}"), border=1, fill=True, ln=True)
+        pdf.ln(10)
+
+        pdf.set_font("Helvetica", "B", 11)
+        pdf.set_text_color(26, 54, 93)
+        pdf.cell(140, 10, "Checklist Audit Question", border="B")
+        pdf.cell(40, 10, "Response Metric", border="B", align="C", ln=True)
+        pdf.set_font("Helvetica", "", 10)
+        pdf.set_text_color(74, 85, 104)
+
+        for key, val in responses.items():
+            question_text = _pdf_text(REPORT_QUESTIONS.get(key, key))
+            status_val = _pdf_text(val).upper()
+            if len(status_val) > 18:
+                # Long free-text answers (e.g. recovery comments) get their own full-width line
+                pdf.set_x(pdf.l_margin)
+                pdf.set_font("Helvetica", "B", 10)
+                pdf.multi_cell(180, 7, question_text, new_x="LMARGIN", new_y="NEXT")
+                pdf.set_font("Helvetica", "", 10)
+                pdf.multi_cell(180, 7, _pdf_text(val), border="B", new_x="LMARGIN", new_y="NEXT")
+                continue
+            pdf.cell(140, 9, question_text, border="B")
+            if status_val == 'YES':
+                pdf.set_text_color(40, 167, 69)
+            elif status_val == 'NO':
+                pdf.set_text_color(220, 53, 69)
+            else:
+                pdf.set_text_color(108, 117, 125)
+            pdf.cell(40, 9, status_val, border="B", align="C", ln=True)
+            pdf.set_text_color(74, 85, 104)
+    return bytes(pdf.output())
+
+
+@app.route('/admin/download_report/<int:report_id>')
+def download_report(report_id):
+    if not session.get('admin_logged_in'):
+        return redirect(url_for('login'))
+    report = InspectionReport.query.get_or_404(report_id)
+    pdf_bytes = build_reports_pdf([report])
+    filename = f"Inspection_Report_{report.qr_code_id}_{report.inspection_date}.pdf"
+    return send_file(io.BytesIO(pdf_bytes), mimetype='application/pdf', as_attachment=True, download_name=filename)
+
+
+@app.route('/admin/download_reports/<qr_id>')
+def download_all_reports(qr_id):
+    if not session.get('admin_logged_in'):
+        return redirect(url_for('login'))
+    reports = InspectionReport.query.filter_by(qr_code_id=qr_id).order_by(InspectionReport.inspection_date.desc()).all()
+    if not reports:
+        flash(f"No reports found for {qr_id}.", "warning")
+        return redirect(url_for('view_history', qr_id=qr_id))
+    pdf_bytes = build_reports_pdf(reports)
+    return send_file(io.BytesIO(pdf_bytes), mimetype='application/pdf', as_attachment=True, download_name=f"All_Inspection_Reports_{qr_id}.pdf")
 
 @app.route('/admin/edit_asset/<category>/<qr_id>', methods=['GET', 'POST'])
 def edit_asset(category, qr_id):
