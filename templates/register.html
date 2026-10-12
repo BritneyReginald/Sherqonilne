@@ -18,6 +18,9 @@
         .badge-status { font-size: 0.85rem; padding: 6px 10px; }
         .add-btn { background-color: #99cc33; color: #003366; font-weight: bold; border: none; }
         .add-btn:hover { background-color: #88bb22; color: white; }
+        .filter-bar { background: #f1f5f9; border-radius: 8px; padding: 10px 12px; margin-bottom: 12px; }
+        .filter-bar .form-control, .filter-bar .form-select { border-color: #cbd5e1; }
+        .no-results td { text-align: center; color: #6c757d; font-style: italic; }
         .print-only { display: none; }
 
         /* ---------- PRINT: show the whole register on paper ---------- */
@@ -67,7 +70,27 @@
                 <h4 class="section-title m-0">🧯 Fire Extinguishers</h4>
                 <a href="{{ url_for('add_asset', category='extinguisher') }}" class="btn btn-sm add-btn no-print">+ Add Extinguisher</a>
             </div>
-            <div class="table-responsive">
+            <div class="filter-bar no-print" data-section="extinguishers">
+                <div class="row g-2 align-items-center">
+                    <div class="col-12 col-md-4">
+                        <input type="search" class="form-control form-control-sm filter-search" placeholder="Search QR ID, type, size or location...">
+                    </div>
+                    <div class="col-6 col-md-2">
+                        <select class="form-select form-select-sm filter-select" data-field="type"><option value="">All types</option></select>
+                    </div>
+                    <div class="col-6 col-md-2">
+                        <select class="form-select form-select-sm filter-select" data-field="weight"><option value="">All sizes</option></select>
+                    </div>
+                    <div class="col-6 col-md-2">
+                        <select class="form-select form-select-sm filter-select" data-field="status"><option value="">All statuses</option></select>
+                    </div>
+                    <div class="col-6 col-md-2 d-flex align-items-center gap-2">
+                        <button type="button" class="btn btn-sm btn-outline-secondary filter-clear">Clear</button>
+                        <span class="small text-muted filter-count"></span>
+                    </div>
+                </div>
+            </div>
+            <div class="table-responsive" data-section="extinguishers">
                 <table class="table table-hover align-middle">
                     <thead class="thead-dark">
                         <tr>
@@ -84,15 +107,15 @@
                     </thead>
                     <tbody>
                         {% for item in extinguishers %}
-                        <tr>
-                            <td class="fw-bold">{{ item.qr_code_id }}</td>
-                            <td>{{ item.type }}</td>
-                            <td>{{ item.unit_weight }}</td> 
-                            <td>{{ item.location }}</td>
+                        <tr class="asset-row">
+                            <td class="fw-bold" data-field="qr">{{ item.qr_code_id }}</td>
+                            <td data-field="type">{{ item.type }}</td>
+                            <td data-field="weight">{{ item.unit_weight }}</td> 
+                            <td data-field="location">{{ item.location }}</td>
                             <td class="text-center no-print">
                                 <a href="{{ url_for('print_qr', qr_code_id=item.qr_code_id) }}" target="_blank"><i class="fa-solid fa-qrcode" style="font-size: 1.2rem; color: #003366;"></i></a>
                             </td>
-                            <td>
+                            <td data-field="status">
                                 <span class="badge badge-status {% if item.status == 'In Position' %}bg-success{% else %}bg-danger{% endif %}">{{ item.status }}</span>
                             </td>
                             <td class="no-print"><a href="{{ url_for('view_history', qr_id=item.qr_code_id) }}" class="btn btn-view btn-sm">View Reports</a></td>
@@ -111,7 +134,24 @@
                 <h4 class="section-title m-0">🧵 Fire Hose Reels</h4>
                 <a href="{{ url_for('add_asset', category='hose') }}" class="btn btn-sm add-btn no-print">+ Add Hose Reel</a>
             </div>
-            <div class="table-responsive">
+            <div class="filter-bar no-print" data-section="hoses">
+                <div class="row g-2 align-items-center">
+                    <div class="col-12 col-md-5">
+                        <input type="search" class="form-control form-control-sm filter-search" placeholder="Search QR ID, size or location...">
+                    </div>
+                    <div class="col-6 col-md-2">
+                        <select class="form-select form-select-sm filter-select" data-field="weight"><option value="">All sizes</option></select>
+                    </div>
+                    <div class="col-6 col-md-2">
+                        <select class="form-select form-select-sm filter-select" data-field="status"><option value="">All statuses</option></select>
+                    </div>
+                    <div class="col-6 col-md-3 d-flex align-items-center gap-2">
+                        <button type="button" class="btn btn-sm btn-outline-secondary filter-clear">Clear</button>
+                        <span class="small text-muted filter-count"></span>
+                    </div>
+                </div>
+            </div>
+            <div class="table-responsive" data-section="hoses">
                 <table class="table table-hover align-middle">
                     <thead class="thead-dark">
                         <tr>
@@ -127,14 +167,14 @@
                     </thead>
                     <tbody>
                         {% for item in hoses %}
-                        <tr>
-                            <td class="fw-bold">{{ item.qr_code_id }}</td>
-                            <td>{{ item.unit_weight }}</td>
-                            <td>{{ item.location }}</td>
+                        <tr class="asset-row">
+                            <td class="fw-bold" data-field="qr">{{ item.qr_code_id }}</td>
+                            <td data-field="weight">{{ item.unit_weight }}</td>
+                            <td data-field="location">{{ item.location }}</td>
                             <td class="text-center no-print">
                                 <a href="{{ url_for('print_qr', qr_code_id=item.qr_code_id) }}" target="_blank"><i class="fa-solid fa-qrcode" style="font-size: 1.2rem; color: #003366;"></i></a>
                             </td>
-                            <td>
+                            <td data-field="status">
                                 <span class="badge badge-status {% if item.status == 'In Position' %}bg-success{% else %}bg-danger{% endif %}">{{ item.status }}</span>
                             </td>
                             <td class="no-print"><a href="{{ url_for('view_history', qr_id=item.qr_code_id) }}" class="btn btn-view btn-sm">View Reports</a></td>
@@ -153,7 +193,24 @@
                 <h4 class="section-title m-0">💧 Fire Hydrants</h4>
                 <a href="{{ url_for('add_asset', category='hydrant') }}" class="btn btn-sm add-btn no-print">+ Add Hydrant</a>
             </div>
-            <div class="table-responsive">
+            <div class="filter-bar no-print" data-section="hydrants">
+                <div class="row g-2 align-items-center">
+                    <div class="col-12 col-md-5">
+                        <input type="search" class="form-control form-control-sm filter-search" placeholder="Search QR ID, flow or location...">
+                    </div>
+                    <div class="col-6 col-md-2">
+                        <select class="form-select form-select-sm filter-select" data-field="weight"><option value="">All sizes</option></select>
+                    </div>
+                    <div class="col-6 col-md-2">
+                        <select class="form-select form-select-sm filter-select" data-field="status"><option value="">All statuses</option></select>
+                    </div>
+                    <div class="col-6 col-md-3 d-flex align-items-center gap-2">
+                        <button type="button" class="btn btn-sm btn-outline-secondary filter-clear">Clear</button>
+                        <span class="small text-muted filter-count"></span>
+                    </div>
+                </div>
+            </div>
+            <div class="table-responsive" data-section="hydrants">
                 <table class="table table-hover align-middle">
                     <thead class="thead-dark">
                         <tr>
@@ -169,14 +226,14 @@
                     </thead>
                     <tbody>
                         {% for item in hydrants %}
-                        <tr>
-                            <td class="fw-bold">{{ item.qr_code_id }}</td>
-                            <td>{{ item.unit_weight }}</td>
-                            <td>{{ item.location }}</td>
+                        <tr class="asset-row">
+                            <td class="fw-bold" data-field="qr">{{ item.qr_code_id }}</td>
+                            <td data-field="weight">{{ item.unit_weight }}</td>
+                            <td data-field="location">{{ item.location }}</td>
                             <td class="text-center no-print">
                                 <a href="{{ url_for('print_qr', qr_code_id=item.qr_code_id) }}" target="_blank"><i class="fa-solid fa-qrcode" style="font-size: 1.2rem; color: #003366;"></i></a>
                             </td>
-                            <td>
+                            <td data-field="status">
                                 <span class="badge badge-status {% if item.status == 'In Position' %}bg-success{% else %}bg-danger{% endif %}">{{ item.status }}</span>
                             </td>
                             <td class="no-print"><a href="{{ url_for('view_history', qr_id=item.qr_code_id) }}" class="btn btn-view btn-sm">View Reports</a></td>
@@ -192,6 +249,70 @@
 
     <script>
         document.getElementById('printDate').textContent = new Date().toLocaleString();
+
+        // ---------- Search & filters for each equipment table ----------
+        document.querySelectorAll('.filter-bar').forEach(function (bar) {
+            const section = bar.dataset.section;
+            const wrapper = document.querySelector('.table-responsive[data-section="' + section + '"]');
+            const tbody = wrapper.querySelector('tbody');
+            const rows = Array.from(tbody.querySelectorAll('tr.asset-row'));
+            const search = bar.querySelector('.filter-search');
+            const selects = Array.from(bar.querySelectorAll('.filter-select'));
+            const countLabel = bar.querySelector('.filter-count');
+            const colCount = wrapper.querySelectorAll('thead th').length;
+
+            function cellText(row, field) {
+                const cell = row.querySelector('[data-field="' + field + '"]');
+                return cell ? cell.textContent.trim() : '';
+            }
+
+            // Fill each dropdown with the values that actually exist in this table
+            selects.forEach(function (select) {
+                const values = Array.from(new Set(rows.map(function (r) { return cellText(r, select.dataset.field); })))
+                    .filter(function (v) { return v !== ''; })
+                    .sort(function (a, b) { return a.localeCompare(b, undefined, { numeric: true }); });
+                values.forEach(function (v) {
+                    const opt = document.createElement('option');
+                    opt.value = v; opt.textContent = v;
+                    select.appendChild(opt);
+                });
+            });
+
+            // "No matching equipment" row
+            const emptyRow = document.createElement('tr');
+            emptyRow.className = 'no-results';
+            emptyRow.innerHTML = '<td colspan="' + colCount + '">No equipment matches your search.</td>';
+            emptyRow.style.display = 'none';
+            tbody.appendChild(emptyRow);
+
+            function applyFilters() {
+                const term = search.value.trim().toLowerCase();
+                let shown = 0;
+                rows.forEach(function (row) {
+                    const haystack = ['qr', 'type', 'weight', 'location', 'status']
+                        .map(function (f) { return cellText(row, f); }).join(' ').toLowerCase();
+                    let visible = term === '' || haystack.indexOf(term) !== -1;
+                    selects.forEach(function (select) {
+                        if (visible && select.value !== '' && cellText(row, select.dataset.field) !== select.value) {
+                            visible = false;
+                        }
+                    });
+                    row.style.display = visible ? '' : 'none';
+                    if (visible) shown++;
+                });
+                emptyRow.style.display = (rows.length > 0 && shown === 0) ? '' : 'none';
+                countLabel.textContent = 'Showing ' + shown + ' of ' + rows.length;
+            }
+
+            search.addEventListener('input', applyFilters);
+            selects.forEach(function (select) { select.addEventListener('change', applyFilters); });
+            bar.querySelector('.filter-clear').addEventListener('click', function () {
+                search.value = '';
+                selects.forEach(function (select) { select.value = ''; });
+                applyFilters();
+            });
+            applyFilters();
+        });
 
         function confirmLogout() {
             if (confirm("Are you sure you want to logout?")) {
