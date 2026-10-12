@@ -38,12 +38,13 @@ const createEmployee = async (employee) => {
         salary_grade,
         work_schedule,
         compliance_status,
-        status
+        status,
+        worker_type
       )
       VALUES (
         $1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
         $11, $12, $13, $14, $15, $16, $17, $18, $19, $20,
-        $21, $22, $23
+        $21, $22, $23, $24
       )
       RETURNING *
       `, [
@@ -70,6 +71,7 @@ const createEmployee = async (employee) => {
             employee.workSchedule || null,
             employee.complianceStatus || "compliant",
             employee.status || "Active",
+            employee.workerType || "Internal",
         ]);
         await client.query("COMMIT");
         return result.rows[0];

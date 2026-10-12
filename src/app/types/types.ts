@@ -19,6 +19,7 @@ export interface Employee {
   jobTitle: string;
   siteLocation: string;
   employmentType: string;
+  workerType?: "Internal" | "External";
 
   // Timeline
   startDate: string;

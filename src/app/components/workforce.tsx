@@ -28,6 +28,8 @@ const statuses = [
 
 const complianceOptions = statuses.filter((s) => s.value !== "all");
 const employmentTypes = ["Permanent", "Contract", "Temporary"];
+const workerTypes = ["Internal", "External"] as const;
+type WorkerType = (typeof workerTypes)[number];
 
 interface SiteOption {
   id: string;
@@ -58,6 +60,7 @@ function mapApiEmployee(employee: any): Employee {
     jobTitle: employee.job_title,
     siteLocation: employee.site_location,
     employmentType: employee.employment_type,
+    workerType: (employee.worker_type as WorkerType) ?? "Internal",
     startDate: employee.start_date,
     contractEndDate: employee.contract_end_date,
     salaryGrade: employee.salary_grade,
@@ -163,6 +166,7 @@ export function Workforce() {
     siteLocation: selectedSite?.name ?? "",
     reportingManager: "",
     employmentType: "",
+    workerType: "Internal" as WorkerType,
     complianceStatus: "compliant" as "compliant" | "review" | "action",
 
     startDate: "",
@@ -595,6 +599,17 @@ export function Workforce() {
                               </div>
                             )}
                             {employee.fullName}
+                            {employee.workerType === "External" && (
+                              <span
+                                className="px-2 py-0.5 rounded-full text-xs font-medium"
+                                style={{
+                                  backgroundColor: "#EDE9FE",
+                                  color: "#6D28D9",
+                                }}
+                              >
+                                External
+                              </span>
+                            )}
                             {employee.status === "Inactive" && (
                               <span
                                 className="px-2 py-0.5 rounded-full text-xs font-medium"
@@ -1088,7 +1103,41 @@ export function Workforce() {
                         </option>
                       ))}
                     </select>
-                    <div className="col-span-2">
+                    <div>
+                      <label
+                        className={labelClass}
+                        style={{ color: colors.primaryText }}
+                      >
+                        Worker Type
+                      </label>
+                      <select
+                        value={newEmployee.workerType}
+                        onChange={(e) =>
+                          setNewEmployee({
+                            ...newEmployee,
+                            workerType: e.target.value as WorkerType,
+                          })
+                        }
+                        className={inputClass}
+                        style={inputStyle}
+                      >
+                        {workerTypes.map((t) => (
+                          <option key={t} value={t}>
+                            {t}
+                          </option>
+                        ))}
+                      </select>
+                      {newEmployee.workerType === "External" && (
+                        <p
+                          className="text-xs mt-1"
+                          style={{ color: "#6D28D9" }}
+                        >
+                          This employee will be flagged as External on the
+                          register.
+                        </p>
+                      )}
+                    </div>
+                    <div>
                       <label
                         className={labelClass}
                         style={{ color: colors.primaryText }}

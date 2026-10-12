@@ -44,6 +44,11 @@ async function initializeDatabase() {
         ADD COLUMN IF NOT EXISTS compliance_status TEXT DEFAULT 'compliant',
         ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'Active';
     `);
+        await client.query(`
+  ALTER TABLE employees
+    ADD COLUMN IF NOT EXISTS worker_type VARCHAR(20) NOT NULL DEFAULT 'Internal'
+      CHECK (worker_type IN ('Internal', 'External'));
+`);
         /*
          * ------------------------------------------------------------
          * MIGRATION: Reporting Structure fields and ID Number are
