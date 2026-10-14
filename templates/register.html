@@ -48,8 +48,9 @@
 
     <nav class="navbar navbar-dark shadow mb-4 no-print">
         <div class="container py-2">
-            <a class="navbar-brand fw-bold" href="{{ url_for('admin_dashboard') }}">
-                REGINALD<span class="brand-green">SHERQ</span> REGISTER
+            <a class="navbar-brand fw-bold d-flex align-items-center gap-2" href="{{ url_for('admin_dashboard') }}">
+                <img src="{{ url_for('static', filename='logo.png') }}" alt="Reginald SHERQ Services logo" style="height: 38px; width: auto;">
+                <span>REGINALD<span class="brand-green">SHERQ</span><span class="text-white">SERVICES</span> REGISTER</span>
             </a>
             <div class="d-flex gap-2 align-items-center">
                 <button onclick="window.print()" class="btn btn-success btn-sm">Print Register</button>

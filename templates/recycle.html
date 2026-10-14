@@ -7,6 +7,8 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
+        .sidebar-logo { display: block; margin: 0 auto; max-width: 110px; max-height: 90px; object-fit: contain; }
+        .sidebar-brand-name { font-size: 0.85rem; white-space: nowrap; letter-spacing: 0.2px; color: #ffffff; }
         body { background-color: #f4f6f9; font-family: Arial, sans-serif; }
         .header-box { background-color: #1a365d; color: white; padding: 25px; border-bottom: 4px solid #99cc33; text-align: center; }
     </style>
@@ -14,6 +16,7 @@
 <body>
 
     <div class="header-box">
+        <img class="sidebar-logo mb-2" src="{{ url_for('static', filename='logo.png') }}" alt="Reginald SHERQ Services logo">
         <h4>REGINALD<span style="color: #99cc33;">SHERQ</span><span style="color: white;">SERVICES</span></h4>
         <small>RECYCLE BIN (30-DAY RETENTION)</small>
     </div>

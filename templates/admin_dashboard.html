@@ -17,6 +17,8 @@
         .sidebar .nav-link { color: rgba(255,255,255,0.8); margin: 5px 0; border-radius: 6px; text-decoration: none; display: block; padding: 10px; }
         .sidebar .nav-link:hover, .sidebar .nav-link.active { background-color: #99cc33; color: #1a365d; font-weight: bold; }
         .brand-green { color: #99cc33; }
+        .sidebar-brand-name { font-size: 0.95rem; white-space: nowrap; letter-spacing: 0.2px; color: #ffffff; }
+        .sidebar-logo { display: block; margin: 0 auto; max-width: 110px; max-height: 90px; object-fit: contain; }
         
         /* Main Content Offset to accommodate fixed sidebar */
         main.dashboard-main { margin-left: 250px; width: calc(100% - 250px); padding: 30px !important; }
@@ -41,7 +43,13 @@
     <div class="row">
         <!-- Sidebar / Navigation Menu -->
         <div class="sidebar d-flex flex-column">
-            <h5 class="text-center fw-bold py-3 border-bottom border-secondary m-0">REGINALD<span class="brand-green">SHERQ</span></h5>
+            <div class="sidebar-brand text-center border-bottom border-secondary pb-3">
+                <img class="sidebar-logo"
+                     src="{{ url_for('static', filename='logo.png') }}"
+                     onerror="this.onerror=null; this.src='https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTNGSfG7M1wGfkGZGkPq3ZGjOR0LOgcpVOyr7EdCcvC7g&s=10';"
+                     alt="Reginald SHERQ Services logo">
+                <h5 class="sidebar-brand-name fw-bold mt-2 mb-0">REGINALD<span class="brand-green">SHERQ</span><span class="text-white">SERVICES</span></h5>
+            </div>
             <ul class="nav flex-column mt-3 flex-grow-1">
                 <li class="nav-item"><a href="/admin/dashboard" class="nav-link active"><i class="fa-solid fa-gauge me-2"></i> Dashboard</a></li>
                 <li class="nav-item"><a href="/admin/register" class="nav-link"><i class="fa-solid fa-boxes-stacked me-2"></i> Asset Register</a></li>
