@@ -11,6 +11,10 @@ import { LoginStaff } from "./pages/login-staff";
 import { LoginClient } from "./pages/login-client";
 import { LoginInspector } from "./pages/login-inspector";
 import { ProtectedRoute } from "./components/protected-route";
+import { installAuthFetch } from "../api/http";
+
+// Every request to the backend now carries the user's token.
+installAuthFetch();
 
 export default function App() {
   return (

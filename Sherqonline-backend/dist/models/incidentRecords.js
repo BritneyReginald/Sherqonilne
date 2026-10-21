@@ -27,6 +27,7 @@ const SELECT_BASE = `
 
     r.division,
     r.site,
+    r.site_id,
     r.incident_date,
     r.incident_time,
 
@@ -58,6 +59,7 @@ const FIELD_MAP = {
     employeeId: "employee_id",
     division: "division",
     site: "site",
+    siteId: "site_id",
     incidentDate: "incident_date",
     incidentTime: "incident_time",
     category: "category",
@@ -78,9 +80,9 @@ async function createIncidentRecord(data) {
       type, employee_id, division, site, incident_date, incident_time,
       category, title, description, status, injury_type,
       ncr_type, identified_by, department,
-      body_part, effect, disablement
+      body_part, effect, disablement, site_id
     )
-    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)
+    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)
     RETURNING id
     `, [
         data.type,
@@ -100,12 +102,17 @@ async function createIncidentRecord(data) {
         data.bodyPart || null,
         data.effect || null,
         data.disablement || null,
+        data.siteId ?? null,
     ]);
     return getIncidentRecordById(result.rows[0].id);
 }
 async function getIncidentRecords(filters) {
     const conditions = [];
     const values = [];
+    if (filters.siteIds) {
+        values.push(filters.siteIds);
+        conditions.push(`r.site_id = ANY($${values.length}::int[])`);
+    }
     if (filters.type && filters.type !== "all") {
         values.push(filters.type);
         conditions.push(`r.type = $${values.length}`);

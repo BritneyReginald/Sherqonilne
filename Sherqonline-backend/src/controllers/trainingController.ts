@@ -15,6 +15,8 @@ import {
   deleteTrainingCertificate,
 } from "../services/azureBlobTraining";
 
+import { siteIdsFor } from "../middleware/siteScope";
+
 function parseTrainingBody(body: any): TrainingRecordInput {
   return {
     employeeId: Number(body.employeeId),
@@ -77,6 +79,7 @@ export const getAllTrainingRecords = async (
     const records = await getTrainingRecords({
       employeeId: req.query.employeeId ? Number(req.query.employeeId) : undefined,
       siteLocation: req.query.site as string | undefined,
+      siteIds: siteIdsFor(req),
     });
 
     res.json(records);
@@ -86,6 +89,7 @@ export const getAllTrainingRecords = async (
   }
 };
 
+// By-id access (including /file) is site-checked by router.param("id").
 export const getTrainingRecord = async (
   req: Request,
   res: Response,

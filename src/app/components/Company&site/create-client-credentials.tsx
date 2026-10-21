@@ -38,15 +38,10 @@ export function CreateClientCredentials({
     try {
       setLoading(true);
 
-      const result = await createClientCredentials(
-        email.trim(),
-        Number(site.id),
-      );
-
-      console.log("Client credentials created:", result);
+      await createClientCredentials(email.trim(), Number(site.id));
 
       toast.success(
-        `Login details for ${site.name} have been sent to milly.reginald@gmail.com.`,
+        `Client login created for ${site.name}. The login details were emailed to the RSS notification address.`,
       );
 
       onBack();
@@ -134,7 +129,7 @@ export function CreateClientCredentials({
             className="block text-sm font-medium mb-2"
             style={{ color: colors.primaryText }}
           >
-            Client Email
+            Client Login Email
           </label>
 
           <div className="relative">
@@ -176,9 +171,10 @@ export function CreateClientCredentials({
               </p>
 
               <p>
-                The login details for <strong>{site.name}</strong> will be sent
-                to <strong>milly.reginald@sherq.co.za</strong>. The client's
-                account will only have access to information associated with{" "}
+                The login details for <strong>{site.name}</strong> will be
+                emailed to the RSS notification address. The client will sign
+                in with the email above, and their account will only have
+                access to information associated with{" "}
                 <strong>{site.name}</strong>.
               </p>
             </div>

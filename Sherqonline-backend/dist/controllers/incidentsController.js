@@ -5,6 +5,9 @@ const incidentRecords_1 = require("../models/incidentRecords");
 const investigations_1 = require("../models/investigations");
 const incidentEvidence_1 = require("../models/incidentEvidence");
 const firstAidEntries_1 = require("../models/firstAidEntries");
+const employee_1 = require("../models/employee");
+const siteResolver_1 = require("../models/siteResolver");
+const siteScope_1 = require("../middleware/siteScope");
 const azureBlobIncidents_1 = require("../services/azureBlobIncidents");
 function parseIncidentBody(body) {
     return {
@@ -12,6 +15,8 @@ function parseIncidentBody(body) {
         employeeId: body.employeeId ? Number(body.employeeId) : null,
         division: body.division || null,
         site: body.site || null,
+        // siteId is resolved separately (see resolveIncidentSite)
+        siteId: undefined,
         incidentDate: body.incidentDate || null,
         incidentTime: body.incidentTime || null,
         category: body.category || null,
@@ -26,6 +31,23 @@ function parseIncidentBody(body) {
         effect: body.effect || null,
         disablement: body.disablement || null,
     };
+}
+/**
+ * Works out which site an incident belongs to: an explicit siteId,
+ * else the site NAME the form sends today, else the employee's site.
+ * Returns { id: null } only if none of those exist.
+ */
+async function resolveIncidentSite(body, employeeId) {
+    if (body.siteId || body.site) {
+        return (0, siteResolver_1.resolveSite)({ siteId: body.siteId, siteLocation: body.site });
+    }
+    if (employeeId) {
+        const employee = await (0, employee_1.getEmployeeById)(employeeId);
+        if (employee?.site_id) {
+            return (0, siteResolver_1.resolveSite)({ siteId: employee.site_id });
+        }
+    }
+    return { id: null, name: null };
 }
 // Maps one incoming first-aid entry (camelCase, matching
 // FirstAidEntry on the frontend) onto the model's input shape.
@@ -78,7 +100,6 @@ async function buildFullRecord(id) {
     if (record.type === "injury" &&
         String(record.injury_type).toLowerCase().replace(/[_-]/g, "") === "firstaid") {
         const rows = await (0, firstAidEntries_1.getFirstAidEntriesForRecord)(id);
-        console.log("FIRST AID ROWS FROM DATABASE:", rows);
         firstAidEntries = rows.map((r) => ({
             id: String(r.id),
             employeeId: r.employee_id ? String(r.employee_id) : undefined,
@@ -100,8 +121,6 @@ async function buildFullRecord(id) {
 const addIncidentRecord = async (req, res) => {
     try {
         const data = parseIncidentBody(req.body);
-        console.log("CREATE INCIDENT BODY:", JSON.stringify(req.body, null, 2));
-        console.log("FIRST AID ENTRIES:", req.body.entries);
         if (!data.type || !["incident", "ncr", "injury"].includes(data.type)) {
             res
                 .status(400)
@@ -116,6 +135,17 @@ const addIncidentRecord = async (req, res) => {
                 .json({ error: "injuryType must be firstAid or hospital" });
             return;
         }
+        // Every record must belong to a site, otherwise no client would
+        // ever see it.
+        const site = await resolveIncidentSite(req.body, data.employeeId ?? null);
+        if (!site.id) {
+            res.status(400).json({
+                error: "A site is required. Select a site (or an employee who has one).",
+            });
+            return;
+        }
+        data.siteId = site.id;
+        data.site = site.name;
         const record = await (0, incidentRecords_1.createIncidentRecord)(data);
         // First Aid logs carry their treatment rows in the same submit —
         // create them right after the header row exists.
@@ -126,9 +156,11 @@ const addIncidentRecord = async (req, res) => {
     }
     catch (err) {
         console.error(err);
-        res
-            .status(500)
-            .json({ error: err.message, detail: err.detail, code: err.code });
+        res.status(err.status ?? 500).json({
+            error: err.message,
+            detail: err.detail,
+            code: err.code,
+        });
     }
 };
 exports.addIncidentRecord = addIncidentRecord;
@@ -138,6 +170,7 @@ const getAllIncidentRecords = async (req, res) => {
             type: req.query.type,
             status: req.query.status,
             siteLocation: req.query.site,
+            siteIds: (0, siteScope_1.siteIdsFor)(req),
         });
         // Registry table view doesn't need investigation/evidence/entry
         // detail, so we skip buildFullRecord here for speed — the detail
@@ -150,6 +183,7 @@ const getAllIncidentRecords = async (req, res) => {
     }
 };
 exports.getAllIncidentRecords = getAllIncidentRecords;
+// By-id access is site-checked by router.param("id", ...) in the router.
 const getIncidentRecord = async (req, res) => {
     try {
         const record = await buildFullRecord(Number(req.params.id));
@@ -166,7 +200,30 @@ const getIncidentRecord = async (req, res) => {
 exports.getIncidentRecord = getIncidentRecord;
 const editIncidentRecord = async (req, res) => {
     try {
-        const updated = await (0, incidentRecords_1.updateIncidentRecord)(Number(req.params.id), parseIncidentBody(req.body));
+        const id = Number(req.params.id);
+        const current = await (0, incidentRecords_1.getIncidentRecordById)(id);
+        if (!current) {
+            res.status(404).json({ message: "Record not found" });
+            return;
+        }
+        const data = parseIncidentBody(req.body);
+        // Only touch the site if the request actually changes it. Forms
+        // re-send the old site name on every save; resolving it again would
+        // fail for old records whose name no longer matches a site.
+        const sendsNewSite = !!req.body.siteId || (!!req.body.site && req.body.site !== current.site);
+        if (sendsNewSite) {
+            const site = await (0, siteResolver_1.resolveSite)({
+                siteId: req.body.siteId,
+                siteLocation: req.body.site,
+            });
+            data.siteId = site.id;
+            data.site = site.name;
+        }
+        else {
+            data.siteId = undefined;
+            data.site = undefined;
+        }
+        const updated = await (0, incidentRecords_1.updateIncidentRecord)(id, data);
         if (!updated) {
             res.status(404).json({ message: "Record not found" });
             return;
@@ -177,7 +234,7 @@ const editIncidentRecord = async (req, res) => {
         res.json(await buildFullRecord(updated.id));
     }
     catch (err) {
-        res.status(500).json({ error: err.message });
+        res.status(err.status ?? 500).json({ error: err.message });
     }
 };
 exports.editIncidentRecord = editIncidentRecord;

@@ -15,12 +15,17 @@ import {
   restoreDocumentController,
 } from "../controllers/documentLibraryController";
 
+import { authenticate, authorize } from "../middleware/authMiddleware";
+
 const router = Router();
 
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 25 * 1024 * 1024 }, // 25MB
 });
+
+// The document library has no site concept, so it is RSS staff only.
+router.use(authenticate, authorize("rss_staff"));
 
 // Folders
 router.get("/folders", listFolders);

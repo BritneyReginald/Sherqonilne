@@ -17,12 +17,35 @@ import {
   deleteMedicalFile,
 } from "../services/azureBlob";
 
-// Returns the logged-in user's id if an auth middleware attached one,
-// otherwise null. Used only to record deleted_by; it is NOT a permission
-// check. Adjust if your auth middleware attaches the user under a
-// different key.
+import { siteIdsFor, isStaff } from "../middleware/siteScope";
+
+// Returns the logged-in user's id (set by authenticate). Used to record
+// deleted_by; it is NOT a permission check.
 const currentUserId = (req: Request): number | null =>
   ((req as any).user as { id?: number } | undefined)?.id ?? null;
+
+/**
+ * What a client may NOT receive. Clients see the Certificate of
+ * Fitness view (fit / restricted / unfit, dates, practitioner), never
+ * the uploaded clinical file.
+ *
+ * `restrictions` is left visible because Annexure 3 lists work
+ * restrictions for the employer. If your clients should not see that
+ * free text either, add "restrictions" and "restriction_type" here.
+ */
+const CLIENT_HIDDEN_FIELDS = [
+  "file_blob_name",
+  "file_name",
+  "file_size",
+  "file_mime_type",
+];
+
+function forViewer(req: Request, row: any) {
+  if (isStaff(req)) return row;
+  const copy = { ...row };
+  for (const field of CLIENT_HIDDEN_FIELDS) delete copy[field];
+  return copy;
+}
 
 // multipart/form-data arrives with every field as a string, so
 // restriction_type comes through as a JSON string if present.
@@ -127,9 +150,10 @@ export const getAllMedicalRecords = async (
       employeeId: req.query.employeeId
         ? Number(req.query.employeeId)
         : undefined,
+      siteIds: siteIdsFor(req),
     });
 
-    res.json(records);
+    res.json(records.map((r) => forViewer(req, r)));
   } catch (err: any) {
     console.error(err);
 
@@ -139,6 +163,7 @@ export const getAllMedicalRecords = async (
   }
 };
 
+// By-id access is site-checked by router.param("id", ...) in the router.
 export const getMedicalRecord = async (
   req: Request,
   res: Response,
@@ -151,7 +176,7 @@ export const getMedicalRecord = async (
       return;
     }
 
-    res.json(record);
+    res.json(forViewer(req, record));
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
@@ -237,6 +262,7 @@ export const restoreMedicalRecordController = async (
 
 // Returns a short-lived signed URL so the frontend can open/download
 // the file without the blob ever being publicly accessible.
+// Staff only (enforced in the router).
 export const getMedicalRecordFileUrl = async (
   req: Request,
   res: Response,

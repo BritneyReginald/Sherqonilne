@@ -97,7 +97,56 @@ export function authorize(...allowedRoles: UserRole[]) {
 }
 
 // ============================================================
-// 3. SCOPE CLIENT
+// 3. SCOPE SITES  (use this on every data router)
+// ============================================================
+//
+// Resolves which sites the caller may see and stores them on
+// req.user.siteIds:
+//   - rss_staff   -> untouched (unrestricted; see siteScope.ts)
+//   - client      -> [their one site]
+//   - inspector   -> their assigned sites
+//   - first_aider -> their assigned sites
+// Anyone with no sites is rejected outright, so a half-configured
+// account can never fall through to "no filter".
+
+export async function scopeSites(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    const user = req.user;
+    if (!user || user.role === "rss_staff") return next();
+
+    let ids: number[] = [];
+
+    if (user.role === "client") {
+      const siteId = await getClientSiteId(user.id);
+      if (siteId) {
+        user.siteId = siteId;
+        ids = [siteId];
+      }
+    } else if (user.role === "inspector") {
+      ids = await getInspectorSiteIds(user.id);
+    } else if (user.role === "first_aider") {
+      ids = await getFirstAiderSiteIds(user.id);
+    }
+
+    if (ids.length === 0) {
+      return res.status(403).json({
+        error: "No site linked to this account",
+      });
+    }
+
+    user.siteIds = ids;
+    next();
+  } catch (err) {
+    next(err);
+  }
+}
+
+// ============================================================
+// 4. LEGACY PER-ROLE SCOPERS (kept for any routes still using them)
 // ============================================================
 
 export async function scopeClient(
@@ -105,85 +154,38 @@ export async function scopeClient(
   res: Response,
   next: NextFunction,
 ) {
-  if (req.user?.role !== "client") return next();
+  try {
+    if (req.user?.role !== "client") return next();
 
-  const siteId = await getClientSiteId(req.user.id);
+    const siteId = await getClientSiteId(req.user.id);
 
-  if (!siteId) {
-    return res.status(403).json({
-      error: "No site linked to this account",
-    });
+    if (!siteId) {
+      return res.status(403).json({
+        error: "No site linked to this account",
+      });
+    }
+
+    req.user.siteId = siteId;
+    req.user.siteIds = [siteId];
+
+    next();
+  } catch (err) {
+    next(err);
   }
-
-  req.user.siteId = siteId;
-
-  next();
 }
-
-// ============================================================
-// 4. SCOPE INSPECTOR
-// ============================================================
 
 export async function scopeInspector(
   req: Request,
   res: Response,
   next: NextFunction,
 ) {
-  if (req.user?.role !== "inspector") return next();
-
-  const siteIds = await getInspectorSiteIds(req.user.id);
-
-  req.user.siteIds = siteIds;
-
-  next();
-}
-
-// ============================================================
-// 5. REQUIRE SITE ACCESS
-// ============================================================
-
-export function requireSiteAccess(siteIdParam: string = "siteId") {
-  return (req: Request, res: Response, next: NextFunction) => {
-    const requestedSiteId = Number(req.params[siteIdParam]);
-
-    // RSS staff can access every site
-    if (req.user?.role === "rss_staff") {
-      return next();
-    }
-
-    // Inspectors can only access assigned sites
-    if (req.user?.role === "inspector") {
-      if (req.user.siteIds?.includes(requestedSiteId)) {
-        return next();
-      }
-
-      return res.status(403).json({
-        error: "Not assigned to this site",
-      });
-    }
-
-    // Clients can only access their own site
-    if (req.user?.role === "client") {
-      if (req.user.siteId === requestedSiteId) {
-        return next();
-      }
-
-      return res.status(403).json({
-        error: "You do not have access to this site",
-      });
-    }
-
-    if (req.user?.role === "first_aider") {
-      if (req.user.siteIds?.includes(requestedSiteId)) {
-        return next();
-      }
-      return res.status(403).json({ error: "Not assigned to this site" });
-    }
-
-    return res.status(403).json({
-      error: "Access denied",
-    });
-  };
+  try {
+    if (req.user?.role !== "inspector") return next();
+    req.user.siteIds = await getInspectorSiteIds(req.user.id);
+    next();
+  } catch (err) {
+    next(err);
+  }
 }
 
 export async function scopeFirstAider(
@@ -191,8 +193,46 @@ export async function scopeFirstAider(
   res: Response,
   next: NextFunction,
 ) {
-  if (req.user?.role !== "first_aider") return next();
-  const siteIds = await getFirstAiderSiteIds(req.user.id); // add to models/user.ts
-  req.user.siteIds = siteIds;
-  next();
+  try {
+    if (req.user?.role !== "first_aider") return next();
+    req.user.siteIds = await getFirstAiderSiteIds(req.user.id);
+    next();
+  } catch (err) {
+    next(err);
+  }
+}
+
+// ============================================================
+// 5. REQUIRE SITE ACCESS (only for routes with a :siteId param)
+// ============================================================
+
+export function requireSiteAccess(siteIdParam: string = "siteId") {
+  return (req: Request, res: Response, next: NextFunction) => {
+    const requestedSiteId = Number(req.params[siteIdParam]);
+
+    if (req.user?.role === "rss_staff") {
+      return next();
+    }
+
+    if (
+      req.user?.role === "inspector" ||
+      req.user?.role === "first_aider"
+    ) {
+      if (req.user.siteIds?.includes(requestedSiteId)) {
+        return next();
+      }
+      return res.status(403).json({ error: "Not assigned to this site" });
+    }
+
+    if (req.user?.role === "client") {
+      if (req.user.siteId === requestedSiteId) {
+        return next();
+      }
+      return res.status(403).json({
+        error: "You do not have access to this site",
+      });
+    }
+
+    return res.status(403).json({ error: "Access denied" });
+  };
 }

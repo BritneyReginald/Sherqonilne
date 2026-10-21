@@ -2,6 +2,9 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.uploadLegalAppointmentDocumentController = exports.deleteLegalAppointmentController = exports.editLegalAppointment = exports.getLegalAppointment = exports.getAllLegalAppointments = exports.addLegalAppointment = void 0;
 const legalAppointment_1 = require("../models/legalAppointment");
+const employee_1 = require("../models/employee");
+const siteResolver_1 = require("../models/siteResolver");
+const siteScope_1 = require("../middleware/siteScope");
 const legalAppointmentBlob_1 = require("../config/legalAppointmentBlob");
 /**
  * Attaches a short-lived SAS URL for the signed document, so the
@@ -17,9 +20,45 @@ function withFileUrls(row) {
             : null,
     };
 }
+/**
+ * The appointment's site is ALWAYS the employee's site. It is never
+ * taken from the request, so an appointment can't be filed under a
+ * different client than the employee actually works for.
+ */
+async function siteFromEmployee(employeeId) {
+    const id = Number(employeeId);
+    const employee = Number.isInteger(id) && id > 0
+        ? await (0, employee_1.getEmployeeById)(id)
+        : null;
+    if (!employee) {
+        return { error: "Employee not found" };
+    }
+    if (!employee.site_id) {
+        return {
+            error: "This employee has no site assigned. Assign a site on the Workforce page first.",
+        };
+    }
+    const site = await (0, siteResolver_1.getSiteById)(employee.site_id);
+    if (!site)
+        return { error: "The employee's site no longer exists" };
+    return { employee, site };
+}
 const addLegalAppointment = async (req, res) => {
     try {
-        const saved = await (0, legalAppointment_1.createLegalAppointment)(req.body);
+        const found = await siteFromEmployee(req.body.employeeId);
+        if ("error" in found) {
+            return res.status(400).json({ message: found.error });
+        }
+        const { employee, site } = found;
+        const saved = await (0, legalAppointment_1.createLegalAppointment)({
+            ...req.body,
+            employeeId: employee.id,
+            employeeName: req.body.employeeName || employee.full_name,
+            employeeNumber: req.body.employeeNumber || employee.employee_number,
+            jobTitle: req.body.jobTitle || employee.job_title,
+            siteId: site.id,
+            siteName: site.name,
+        });
         res.status(201).json(withFileUrls(saved));
     }
     catch (error) {
@@ -30,9 +69,9 @@ const addLegalAppointment = async (req, res) => {
     }
 };
 exports.addLegalAppointment = addLegalAppointment;
-const getAllLegalAppointments = async (_req, res) => {
+const getAllLegalAppointments = async (req, res) => {
     try {
-        const rows = await (0, legalAppointment_1.getLegalAppointments)();
+        const rows = await (0, legalAppointment_1.getLegalAppointments)((0, siteScope_1.siteIdsFor)(req));
         res.json(rows.map(withFileUrls));
     }
     catch (error) {
@@ -43,6 +82,7 @@ const getAllLegalAppointments = async (_req, res) => {
     }
 };
 exports.getAllLegalAppointments = getAllLegalAppointments;
+// By-id access is site-checked by router.param("id", ...) in the router.
 const getLegalAppointment = async (req, res) => {
     try {
         const row = await (0, legalAppointment_1.getLegalAppointmentById)(Number(req.params.id));
@@ -60,7 +100,21 @@ const getLegalAppointment = async (req, res) => {
 exports.getLegalAppointment = getLegalAppointment;
 const editLegalAppointment = async (req, res) => {
     try {
-        const updated = await (0, legalAppointment_1.updateLegalAppointment)(Number(req.params.id), req.body);
+        // Files are only ever set by the upload endpoint, and the site only
+        // ever comes from the employee, so none of these are accepted here.
+        const { documentBlobName, documentFileName, documentSize, documentMimeType, siteId, siteName, ...safe } = req.body;
+        const updates = { ...safe };
+        // Re-pointing the appointment at another employee re-derives the site.
+        if (safe.employeeId !== undefined) {
+            const found = await siteFromEmployee(safe.employeeId);
+            if ("error" in found) {
+                return res.status(400).json({ message: found.error });
+            }
+            updates.employeeId = found.employee.id;
+            updates.siteId = found.site.id;
+            updates.siteName = found.site.name;
+        }
+        const updated = await (0, legalAppointment_1.updateLegalAppointment)(Number(req.params.id), updates);
         if (!updated)
             return res.status(404).json({ message: "Appointment not found" });
         res.json(withFileUrls(updated));

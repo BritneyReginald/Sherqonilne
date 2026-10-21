@@ -5,6 +5,7 @@ export interface EmployeeOption {
   employeeNumber: string;
   fullName: string;
   jobTitle: string;
+  siteId?: number;
   siteLocation: string;
   reportingManager: string;
 }
@@ -15,6 +16,7 @@ function mapEmployeeOption(row: any): EmployeeOption {
     employeeNumber: row.employee_number ?? "",
     fullName: row.full_name ?? "",
     jobTitle: row.job_title ?? "",
+    siteId: row.site_id != null ? Number(row.site_id) : undefined,
     siteLocation: row.site_location ?? "",
     reportingManager: row.reporting_manager ?? "",
   };

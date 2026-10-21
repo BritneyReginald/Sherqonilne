@@ -66,10 +66,17 @@ export const getLegalAppointmentById = async (id: number) => {
   return result.rows[0];
 };
 
-export const getLegalAppointments = async () => {
-  const result = await pool.query(
-    "SELECT * FROM legal_appointments ORDER BY id DESC",
-  );
+/**
+ * siteIds undefined  -> every appointment (RSS staff)
+ * siteIds number[]   -> only those sites (clients etc.)
+ */
+export const getLegalAppointments = async (siteIds?: number[]) => {
+  const result = siteIds
+    ? await pool.query(
+        "SELECT * FROM legal_appointments WHERE site_id = ANY($1::int[]) ORDER BY id DESC",
+        [siteIds],
+      )
+    : await pool.query("SELECT * FROM legal_appointments ORDER BY id DESC");
   return result.rows;
 };
 

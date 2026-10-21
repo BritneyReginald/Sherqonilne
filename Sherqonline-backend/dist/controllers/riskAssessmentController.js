@@ -2,6 +2,8 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.uploadPdfController = exports.uploadLogoController = exports.deleteRiskAssessmentController = exports.editRiskAssessment = exports.getRiskAssessment = exports.getAllRiskAssessments = exports.addRiskAssessment = void 0;
 const riskAssessment_1 = require("../models/riskAssessment");
+const siteResolver_1 = require("../models/siteResolver");
+const siteScope_1 = require("../middleware/siteScope");
 const riskAssessmentBlob_1 = require("../config/riskAssessmentBlob");
 function withFileUrls(row) {
     return {
@@ -16,18 +18,30 @@ function withFileUrls(row) {
 }
 const addRiskAssessment = async (req, res) => {
     try {
-        const saved = await (0, riskAssessment_1.createRiskAssessment)(req.body);
+        // Every assessment must belong to a site, otherwise no client would
+        // ever see it.
+        const site = await (0, siteResolver_1.resolveSite)({ siteId: req.body.siteId });
+        if (!site.id) {
+            return res.status(400).json({ message: "siteId is required" });
+        }
+        const saved = await (0, riskAssessment_1.createRiskAssessment)({
+            ...req.body,
+            siteId: site.id,
+            linkedSite: site.name,
+        });
         res.status(201).json(withFileUrls(saved));
     }
     catch (error) {
         console.error("Failed to create risk assessment:", error);
-        res.status(500).json({ message: error.message || "Failed to create risk assessment" });
+        res
+            .status(error.status ?? 500)
+            .json({ message: error.message || "Failed to create risk assessment" });
     }
 };
 exports.addRiskAssessment = addRiskAssessment;
-const getAllRiskAssessments = async (_req, res) => {
+const getAllRiskAssessments = async (req, res) => {
     try {
-        const rows = await (0, riskAssessment_1.getRiskAssessments)();
+        const rows = await (0, riskAssessment_1.getRiskAssessments)((0, siteScope_1.siteIdsFor)(req));
         res.json(rows.map(withFileUrls));
     }
     catch (error) {
@@ -36,6 +50,7 @@ const getAllRiskAssessments = async (_req, res) => {
     }
 };
 exports.getAllRiskAssessments = getAllRiskAssessments;
+// By-id access is site-checked by router.param("id", ...) in the router.
 const getRiskAssessment = async (req, res) => {
     try {
         const row = await (0, riskAssessment_1.getRiskAssessmentById)(Number(req.params.id));
@@ -51,14 +66,28 @@ const getRiskAssessment = async (req, res) => {
 exports.getRiskAssessment = getRiskAssessment;
 const editRiskAssessment = async (req, res) => {
     try {
-        const updated = await (0, riskAssessment_1.updateRiskAssessment)(Number(req.params.id), req.body);
+        // Files are only ever set by the upload endpoints, and linkedSite is
+        // always derived from siteId, so none of these are accepted as-is.
+        const { companyLogoBlobName, companyLogoFileName, companyLogoSize, companyLogoMimeType, pdfBlobName, pdfFileName, pdfSize, pdfMimeType, linkedSite, ...safe } = req.body;
+        const updates = { ...safe };
+        if (safe.siteId) {
+            const site = await (0, siteResolver_1.resolveSite)({ siteId: safe.siteId });
+            updates.siteId = site.id;
+            updates.linkedSite = site.name;
+        }
+        else {
+            delete updates.siteId;
+        }
+        const updated = await (0, riskAssessment_1.updateRiskAssessment)(Number(req.params.id), updates);
         if (!updated)
             return res.status(404).json({ message: "Risk assessment not found" });
         res.json(withFileUrls(updated));
     }
     catch (error) {
         console.error("Failed to update risk assessment:", error);
-        res.status(500).json({ message: error.message || "Failed to update risk assessment" });
+        res
+            .status(error.status ?? 500)
+            .json({ message: error.message || "Failed to update risk assessment" });
     }
 };
 exports.editRiskAssessment = editRiskAssessment;

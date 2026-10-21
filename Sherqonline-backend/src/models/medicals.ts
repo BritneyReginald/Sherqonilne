@@ -32,6 +32,7 @@ const SELECT_BASE = `
     e.employee_number,
     e.full_name        AS employee_name,
     e.site_location,
+    e.site_id,
     mr.exam_type,
     mr.practitioner_name,
     mr.practitioner_type,
@@ -89,9 +90,16 @@ export async function getMedicalRecords(filters: {
   siteLocation?: string;
   fitnessStatus?: string;
   employeeId?: number;
+  /** undefined = all sites (staff); array = only these sites */
+  siteIds?: number[];
 }) {
   const conditions: string[] = ["mr.deleted_at IS NULL"];
   const values: any[] = [];
+
+  if (filters.siteIds) {
+    values.push(filters.siteIds);
+    conditions.push(`e.site_id = ANY($${values.length}::int[])`);
+  }
 
   if (filters.employeeId) {
     values.push(filters.employeeId);

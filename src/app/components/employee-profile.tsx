@@ -18,6 +18,7 @@ import { LegalAppointments } from "./legal-appointments";
 import { MedicalSurveillanceEnhanced } from "./medical-surveillance-enhanced";
 import { PPERegister } from "../components/PPE-Submodule/ppe-register";
 import { useRecycleBin } from "../contexts/recycle-bin-context";
+import { getSites } from "../../api/siteAPI"; 
 
 interface EmployeeProfileProps {
   employee: any;
@@ -50,13 +51,6 @@ const editTabs: { id: EditTabType; label: string }[] = [
   { id: "emergency", label: "Emergency" },
 ];
 
-const sites = [
-  "Johannesburg Main",
-  "Cape Town Depot",
-  "Durban Operations",
-  "Pretoria Branch",
-];
-
 const employmentTypes = ["Permanent", "Contract", "Temporary"];
 const complianceOptions = [
   { value: "compliant", label: "Compliant" },
@@ -65,6 +59,21 @@ const complianceOptions = [
 ];
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
+
+// Auth token header (no Content-Type, so it is safe for FormData uploads too)
+function authToken(): Record<string, string> {
+  try {
+    const stored = localStorage.getItem("sherq_auth");
+    const token = stored ? JSON.parse(stored).token : null;
+    return token ? { Authorization: `Bearer ${token}` } : {};
+  } catch {
+    return {};
+  }
+}
+
+function jsonHeaders(): Record<string, string> {
+  return { "Content-Type": "application/json", ...authToken() };
+}
 
 function calculateServiceLength(startDate: string): string {
   if (!startDate) return "N/A";
@@ -85,6 +94,161 @@ function calculateServiceLength(startDate: string): string {
   } else {
     return `${yearsPart} year${yearsPart !== 1 ? "s" : ""}, ${monthsPart} month${monthsPart !== 1 ? "s" : ""}`;
   }
+}
+
+function formatDate(value?: string): string {
+  if (!value) return "N/A";
+  const d = new Date(value);
+  if (isNaN(d.getTime())) return value;
+  return d.toLocaleDateString("en-ZA", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
+}
+
+// Build the edit-form state from an employee object
+function buildEditForm(employee: any) {
+  return {
+    full_name: employee.fullName ?? "",
+    date_of_birth: employee.dateOfBirth?.split("T")[0] ?? "",
+    gender: employee.gender ?? "",
+    nationality: employee.nationality ?? "",
+    email: employee.email ?? "",
+    phone: employee.phone ?? "",
+    mobile: employee.mobile ?? "",
+    address: employee.address ?? "",
+    reporting_manager: employee.reportingManager ?? "",
+    job_title: employee.jobTitle ?? "",
+    site_location: employee.siteLocation ?? "",
+    employment_type: employee.employmentType ?? "",
+    compliance_status: employee.complianceStatus ?? "compliant",
+    salary_grade: employee.salaryGrade ?? "",
+    start_date: employee.startDate?.split("T")[0] ?? "",
+    contract_end_date: employee.contractEndDate?.split("T")[0] ?? "",
+    work_schedule: employee.workSchedule ?? "",
+    emergency_contact: employee.emergencyContact ?? "",
+    relationship: employee.relationship ?? "",
+    emergency_phone: employee.emergencyPhone ?? "",
+  };
+}
+
+type EditForm = ReturnType<typeof buildEditForm>;
+
+// Convert submitted form values into the camelCase employee shape
+function formToLocal(base: any, form: EditForm) {
+  return {
+    ...base,
+    fullName: form.full_name,
+    dateOfBirth: form.date_of_birth || null,
+    gender: form.gender,
+    nationality: form.nationality,
+    email: form.email,
+    phone: form.phone,
+    mobile: form.mobile,
+    address: form.address,
+    reportingManager: form.reporting_manager,
+    jobTitle: form.job_title,
+    siteLocation: form.site_location,
+    employmentType: form.employment_type,
+    complianceStatus: form.compliance_status,
+    salaryGrade: form.salary_grade,
+    startDate: form.start_date || null,
+    contractEndDate: form.contract_end_date || null,
+    workSchedule: form.work_schedule,
+    emergencyContact: form.emergency_contact,
+    relationship: form.relationship,
+    emergencyPhone: form.emergency_phone,
+  };
+}
+
+// Read a value from the server response (snake_case or camelCase),
+// falling back to what we already have so nothing goes blank.
+function pick(saved: any, snake: string, camel: string, fallback: any) {
+  const v = saved?.[snake] ?? saved?.[camel];
+  return v === undefined ? fallback : v;
+}
+
+function mergeSaved(saved: any, base: any) {
+  const row = saved?.employee ?? saved ?? {};
+  return {
+    ...base,
+    fullName: pick(row, "full_name", "fullName", base.fullName),
+    dateOfBirth: pick(row, "date_of_birth", "dateOfBirth", base.dateOfBirth),
+    gender: pick(row, "gender", "gender", base.gender),
+    nationality: pick(row, "nationality", "nationality", base.nationality),
+    email: pick(row, "email", "email", base.email),
+    phone: pick(row, "phone", "phone", base.phone),
+    mobile: pick(row, "mobile", "mobile", base.mobile),
+    address: pick(row, "address", "address", base.address),
+    reportingManager: pick(
+      row,
+      "reporting_manager",
+      "reportingManager",
+      base.reportingManager,
+    ),
+    jobTitle: pick(row, "job_title", "jobTitle", base.jobTitle),
+    siteLocation: pick(row, "site_location", "siteLocation", base.siteLocation),
+    employmentType: pick(
+      row,
+      "employment_type",
+      "employmentType",
+      base.employmentType,
+    ),
+    complianceStatus: pick(
+      row,
+      "compliance_status",
+      "complianceStatus",
+      base.complianceStatus,
+    ),
+    salaryGrade: pick(row, "salary_grade", "salaryGrade", base.salaryGrade),
+    startDate: pick(row, "start_date", "startDate", base.startDate),
+    contractEndDate: pick(
+      row,
+      "contract_end_date",
+      "contractEndDate",
+      base.contractEndDate,
+    ),
+    workSchedule: pick(row, "work_schedule", "workSchedule", base.workSchedule),
+    emergencyContact: pick(
+      row,
+      "emergency_contact",
+      "emergencyContact",
+      base.emergencyContact,
+    ),
+    relationship: pick(row, "relationship", "relationship", base.relationship),
+    emergencyPhone: pick(
+      row,
+      "emergency_phone",
+      "emergencyPhone",
+      base.emergencyPhone,
+    ),
+    status: pick(row, "status", "status", base.status),
+    idDocumentFileName: pick(
+      row,
+      "id_document_file_name",
+      "idDocumentFileName",
+      base.idDocumentFileName,
+    ),
+    idDocumentUrl: pick(
+      row,
+      "id_document_url",
+      "idDocumentUrl",
+      base.idDocumentUrl,
+    ),
+    profilePictureFileName: pick(
+      row,
+      "profile_picture_file_name",
+      "profilePictureFileName",
+      base.profilePictureFileName,
+    ),
+    profilePictureUrl: pick(
+      row,
+      "profile_picture_url",
+      "profilePictureUrl",
+      base.profilePictureUrl,
+    ),
+  };
 }
 
 export function EmployeeProfile({
@@ -110,31 +274,17 @@ export function EmployeeProfile({
   const [profilePicUploading, setProfilePicUploading] = useState(false);
   const [idDocUploading, setIdDocUploading] = useState(false);
 
-  const [editForm, setEditForm] = useState({
-    full_name: employee.fullName ?? "",
-    date_of_birth: employee.dateOfBirth?.split("T")[0] ?? "",
-    gender: employee.gender ?? "",
-    nationality: employee.nationality ?? "",
-    email: employee.email ?? "",
-    phone: employee.phone ?? "",
-    mobile: employee.mobile ?? "",
-    address: employee.address ?? "",
-    reporting_manager: employee.reportingManager ?? "",
-    job_title: employee.jobTitle ?? "",
-    site_location: employee.siteLocation ?? "",
-    employment_type: employee.employmentType ?? "",
-    compliance_status: employee.complianceStatus ?? "compliant",
-    salary_grade: employee.salaryGrade ?? "",
-    start_date: employee.startDate?.split("T")[0] ?? "",
-    contract_end_date: employee.contractEndDate?.split("T")[0] ?? "",
-    work_schedule: employee.workSchedule ?? "",
-    emergency_contact: employee.emergencyContact ?? "",
-    relationship: employee.relationship ?? "",
-    emergency_phone: employee.emergencyPhone ?? "",
-  });
+  // Registered sites (loaded from the system)
+  const [sites, setSites] = useState<{ id: number | string; name: string }[]>(
+    [],
+  );
+  const [sitesLoading, setSitesLoading] = useState(true);
+  const [sitesError, setSitesError] = useState<string | null>(null);
+
+  const [editForm, setEditForm] = useState<EditForm>(buildEditForm(employee));
 
   const set =
-    (field: keyof typeof editForm) =>
+    (field: keyof EditForm) =>
     (
       e: React.ChangeEvent<
         HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
@@ -142,82 +292,77 @@ export function EmployeeProfile({
     ) =>
       setEditForm((prev) => ({ ...prev, [field]: e.target.value }));
 
-  const mapSavedToLocal = (saved: any) => ({
-    ...localEmployee,
-    fullName: saved.full_name,
-    dateOfBirth: saved.date_of_birth,
-    gender: saved.gender,
-    nationality: saved.nationality,
-    email: saved.email,
-    phone: saved.phone,
-    mobile: saved.mobile,
-    address: saved.address,
-    reportingManager: saved.reporting_manager,
-    jobTitle: saved.job_title,
-    siteLocation: saved.site_location,
-    employmentType: saved.employment_type,
-    complianceStatus: saved.compliance_status,
-    salaryGrade: saved.salary_grade,
-    startDate: saved.start_date,
-    contractEndDate: saved.contract_end_date,
-    workSchedule: saved.work_schedule,
-    emergencyContact: saved.emergency_contact,
-    relationship: saved.relationship,
-    emergencyPhone: saved.emergency_phone,
-    status: saved.status,
-    idDocumentFileName: saved.id_document_file_name,
-    idDocumentUrl: saved.id_document_url,
-    profilePictureFileName: saved.profile_picture_file_name,
-    profilePictureUrl: saved.profile_picture_url,
-  });
+  // Load registered sites
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        setSitesLoading(true);
+        setSitesError(null);
+        const data = await getSites();
+        if (!cancelled) setSites(Array.isArray(data) ? data : []);
+      } catch (err: any) {
+        if (!cancelled) setSitesError(err.message ?? "Failed to load sites");
+      } finally {
+        if (!cancelled) setSitesLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Re-sync local state whenever a different employee is opened —
   // guards against stale state if this component instance is reused
   // across selections.
   useEffect(() => {
     setLocalEmployee(employee);
-    setEditForm({
-      full_name: employee.fullName ?? "",
-      date_of_birth: employee.dateOfBirth?.split("T")[0] ?? "",
-      gender: employee.gender ?? "",
-      nationality: employee.nationality ?? "",
-      email: employee.email ?? "",
-      phone: employee.phone ?? "",
-      mobile: employee.mobile ?? "",
-      address: employee.address ?? "",
-      reporting_manager: employee.reportingManager ?? "",
-      job_title: employee.jobTitle ?? "",
-      site_location: employee.siteLocation ?? "",
-      employment_type: employee.employmentType ?? "",
-      compliance_status: employee.complianceStatus ?? "compliant",
-      salary_grade: employee.salaryGrade ?? "",
-      start_date: employee.startDate?.split("T")[0] ?? "",
-      contract_end_date: employee.contractEndDate?.split("T")[0] ?? "",
-      work_schedule: employee.workSchedule ?? "",
-      emergency_contact: employee.emergencyContact ?? "",
-      relationship: employee.relationship ?? "",
-      emergency_phone: employee.emergencyPhone ?? "",
-    });
+    setEditForm(buildEditForm(employee));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [employee.id]);
+
+  const openEditModal = () => {
+    // Always start the form from the latest saved data
+    setEditForm(buildEditForm(localEmployee));
+    setSaveError(null);
+    setEditTab("personal");
+    setShowEditModal(true);
+  };
 
   const handleSave = async () => {
     setIsSaving(true);
     setSaveError(null);
     try {
+      // Empty strings are invalid for date columns — send null instead
+      const payload = {
+        ...editForm,
+        date_of_birth: editForm.date_of_birth || null,
+        start_date: editForm.start_date || null,
+        contract_end_date:
+          editForm.employment_type === "Contract" && editForm.contract_end_date
+            ? editForm.contract_end_date
+            : null,
+      };
+
       const response = await fetch(`${API_URL}/employees/${localEmployee.id}`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(editForm),
+        headers: jsonHeaders(),
+        body: JSON.stringify(payload),
       });
 
       if (!response.ok) {
-        const err = await response.json();
-        throw new Error(err.message ?? "Save failed");
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.message ?? err.error ?? "Save failed");
       }
 
-      const saved = await response.json();
-      const updated = mapSavedToLocal(saved);
+      const saved = await response.json().catch(() => ({}));
+
+      // Start from what the user submitted, then overlay the server response
+      const submitted = formToLocal(localEmployee, {
+        ...editForm,
+        contract_end_date: payload.contract_end_date ?? "",
+      });
+      const updated = mergeSaved(saved, submitted);
 
       setLocalEmployee(updated);
       onEmployeeUpdate?.(updated);
@@ -237,7 +382,7 @@ export function EmployeeProfile({
         `${API_URL}/employees/${localEmployee.id}/deactivate`,
         {
           method: "PATCH",
-          headers: { "Content-Type": "application/json" },
+          headers: jsonHeaders(),
         },
       );
       if (!response.ok) throw new Error("Deactivation failed");
@@ -259,6 +404,7 @@ export function EmployeeProfile({
     try {
       const response = await fetch(`${API_URL}/employees/${localEmployee.id}`, {
         method: "DELETE",
+        headers: authToken(),
       });
       if (!response.ok) throw new Error("Delete failed");
 
@@ -289,12 +435,13 @@ export function EmployeeProfile({
         `${API_URL}/employees/${localEmployee.id}/profile-picture`,
         {
           method: "POST",
+          headers: authToken(),
           body: formData,
         },
       );
       if (!res.ok) throw new Error("Upload failed");
       const saved = await res.json();
-      const updated = mapSavedToLocal(saved);
+      const updated = mergeSaved(saved, localEmployee);
       setLocalEmployee(updated);
       onEmployeeUpdate?.(updated);
     } catch (err) {
@@ -313,12 +460,13 @@ export function EmployeeProfile({
         `${API_URL}/employees/${localEmployee.id}/id-document`,
         {
           method: "POST",
+          headers: authToken(),
           body: formData,
         },
       );
       if (!res.ok) throw new Error("Upload failed");
       const saved = await res.json();
-      const updated = mapSavedToLocal(saved);
+      const updated = mergeSaved(saved, localEmployee);
       setLocalEmployee(updated);
       onEmployeeUpdate?.(updated);
     } catch (err) {
@@ -341,6 +489,12 @@ export function EmployeeProfile({
     marginBottom: "4px",
     display: "block",
   };
+
+  // Site options: registered sites, plus the employee's current site if it
+  // is no longer registered (so it isn't silently lost).
+  const siteNames = sites.map((s) => s.name);
+  const currentSite = editForm.site_location;
+  const showLegacySite = !!currentSite && !siteNames.includes(currentSite);
 
   return (
     <div className="h-full flex flex-col bg-background">
@@ -473,10 +627,7 @@ export function EmployeeProfile({
               Export Profile
             </button>
             <button
-              onClick={() => {
-                setEditTab("personal");
-                setShowEditModal(true);
-              }}
+              onClick={openEditModal}
               className="px-4 py-2 rounded-lg flex items-center gap-2 font-medium text-white transition-opacity hover:opacity-90"
               style={{ backgroundColor: "var(--brand-blue)" }}
             >
@@ -823,11 +974,38 @@ export function EmployeeProfile({
                       style={inputStyle}
                       value={editForm.site_location}
                       onChange={set("site_location")}
+                      disabled={sitesLoading}
                     >
+                      <option value="">
+                        {sitesLoading ? "Loading sites…" : "Select site"}
+                      </option>
+                      {showLegacySite && (
+                        <option value={currentSite}>
+                          {currentSite} (not registered)
+                        </option>
+                      )}
                       {sites.map((s) => (
-                        <option key={s}>{s}</option>
+                        <option key={s.id} value={s.name}>
+                          {s.name}
+                        </option>
                       ))}
                     </select>
+                    {sitesError && (
+                      <p
+                        className="text-xs mt-1"
+                        style={{ color: "var(--compliance-danger, #DC2626)" }}
+                      >
+                        {sitesError}
+                      </p>
+                    )}
+                    {!sitesLoading && !sitesError && sites.length === 0 && (
+                      <p
+                        className="text-xs mt-1"
+                        style={{ color: "var(--grey-500)" }}
+                      >
+                        No sites registered yet.
+                      </p>
+                    )}
                   </div>
                   <div>
                     <label style={labelStyle}>Reporting manager</label>
@@ -1173,15 +1351,7 @@ function PersonalDetailsTab({
             <InfoField label="Full Name" value={employee.fullName} />
             <InfoField
               label="Date of Birth"
-              value={
-                employee.dateOfBirth
-                  ? new Date(employee.dateOfBirth).toLocaleDateString("en-ZA", {
-                      year: "numeric",
-                      month: "long",
-                      day: "numeric",
-                    })
-                  : "N/A"
-              }
+              value={formatDate(employee.dateOfBirth)}
             />
             <InfoField label="Gender" value={employee.gender} />
             <InfoField label="Nationality" value={employee.nationality} />
@@ -1291,19 +1461,15 @@ function PersonalDetailsTab({
           <div className="space-y-4">
             <InfoField
               label="Start Date"
-              value={
-                employee.startDate
-                  ? new Date(employee.startDate).toLocaleDateString("en-ZA", {
-                      year: "numeric",
-                      month: "long",
-                      day: "numeric",
-                    })
-                  : "N/A"
-              }
+              value={formatDate(employee.startDate)}
             />
             <InfoField
               label="Contract End Date"
-              value={employee.contractEndDate || "N/A - Permanent"}
+              value={
+                employee.contractEndDate
+                  ? formatDate(employee.contractEndDate)
+                  : "N/A - Permanent"
+              }
             />
           </div>
         </div>

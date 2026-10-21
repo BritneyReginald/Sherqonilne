@@ -1,7 +1,12 @@
 import pool from "../config/db";
 import { RiskAssessmentInput } from "../types";
 
-export const createRiskAssessment = async (data: RiskAssessmentInput) => {
+/** siteId is the real site link; linkedSite is its display name. */
+type WithSite = { siteId?: number | null };
+
+export const createRiskAssessment = async (
+  data: RiskAssessmentInput & WithSite,
+) => {
   const client = await pool.connect();
 
   try {
@@ -34,11 +39,12 @@ export const createRiskAssessment = async (data: RiskAssessmentInput) => {
         assessors,
         assessment_date,
         before_controls,
-        after_controls
+        after_controls,
+        site_id
       )
       VALUES (
         $1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
-        $11, $12, $13, $14, $15, $16, $17, $18, $19
+        $11, $12, $13, $14, $15, $16, $17, $18, $19, $20
       )
       RETURNING *
       `,
@@ -62,6 +68,7 @@ export const createRiskAssessment = async (data: RiskAssessmentInput) => {
         data.assessmentDate,
         data.beforeControls,
         data.afterControls ?? null,
+        data.siteId ?? null,
       ],
     );
 
@@ -75,10 +82,19 @@ export const createRiskAssessment = async (data: RiskAssessmentInput) => {
   }
 };
 
-export const getRiskAssessments = async () => {
-  const result = await pool.query(
-    "SELECT * FROM risk_assessments ORDER BY saved_date DESC, id DESC",
-  );
+/**
+ * siteIds undefined  -> every assessment (RSS staff)
+ * siteIds number[]   -> only those sites (clients)
+ */
+export const getRiskAssessments = async (siteIds?: number[]) => {
+  const result = siteIds
+    ? await pool.query(
+        "SELECT * FROM risk_assessments WHERE site_id = ANY($1::int[]) ORDER BY saved_date DESC, id DESC",
+        [siteIds],
+      )
+    : await pool.query(
+        "SELECT * FROM risk_assessments ORDER BY saved_date DESC, id DESC",
+      );
   return result.rows;
 };
 
@@ -92,20 +108,22 @@ export const getRiskAssessmentById = async (id: number) => {
 
 export const updateRiskAssessment = async (
   id: number,
-  data: Partial<RiskAssessmentInput> & {
-    companyLogoBlobName?: string | null;
-    companyLogoFileName?: string | null;
-    companyLogoSize?: number | null;
-    companyLogoMimeType?: string | null;
-    pdfBlobName?: string | null;
-    pdfFileName?: string | null;
-    pdfSize?: number | null;
-    pdfMimeType?: string | null;
-  },
+  data: Partial<RiskAssessmentInput> &
+    WithSite & {
+      companyLogoBlobName?: string | null;
+      companyLogoFileName?: string | null;
+      companyLogoSize?: number | null;
+      companyLogoMimeType?: string | null;
+      pdfBlobName?: string | null;
+      pdfFileName?: string | null;
+      pdfSize?: number | null;
+      pdfMimeType?: string | null;
+    },
 ) => {
   const fieldMap: Record<string, string> = {
     assessmentName: "assessment_name",
     linkedSite: "linked_site",
+    siteId: "site_id",
     linkedDept: "linked_dept",
     revision: "revision",
     reviewDate: "review_date",

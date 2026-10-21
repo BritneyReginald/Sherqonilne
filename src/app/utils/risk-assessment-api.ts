@@ -10,6 +10,7 @@ export interface RiskAssessmentRecord {
   id: string;
   assessmentName: string;
   referenceNo: string;
+  siteId: string;
   linkedSite: string;
   linkedDept: string;
   revision: string;
@@ -34,6 +35,7 @@ function mapRecord(row: any): RiskAssessmentRecord {
     id: row.id?.toString() ?? "",
     assessmentName: row.assessment_name ?? "",
     referenceNo: row.reference_no ?? "",
+    siteId: row.site_id != null ? row.site_id.toString() : "",
     linkedSite: row.linked_site ?? "",
     linkedDept: row.linked_dept ?? "",
     revision: row.revision ?? "",
@@ -60,6 +62,7 @@ function mapRecord(row: any): RiskAssessmentRecord {
   };
 }
 
+// The auth token is attached automatically by installAuthFetch().
 async function request(url: string, options?: RequestInit) {
   const res = await fetch(url, options);
   if (!res.ok) {
@@ -97,15 +100,20 @@ function dataUrlToBlob(dataUrl: string): Blob {
  * the logo (if a new one was picked) and the generated PDF.
  * Mirrors the employee module's pattern: metadata is JSON, files
  * are uploaded separately once the row (and its id) exists.
+ *
+ * siteId is required: it is what makes the assessment show up on
+ * that client's portal.
  */
 export async function saveRiskAssessmentToRegister(params: {
   id?: string;
+  siteId: string;
   beforeControls: BeforeControlsData;
   afterControls: AfterControlsData | null;
   details: DetailsData & { companyName: string; companyLogo: string };
   pdfBlob: Blob;
 }): Promise<RiskAssessmentRecord> {
   const metadataPayload = {
+    siteId: Number(params.siteId),
     assessmentName: params.details.taskDescription,
     taskDescription: params.details.taskDescription,
     assessors: params.details.assessors,

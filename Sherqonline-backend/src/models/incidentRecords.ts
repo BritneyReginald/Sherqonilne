@@ -5,7 +5,10 @@ export interface IncidentRecordInput {
   employeeId?: number | null;
 
   division?: string | null;
+  /** Display name. Kept in sync with siteId by the controller. */
   site?: string | null;
+  /** The real link to the sites table; what clients are scoped on. */
+  siteId?: number | null;
   incidentDate?: string | null;
   incidentTime?: string | null;
 
@@ -43,6 +46,7 @@ const SELECT_BASE = `
 
     r.division,
     r.site,
+    r.site_id,
     r.incident_date,
     r.incident_time,
 
@@ -75,6 +79,7 @@ const FIELD_MAP: Record<string, string> = {
   employeeId: "employee_id",
   division: "division",
   site: "site",
+  siteId: "site_id",
   incidentDate: "incident_date",
   incidentTime: "incident_time",
   category: "category",
@@ -97,9 +102,9 @@ export async function createIncidentRecord(data: IncidentRecordInput) {
       type, employee_id, division, site, incident_date, incident_time,
       category, title, description, status, injury_type,
       ncr_type, identified_by, department,
-      body_part, effect, disablement
+      body_part, effect, disablement, site_id
     )
-    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)
+    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)
     RETURNING id
     `,
     [
@@ -120,6 +125,7 @@ export async function createIncidentRecord(data: IncidentRecordInput) {
       data.bodyPart || null,
       data.effect || null,
       data.disablement || null,
+      data.siteId ?? null,
     ],
   );
 
@@ -130,9 +136,16 @@ export async function getIncidentRecords(filters: {
   type?: string;
   status?: string;
   siteLocation?: string;
+  /** undefined = all sites (staff); array = only these sites */
+  siteIds?: number[];
 }) {
   const conditions: string[] = [];
   const values: any[] = [];
+
+  if (filters.siteIds) {
+    values.push(filters.siteIds);
+    conditions.push(`r.site_id = ANY($${values.length}::int[])`);
+  }
 
   if (filters.type && filters.type !== "all") {
     values.push(filters.type);

@@ -3,6 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.getTrainingRecordFileUrl = exports.deleteTrainingRecordController = exports.editTrainingRecord = exports.getTrainingRecord = exports.getAllTrainingRecords = exports.addTrainingRecord = void 0;
 const trainingRecord_1 = require("../models/trainingRecord");
 const azureBlobTraining_1 = require("../services/azureBlobTraining");
+const siteScope_1 = require("../middleware/siteScope");
 function parseTrainingBody(body) {
     return {
         employeeId: Number(body.employeeId),
@@ -46,6 +47,7 @@ const getAllTrainingRecords = async (req, res) => {
         const records = await (0, trainingRecord_1.getTrainingRecords)({
             employeeId: req.query.employeeId ? Number(req.query.employeeId) : undefined,
             siteLocation: req.query.site,
+            siteIds: (0, siteScope_1.siteIdsFor)(req),
         });
         res.json(records);
     }
@@ -55,6 +57,7 @@ const getAllTrainingRecords = async (req, res) => {
     }
 };
 exports.getAllTrainingRecords = getAllTrainingRecords;
+// By-id access (including /file) is site-checked by router.param("id").
 const getTrainingRecord = async (req, res) => {
     try {
         const record = await (0, trainingRecord_1.getTrainingRecordById)(Number(req.params.id));

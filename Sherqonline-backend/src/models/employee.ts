@@ -1,11 +1,25 @@
 import pool from "../config/db";
 import { Employee } from "../types";
+import { resolveSite } from "./siteResolver";
 
-export const createEmployee = async (employee: Employee) => {
+/**
+ * The frontend may send either `siteId` (preferred) or just the site
+ * name in `siteLocation` (what the Workforce form sends today). Both
+ * are resolved to a real sites row, and site_id + site_location are
+ * always written together so they can't drift apart.
+ */
+export type EmployeeInput = Employee & { siteId?: number | string | null };
+
+export const createEmployee = async (employee: EmployeeInput) => {
   const client = await pool.connect();
 
   try {
     await client.query("BEGIN");
+
+    const site = await resolveSite(
+      { siteId: employee.siteId, siteLocation: employee.siteLocation },
+      client,
+    );
 
     // Get the next database ID
     const idResult = await client.query(
@@ -43,12 +57,13 @@ export const createEmployee = async (employee: Employee) => {
         work_schedule,
         compliance_status,
         status,
-        worker_type
+        worker_type,
+        site_id
       )
       VALUES (
         $1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
         $11, $12, $13, $14, $15, $16, $17, $18, $19, $20,
-        $21, $22, $23, $24
+        $21, $22, $23, $24, $25
       )
       RETURNING *
       `,
@@ -68,7 +83,7 @@ export const createEmployee = async (employee: Employee) => {
         employee.relationship || null,
         employee.emergencyPhone || null,
         employee.jobTitle || null,
-        employee.siteLocation || null,
+        site.name,
         employee.employmentType || null,
         employee.startDate || null,
         employee.contractEndDate || null,
@@ -77,6 +92,7 @@ export const createEmployee = async (employee: Employee) => {
         employee.complianceStatus || "compliant",
         employee.status || "Active",
         employee.workerType || "Internal",
+        site.id,
       ],
     );
 
@@ -132,8 +148,10 @@ export const deleteEmployee = async (id: number) => {
 
 export const updateEmployee = async (
   id: number,
-  employee: Partial<Employee>,
+  employee: Partial<EmployeeInput>,
 ) => {
+  // siteLocation / siteId are handled separately below so the two
+  // columns are always written together.
   const fieldMap: Record<string, string> = {
     fullName: "full_name",
     dateOfBirth: "date_of_birth",
@@ -148,8 +166,8 @@ export const updateEmployee = async (
     relationship: "relationship",
     emergencyPhone: "emergency_phone",
     jobTitle: "job_title",
-    siteLocation: "site_location",
     employmentType: "employment_type",
+    workerType: "worker_type",
     salaryGrade: "salary_grade",
     startDate: "start_date",
     contractEndDate: "contract_end_date",
@@ -177,6 +195,43 @@ export const updateEmployee = async (
     if (value !== undefined && fieldMap[key]) {
       updates.push(`${fieldMap[key]} = $${index}`);
       values.push(value);
+      index++;
+    }
+  }
+
+  const touchesSite =
+    employee.siteId !== undefined || employee.siteLocation !== undefined;
+
+  if (touchesSite) {
+    const current = await getEmployeeById(id);
+    if (!current) return undefined;
+
+    // Profile screens often re-send the whole record. Only treat the
+    // site as changed if it actually differs from what's stored, so an
+    // unrelated edit never fails on an old, unmatched site name.
+    const hasSiteId =
+      employee.siteId !== undefined &&
+      employee.siteId !== null &&
+      employee.siteId !== "";
+
+    const sameId = hasSiteId && Number(employee.siteId) === current.site_id;
+    const sameName =
+      employee.siteId === undefined &&
+      (employee.siteLocation ?? "").trim() ===
+        (current.site_location ?? "").trim();
+
+    if (!sameId && !sameName) {
+      const site = await resolveSite({
+        siteId: employee.siteId,
+        siteLocation: employee.siteLocation,
+      });
+
+      updates.push(`site_id = $${index}`);
+      values.push(site.id);
+      index++;
+
+      updates.push(`site_location = $${index}`);
+      values.push(site.name);
       index++;
     }
   }

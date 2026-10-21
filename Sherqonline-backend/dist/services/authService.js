@@ -131,13 +131,14 @@ function escapeHtml(value) {
         .replace(/'/g, "&#39;");
 }
 async function sendCredentialsEmail(args) {
-    const { identifierLabel, identifier, tempPassword, loginUrl, role, siteName } = args;
+    const { identifierLabel, identifier, tempPassword, loginUrl, role, siteName, } = args;
     // No hardcoded fallback address: credentials (including the plaintext
     // password) must only ever go to an address configured for this environment.
     const notifyTo = process.env.CREDENTIALS_NOTIFY_EMAIL;
     if (!notifyTo) {
         throw new Error("CREDENTIALS_NOTIFY_EMAIL is not set; cannot deliver credentials");
     }
+    console.log("Credentials email recipient:", notifyTo);
     const subject = role === "client"
         ? `New client login created — ${siteName ?? "client"}`
         : `New Fire Equipment Inspector login created${siteName ? ` — ${siteName}` : ""}`;
@@ -279,7 +280,10 @@ async function provisionInspector(params) {
         deliveryStatus = "failed";
     }
     await (0, user_1.logCredentialIssuance)(created.id, issuedByUserId, "email", deliveryStatus);
-    return { user: { id: created.id, username: created.username }, deliveryStatus };
+    return {
+        user: { id: created.id, username: created.username },
+        deliveryStatus,
+    };
 }
 async function deleteInspector(userId) {
     await db_1.default.query(`DELETE FROM users

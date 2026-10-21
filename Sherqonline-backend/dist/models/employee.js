@@ -5,10 +5,12 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.updateEmployee = exports.deleteEmployee = exports.deactivateEmployee = exports.getEmployeeById = exports.getEmployees = exports.createEmployee = void 0;
 const db_1 = __importDefault(require("../config/db"));
+const siteResolver_1 = require("./siteResolver");
 const createEmployee = async (employee) => {
     const client = await db_1.default.connect();
     try {
         await client.query("BEGIN");
+        const site = await (0, siteResolver_1.resolveSite)({ siteId: employee.siteId, siteLocation: employee.siteLocation }, client);
         // Get the next database ID
         const idResult = await client.query(`SELECT nextval('employees_id_seq') AS id`);
         const newId = Number(idResult.rows[0].id);
@@ -39,12 +41,13 @@ const createEmployee = async (employee) => {
         work_schedule,
         compliance_status,
         status,
-        worker_type
+        worker_type,
+        site_id
       )
       VALUES (
         $1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
         $11, $12, $13, $14, $15, $16, $17, $18, $19, $20,
-        $21, $22, $23, $24
+        $21, $22, $23, $24, $25
       )
       RETURNING *
       `, [
@@ -63,7 +66,7 @@ const createEmployee = async (employee) => {
             employee.relationship || null,
             employee.emergencyPhone || null,
             employee.jobTitle || null,
-            employee.siteLocation || null,
+            site.name,
             employee.employmentType || null,
             employee.startDate || null,
             employee.contractEndDate || null,
@@ -72,6 +75,7 @@ const createEmployee = async (employee) => {
             employee.complianceStatus || "compliant",
             employee.status || "Active",
             employee.workerType || "Internal",
+            site.id,
         ]);
         await client.query("COMMIT");
         return result.rows[0];
@@ -117,6 +121,8 @@ const deleteEmployee = async (id) => {
 };
 exports.deleteEmployee = deleteEmployee;
 const updateEmployee = async (id, employee) => {
+    // siteLocation / siteId are handled separately below so the two
+    // columns are always written together.
     const fieldMap = {
         fullName: "full_name",
         dateOfBirth: "date_of_birth",
@@ -131,8 +137,8 @@ const updateEmployee = async (id, employee) => {
         relationship: "relationship",
         emergencyPhone: "emergency_phone",
         jobTitle: "job_title",
-        siteLocation: "site_location",
         employmentType: "employment_type",
+        workerType: "worker_type",
         salaryGrade: "salary_grade",
         startDate: "start_date",
         contractEndDate: "contract_end_date",
@@ -155,6 +161,34 @@ const updateEmployee = async (id, employee) => {
         if (value !== undefined && fieldMap[key]) {
             updates.push(`${fieldMap[key]} = $${index}`);
             values.push(value);
+            index++;
+        }
+    }
+    const touchesSite = employee.siteId !== undefined || employee.siteLocation !== undefined;
+    if (touchesSite) {
+        const current = await (0, exports.getEmployeeById)(id);
+        if (!current)
+            return undefined;
+        // Profile screens often re-send the whole record. Only treat the
+        // site as changed if it actually differs from what's stored, so an
+        // unrelated edit never fails on an old, unmatched site name.
+        const hasSiteId = employee.siteId !== undefined &&
+            employee.siteId !== null &&
+            employee.siteId !== "";
+        const sameId = hasSiteId && Number(employee.siteId) === current.site_id;
+        const sameName = employee.siteId === undefined &&
+            (employee.siteLocation ?? "").trim() ===
+                (current.site_location ?? "").trim();
+        if (!sameId && !sameName) {
+            const site = await (0, siteResolver_1.resolveSite)({
+                siteId: employee.siteId,
+                siteLocation: employee.siteLocation,
+            });
+            updates.push(`site_id = $${index}`);
+            values.push(site.id);
+            index++;
+            updates.push(`site_location = $${index}`);
+            values.push(site.name);
             index++;
         }
     }

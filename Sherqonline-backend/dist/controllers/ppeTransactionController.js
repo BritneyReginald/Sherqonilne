@@ -2,6 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.restorePPETransactionController = exports.listArchivedPPETransactions = exports.deletePPETransactionController = exports.getPPETransaction = exports.getAllPPETransactions = exports.issuePPE = void 0;
 const ppeTransaction_1 = require("../models/ppeTransaction");
+const siteScope_1 = require("../middleware/siteScope");
 const issuePPE = async (req, res) => {
     try {
         const { employeeId, employeeName, jobTitle, siteLocation, items, signatureData, } = req.body;
@@ -50,6 +51,7 @@ const getAllPPETransactions = async (req, res) => {
                 : undefined,
             category: req.query.category,
             siteLocation: req.query.site,
+            siteIds: (0, siteScope_1.siteIdsFor)(req),
         });
         res.json(transactions);
     }
@@ -59,6 +61,7 @@ const getAllPPETransactions = async (req, res) => {
     }
 };
 exports.getAllPPETransactions = getAllPPETransactions;
+// By-id access is site-checked by router.param("id", ...) in the router.
 const getPPETransaction = async (req, res) => {
     try {
         const transaction = await (0, ppeTransaction_1.getPPETransactionById)(Number(req.params.id));
@@ -73,9 +76,8 @@ const getPPETransaction = async (req, res) => {
     }
 };
 exports.getPPETransaction = getPPETransaction;
-// Returns the logged-in user's id if an auth middleware attached one,
-// otherwise null. Used only to record deleted_by; it is NOT a permission
-// check.
+// Returns the logged-in user's id (set by authenticate). Used only to
+// record deleted_by; it is NOT a permission check.
 const currentUserId = (req) => req.user?.id ?? null;
 const deletePPETransactionController = async (req, res) => {
     try {

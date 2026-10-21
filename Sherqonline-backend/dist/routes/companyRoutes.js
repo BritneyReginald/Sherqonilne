@@ -2,9 +2,11 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
 const companyController_1 = require("../controllers/companyController");
-// TODO: import the same auth middleware your /sites routes use, e.g.
-// import { authenticate } from "../middleware/auth";
+const authMiddleware_1 = require("../middleware/authMiddleware");
 const router = (0, express_1.Router)();
-router.get("/", /* authenticate, */ companyController_1.getCompanyProfileController);
-router.put("/", /* authenticate, */ companyController_1.updateCompanyProfileController);
+// Before: both routes were open to anyone, so the company name and logo
+// could be changed without logging in. Now RSS staff only.
+router.use(authMiddleware_1.authenticate, (0, authMiddleware_1.authorize)("rss_staff"));
+router.get("/", companyController_1.getCompanyProfileController);
+router.put("/", companyController_1.updateCompanyProfileController);
 exports.default = router;

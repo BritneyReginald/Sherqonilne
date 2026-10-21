@@ -14,18 +14,29 @@ exports.purgeExpiredPPETransactions = purgeExpiredPPETransactions;
 const db_1 = __importDefault(require("../config/db"));
 const ppeCatalogue_1 = require("./ppeCatalogue");
 exports.PPE_RETENTION_DAYS = 30;
-const SELECT_ALL = `SELECT * FROM ppe_transactions WHERE deleted_at IS NULL ORDER BY issue_date DESC, id DESC`;
 /**
  * Issues one or more PPE items to an employee in a single atomic
  * operation: every item gets its own transaction row AND has its
  * catalogue stock decremented, all inside one BEGIN/COMMIT so a
  * failure partway through never leaves stock counts out of sync
  * with the issue log.
+ *
+ * The site is taken from the EMPLOYEE (site_id), never from the
+ * request, so an issue can't be filed under the wrong client.
  */
 async function createPPETransactions(data) {
     const client = await db_1.default.connect();
     try {
         await client.query("BEGIN");
+        const employeeResult = await client.query(`SELECT e.site_id, s.name AS site_name
+         FROM employees e
+         LEFT JOIN sites s ON s.id = e.site_id
+        WHERE e.id = $1`, [data.employeeId]);
+        if (!employeeResult.rows[0]) {
+            throw new Error(`Employee ${data.employeeId} not found`);
+        }
+        const siteId = employeeResult.rows[0].site_id ?? null;
+        const siteLocation = employeeResult.rows[0].site_name ?? data.siteLocation ?? null;
         const createdIds = [];
         const today = new Date().toISOString().slice(0, 10);
         // Signature applies to the whole issuance, so every item created
@@ -44,15 +55,15 @@ async function createPPETransactions(data) {
           employee_id, employee_name, job_title, site_location,
           ppe_item_id, ppe_item_name, ppe_category, ppe_brand, ppe_size,
           issue_date, condition, replacement_due,
-          sign_off_status, sign_off_date, signature_data
+          sign_off_status, sign_off_date, signature_data, site_id
         )
-        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,'signed',$13,$14)
+        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,'signed',$13,$14,$15)
         RETURNING id
         `, [
                 data.employeeId,
                 data.employeeName,
                 data.jobTitle || null,
-                data.siteLocation || null,
+                siteLocation,
                 catalogueItem.id,
                 catalogueItem.item_name,
                 catalogueItem.category,
@@ -63,6 +74,7 @@ async function createPPETransactions(data) {
                 replacementDue.toISOString().slice(0, 10),
                 signOffDate,
                 data.signatureData,
+                siteId,
             ]);
             // Stock is allowed to go negative rather than blocking
             // issuance — a compliance officer issuing PPE for safety
@@ -87,6 +99,10 @@ async function createPPETransactions(data) {
 async function getPPETransactions(filters) {
     const conditions = ["deleted_at IS NULL"];
     const values = [];
+    if (filters.siteIds) {
+        values.push(filters.siteIds);
+        conditions.push(`site_id = ANY($${values.length}::int[])`);
+    }
     if (filters.employeeId) {
         values.push(filters.employeeId);
         conditions.push(`employee_id = $${values.length}`);

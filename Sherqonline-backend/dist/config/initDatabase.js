@@ -5,6 +5,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.initializeDatabase = initializeDatabase;
 const db_1 = __importDefault(require("./db"));
+const siteScopeMigration_1 = require("./siteScopeMigration");
 async function initializeDatabase() {
     const client = await db_1.default.connect();
     try {
@@ -70,6 +71,20 @@ async function initializeDatabase() {
         DROP COLUMN IF EXISTS division,
         DROP COLUMN IF EXISTS organisational_level;
     `);
+        await client.query(`
+      ALTER TABLE employees
+  ADD COLUMN IF NOT EXISTS site_id INTEGER REFERENCES sites(id) ON DELETE SET NULL;
+CREATE INDEX IF NOT EXISTS idx_employees_site_id ON employees(site_id);`);
+        await client.query(`
+UPDATE employees e SET site_id = s.id
+FROM sites s
+WHERE e.site_id IS NULL
+  AND LOWER(TRIM(e.site_location)) = LOWER(TRIM(s.name));`);
+        await client.query(`
+UPDATE legal_appointments la SET site_id = e.site_id
+FROM employees e
+WHERE la.site_id IS NULL AND la.employee_id = e.id;
+      `);
         /*
          * ------------------------------------------------------------
          * ID DOCUMENT + PROFILE PICTURE (Azure Blob Storage)
@@ -276,10 +291,7 @@ async function initializeDatabase() {
          * The client user is linked directly to the ABC Manufacturing site.
          */
         await client.query(`
-  DROP TABLE IF EXISTS client_users;
-`);
-        await client.query(`
-  CREATE TABLE client_users (
+  CREATE TABLE IF NOT EXISTS client_users (
     id SERIAL PRIMARY KEY,
 
     user_id INTEGER UNIQUE NOT NULL
@@ -1091,6 +1103,7 @@ CREATE INDEX IF NOT EXISTS idx_training_records_expiry_date
        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
      );
    `);
+        await (0, siteScopeMigration_1.migrateSiteScope)(client);
         await client.query("COMMIT");
         console.log("✅ Database initialization/migration successful");
     }

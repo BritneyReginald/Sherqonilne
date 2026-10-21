@@ -18,6 +18,7 @@ import {
 import { PPECatalogue } from "./ppe-catalogue";
 import { AlertBanner } from "../alert-banner";
 import { useAlerts } from "../../contexts/alert-context";
+import { useAuth } from "../../contexts/auth-context";
 
 interface PPETransaction {
   id: number;
@@ -48,6 +49,10 @@ function authHeaders(): Record<string, string> {
 export function PPERegister({ employeeId }: { employeeId?: string }) {
   const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
   const { dismissAlert } = useAlerts();
+  const { user } = useAuth();
+  // Clients get a read-only view of their own site's PPE issue log.
+  // The employee list and the PPE catalogue (RSS stock) are staff-only.
+  const isClient = user?.role === "client";
 
   const [transactions, setTransactions] = useState<PPETransaction[]>([]);
   const [employees, setEmployees] = useState<EmployeeOption[]>([]);
@@ -78,8 +83,7 @@ export function PPERegister({ employeeId }: { employeeId?: string }) {
     try {
       await Promise.all([
         fetchTransactions(),
-        fetchEmployees(),
-        fetchCatalogueItems(),
+        ...(isClient ? [] : [fetchEmployees(), fetchCatalogueItems()]),
       ]);
     } catch (error) {
       console.error("Error loading PPE register:", error);
@@ -220,16 +224,29 @@ export function PPERegister({ employeeId }: { employeeId?: string }) {
     }
   };
 
+  // Staff build these filters from the employee list / catalogue.
+  // Clients can't load those, so they come from the issue records instead.
   const sites = [
     "All Sites",
     ...(Array.from(
-      new Set(employees.map((e) => e.siteLocation).filter(Boolean)),
+      new Set(
+        (isClient
+          ? transactions.map((t) => t.siteLocation)
+          : employees.map((e) => e.siteLocation)
+        ).filter(Boolean),
+      ),
     ).sort() as string[]),
   ];
 
   const ppeCategories = [
     "All PPE Types",
-    ...Array.from(new Set(catalogueItems.map((c) => c.category))).sort(),
+    ...Array.from(
+      new Set(
+        isClient
+          ? transactions.map((t) => t.ppeCategory)
+          : catalogueItems.map((c) => c.category),
+      ),
+    ).sort(),
   ];
 
   const employeeFilterOptions = [
@@ -301,20 +318,21 @@ export function PPERegister({ employeeId }: { employeeId?: string }) {
     color: "#94A3B8",
   };
 
-  const DeleteButton = ({ t }: { t: PPETransaction }) => (
-    <button
-      onClick={() => openDeleteConfirm(t)}
-      className="p-2 rounded-lg transition-colors hover:bg-red-500/10"
-      style={{ border: "1px solid rgba(255, 255, 255, 0.1)" }}
-      title="Delete (moves to Recycle Bin)"
-      aria-label={`Delete PPE record for ${t.employeeName}`}
-    >
-      <Trash2
-        className="size-4"
-        style={{ color: "var(--compliance-danger)" }}
-      />
-    </button>
-  );
+  const DeleteButton = ({ t }: { t: PPETransaction }) =>
+    isClient ? null : (
+      <button
+        onClick={() => openDeleteConfirm(t)}
+        className="p-2 rounded-lg transition-colors hover:bg-red-500/10"
+        style={{ border: "1px solid rgba(255, 255, 255, 0.1)" }}
+        title="Delete (moves to Recycle Bin)"
+        aria-label={`Delete PPE record for ${t.employeeName}`}
+      >
+        <Trash2
+          className="size-4"
+          style={{ color: "var(--compliance-danger)" }}
+        />
+      </button>
+    );
 
   return (
     <div
@@ -351,30 +369,32 @@ export function PPERegister({ employeeId }: { employeeId?: string }) {
                     </p>
                   </div>
                 </div>
-                <div className="flex gap-3">
-                  <button
-                    onClick={() => setShowCatalogue(true)}
-                    className="px-5 py-2.5 rounded-lg font-medium transition-opacity flex items-center gap-2 hover:opacity-90"
-                    style={{
-                      backgroundColor: "rgba(255, 255, 255, 0.1)",
-                      color: "#F8FAFC",
-                    }}
-                  >
-                    <Settings className="size-4" />
-                    PPE Catalogue
-                  </button>
-                  <button
-                    onClick={() => setShowIssueModal(true)}
-                    disabled={
-                      employees.length === 0 || catalogueItems.length === 0
-                    }
-                    className="px-5 py-2.5 rounded-lg font-medium text-white transition-opacity flex items-center gap-2 hover:opacity-90 disabled:opacity-50"
-                    style={{ backgroundColor: "#3B82F6" }}
-                  >
-                    <Plus className="size-4" />
-                    Issue PPE
-                  </button>
-                </div>
+                {!isClient && (
+                  <div className="flex gap-3">
+                    <button
+                      onClick={() => setShowCatalogue(true)}
+                      className="px-5 py-2.5 rounded-lg font-medium transition-opacity flex items-center gap-2 hover:opacity-90"
+                      style={{
+                        backgroundColor: "rgba(255, 255, 255, 0.1)",
+                        color: "#F8FAFC",
+                      }}
+                    >
+                      <Settings className="size-4" />
+                      PPE Catalogue
+                    </button>
+                    <button
+                      onClick={() => setShowIssueModal(true)}
+                      disabled={
+                        employees.length === 0 || catalogueItems.length === 0
+                      }
+                      className="px-5 py-2.5 rounded-lg font-medium text-white transition-opacity flex items-center gap-2 hover:opacity-90 disabled:opacity-50"
+                      style={{ backgroundColor: "#3B82F6" }}
+                    >
+                      <Plus className="size-4" />
+                      Issue PPE
+                    </button>
+                  </div>
+                )}
               </div>
 
               <div className="flex items-center gap-3 mb-6">
@@ -658,19 +678,21 @@ export function PPERegister({ employeeId }: { employeeId?: string }) {
                         >
                           Sign-Off
                         </th>
-                        <th
-                          className="text-center px-6 py-3 text-xs font-medium uppercase tracking-wider"
-                          style={thStyle}
-                        >
-                          Actions
-                        </th>
+                        {!isClient && (
+                          <th
+                            className="text-center px-6 py-3 text-xs font-medium uppercase tracking-wider"
+                            style={thStyle}
+                          >
+                            Actions
+                          </th>
+                        )}
                       </tr>
                     </thead>
                     <tbody>
                       {filteredTransactions.length === 0 ? (
                         <tr>
                           <td
-                            colSpan={8}
+                            colSpan={isClient ? 7 : 8}
                             className="text-center py-10 text-sm"
                             style={{ color: "#94A3B8" }}
                           >
@@ -796,11 +818,13 @@ export function PPERegister({ employeeId }: { employeeId?: string }) {
                                   </span>
                                 )}
                               </td>
-                              <td className="px-6 py-4">
-                                <div className="flex items-center justify-center">
-                                  <DeleteButton t={t} />
-                                </div>
-                              </td>
+                              {!isClient && (
+                                <td className="px-6 py-4">
+                                  <div className="flex items-center justify-center">
+                                    <DeleteButton t={t} />
+                                  </div>
+                                </td>
+                              )}
                             </tr>
                           );
                         })
@@ -813,22 +837,27 @@ export function PPERegister({ employeeId }: { employeeId?: string }) {
         </div>
       </div>
 
-      <IssuePPEModal
-        isOpen={showIssueModal}
-        onClose={() => setShowIssueModal(false)}
-        employees={employees}
-        catalogueItems={catalogueItems}
-        onSubmit={handleIssuePPE}
-      />
+      {/* Staff-only: issuing PPE and managing the catalogue (RSS stock) */}
+      {!isClient && (
+        <>
+          <IssuePPEModal
+            isOpen={showIssueModal}
+            onClose={() => setShowIssueModal(false)}
+            employees={employees}
+            catalogueItems={catalogueItems}
+            onSubmit={handleIssuePPE}
+          />
 
-      <PPECatalogue
-        isOpen={showCatalogue}
-        onClose={() => setShowCatalogue(false)}
-        onCatalogueChanged={fetchCatalogueItems}
-      />
+          <PPECatalogue
+            isOpen={showCatalogue}
+            onClose={() => setShowCatalogue(false)}
+            onCatalogueChanged={fetchCatalogueItems}
+          />
+        </>
+      )}
 
       {/* Delete confirmation */}
-      {deleteTarget && (
+      {!isClient && deleteTarget && (
         <>
           <div
             className="fixed inset-0 bg-black bg-opacity-50 z-40"

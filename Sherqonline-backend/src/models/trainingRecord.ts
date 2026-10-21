@@ -25,6 +25,7 @@ const SELECT_BASE = `
     e.employee_number    AS work_id,
     e.full_name           AS employee_name,
     e.site_location,
+    e.site_id,
     tr.training_type,
     tr.certificate_name,
     tr.provider,
@@ -78,9 +79,16 @@ export async function createTrainingRecord(
 export async function getTrainingRecords(filters: {
   employeeId?: number;
   siteLocation?: string;
+  /** undefined = all sites (staff); array = only these sites */
+  siteIds?: number[];
 }) {
   const conditions: string[] = [];
   const values: any[] = [];
+
+  if (filters.siteIds) {
+    values.push(filters.siteIds);
+    conditions.push(`e.site_id = ANY($${values.length}::int[])`);
+  }
 
   if (filters.employeeId) {
     values.push(filters.employeeId);

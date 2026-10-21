@@ -44,6 +44,7 @@ import { useAuth, Role } from "../contexts/auth-context";
 import { RecycleBin } from "../components/recycle-bin";
 import { OnboardingPage } from "../pages/onboarding-page";
 import { SecurityPrivacy } from "../pages/security-privacy";
+import { useSiteFilter } from "../contexts/site-filter-context";
 
 interface NavigationItem {
   id: string;
@@ -242,9 +243,13 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
   const { dismissedAlerts } = useAlerts();
   const { theme, colors, brandPrimaryBg, getNavTextColor } = useTheme();
   const { user, logout } = useAuth();
+  const { setSelectedSite } = useSiteFilter();
   const clientCompany = user?.role === "client" ? user.company : null;
-  const [activeItem, setActiveItem] = useState<string>("dashboard");
 
+  // Clients land straight on a client module, never on the staff dashboard
+  const [activeItem, setActiveItem] = useState<string>(
+    user?.role === "client" ? "legal-appointments" : "dashboard",
+  );
   useEffect(() => {
     if (!user) return;
 
@@ -260,6 +265,16 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
     } else {
       setExpandedItems(["compliance", "reports", "settings"]);
     }
+  }, [user]);
+
+  useEffect(() => {
+    if (user?.role === "client" && user.company) {
+      setSelectedSite({
+        id: String(user.company.id),
+        name: user.company.name,
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
   const [searchQuery, setSearchQuery] = useState("");
@@ -474,6 +489,7 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
           {/* Right Side: Search, Notifications & Log out */}
           <div className="flex items-center gap-4">
             {/* Search Bar */}
+            {user?.role !== "client" && (
             <div className="relative">
               <Search
                 className="absolute left-3 top-1/2 -translate-y-1/2 size-4"
@@ -533,6 +549,7 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
                 </div>
               )}
             </div>
+            )}
 
             {/* Notification Bell */}
             <div className="relative">

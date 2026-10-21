@@ -14,9 +14,11 @@ import { AlertBanner } from "../alert-banner";
 import { useAlerts } from "../../contexts/alert-context";
 import { useTheme } from "../../contexts/theme-context";
 import { useRecycleBin } from "../../contexts/recycle-bin-context";
-import { AddTrainingRecordModal, EmployeeOption } from "./add-training-record-modal";
-
-
+import {
+  AddTrainingRecordModal,
+  EmployeeOption,
+} from "./add-training-record-modal";
+import { useAuth } from "../../contexts/auth-context";
 
 interface TrainingMatrixProps {
   employeeId?: string;
@@ -40,10 +42,14 @@ interface TrainingRecord {
 
 const statuses = ["All Training Statuses", "Valid", "Expiring Soon", "Expired"];
 
-function getTrainingStatus(expiryDate: string): "valid" | "expiring" | "expired" {
+function getTrainingStatus(
+  expiryDate: string,
+): "valid" | "expiring" | "expired" {
   const today = new Date();
   const expiry = new Date(expiryDate);
-  const diffInDays = Math.ceil((expiry.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+  const diffInDays = Math.ceil(
+    (expiry.getTime() - today.getTime()) / (1000 * 60 * 60 * 24),
+  );
 
   if (diffInDays < 0) return "expired";
   if (diffInDays <= 30) return "expiring";
@@ -57,6 +63,9 @@ export function TrainingMatrix({ employeeId }: TrainingMatrixProps) {
   const { colors } = useTheme();
   const { moveToRecycleBin } = useRecycleBin();
 
+  const { user } = useAuth();
+  const isClient = user?.role === "client";
+
   const [records, setRecords] = useState<TrainingRecord[]>([]);
   const [employees, setEmployees] = useState<EmployeeOption[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -68,7 +77,9 @@ export function TrainingMatrix({ employeeId }: TrainingMatrixProps) {
 
   const [addModalOpen, setAddModalOpen] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
-  const [selectedRecord, setSelectedRecord] = useState<TrainingRecord | null>(null);
+  const [selectedRecord, setSelectedRecord] = useState<TrainingRecord | null>(
+    null,
+  );
   const [fetchingFileId, setFetchingFileId] = useState<number | null>(null);
 
   useEffect(() => {
@@ -79,10 +90,15 @@ export function TrainingMatrix({ employeeId }: TrainingMatrixProps) {
     setIsLoading(true);
     setLoadError(null);
     try {
-      await Promise.all([fetchRecords(), fetchEmployees()]);
+      await Promise.all([
+        fetchRecords(),
+        isClient ? Promise.resolve() : fetchEmployees(),
+      ]);
     } catch (error) {
       console.error("Error loading training records:", error);
-      setLoadError("Couldn't load training records. Check your connection and try again.");
+      setLoadError(
+        "Couldn't load training records. Check your connection and try again.",
+      );
     } finally {
       setIsLoading(false);
     }
@@ -131,31 +147,52 @@ export function TrainingMatrix({ employeeId }: TrainingMatrixProps) {
 
   const sites = [
     "All Sites",
-    ...(Array.from(new Set(employees.map((e) => e.siteLocation).filter(Boolean))).sort() as string[]),
+    ...(Array.from(
+      new Set(employees.map((e) => e.siteLocation).filter(Boolean)),
+    ).sort() as string[]),
   ];
 
   const filteredRecords = records.filter((record) => {
     if (employeeId && record.employeeId !== employeeId) return false;
-    if (selectedEmployee !== "All Employees" && record.employeeId !== selectedEmployee) return false;
-    if (selectedSite !== "All Sites" && record.siteLocation !== selectedSite) return false;
+    if (
+      selectedEmployee !== "All Employees" &&
+      record.employeeId !== selectedEmployee
+    )
+      return false;
+    if (selectedSite !== "All Sites" && record.siteLocation !== selectedSite)
+      return false;
 
     if (selectedStatus !== "All Training Statuses") {
       const status = getTrainingStatus(record.expiryDate);
       if (selectedStatus === "Valid" && status !== "valid") return false;
-      if (selectedStatus === "Expiring Soon" && status !== "expiring") return false;
+      if (selectedStatus === "Expiring Soon" && status !== "expiring")
+        return false;
       if (selectedStatus === "Expired" && status !== "expired") return false;
     }
 
     return true;
   });
 
-  const expiredCount = filteredRecords.filter((r) => getTrainingStatus(r.expiryDate) === "expired").length;
-  const validCount = filteredRecords.filter((r) => getTrainingStatus(r.expiryDate) === "valid").length;
-  const expiringCount = filteredRecords.filter((r) => getTrainingStatus(r.expiryDate) === "expiring").length;
-  const complianceRate = filteredRecords.length === 0 ? 0 : Math.round((validCount / filteredRecords.length) * 100);
+  const expiredCount = filteredRecords.filter(
+    (r) => getTrainingStatus(r.expiryDate) === "expired",
+  ).length;
+  const validCount = filteredRecords.filter(
+    (r) => getTrainingStatus(r.expiryDate) === "valid",
+  ).length;
+  const expiringCount = filteredRecords.filter(
+    (r) => getTrainingStatus(r.expiryDate) === "expiring",
+  ).length;
+  const complianceRate =
+    filteredRecords.length === 0
+      ? 0
+      : Math.round((validCount / filteredRecords.length) * 100);
 
   const handleDismissAlert = (id: string) => {
-    dismissAlert(id, `${expiredCount} training certificates expired`, "critical");
+    dismissAlert(
+      id,
+      `${expiredCount} training certificates expired`,
+      "critical",
+    );
   };
 
   const handleDeleteClick = (record: TrainingRecord) => {
@@ -167,9 +204,12 @@ export function TrainingMatrix({ employeeId }: TrainingMatrixProps) {
     if (!selectedRecord) return;
 
     try {
-      const response = await fetch(`${API_URL}/training-records/${selectedRecord.id}`, {
-        method: "DELETE",
-      });
+      const response = await fetch(
+        `${API_URL}/training-records/${selectedRecord.id}`,
+        {
+          method: "DELETE",
+        },
+      );
       if (!response.ok) throw new Error("Failed to delete training record");
 
       moveToRecycleBin({
@@ -206,7 +246,9 @@ export function TrainingMatrix({ employeeId }: TrainingMatrixProps) {
   const handleViewCertificate = async (record: TrainingRecord) => {
     setFetchingFileId(record.id);
     try {
-      const response = await fetch(`${API_URL}/training-records/${record.id}/file`);
+      const response = await fetch(
+        `${API_URL}/training-records/${record.id}/file`,
+      );
       if (!response.ok) throw new Error("No certificate available");
       const data = await response.json();
       window.open(data.url, "_blank", "noopener,noreferrer");
@@ -218,7 +260,10 @@ export function TrainingMatrix({ employeeId }: TrainingMatrixProps) {
   };
 
   return (
-    <div className="h-full overflow-y-auto" style={{ backgroundColor: colors.background }}>
+    <div
+      className="h-full overflow-y-auto"
+      style={{ backgroundColor: colors.background }}
+    >
       <div className="max-w-[1600px] mx-auto">
         {!isEmployeeView && expiredCount > 0 && (
           <AlertBanner
@@ -235,10 +280,17 @@ export function TrainingMatrix({ employeeId }: TrainingMatrixProps) {
           <div className="px-8 pt-6 pb-8">
             <div className="flex items-start justify-between mb-8">
               <div>
-                <h1 className="text-3xl mb-2" style={{ color: "#F8FAFC" }}>Training Matrix & Competency Tracking</h1>
+                <h1 className="text-3xl mb-2" style={{ color: "#F8FAFC" }}>
+                  Training Matrix & Competency Tracking
+                </h1>
                 <div className="flex items-center gap-2 mt-1">
-                  <ShieldCheck className="size-4" style={{ color: "var(--compliance-success)" }} />
-                  <p className="text-sm" style={{ color: "#94A3B8" }}>POPI Act Compliant: Restricted Access</p>
+                  <ShieldCheck
+                    className="size-4"
+                    style={{ color: "var(--compliance-success)" }}
+                  />
+                  <p className="text-sm" style={{ color: "#94A3B8" }}>
+                    POPI Act Compliant: Restricted Access
+                  </p>
                 </div>
               </div>
 
@@ -259,46 +311,95 @@ export function TrainingMatrix({ employeeId }: TrainingMatrixProps) {
                 value={selectedSite}
                 onChange={(e) => setSelectedSite(e.target.value)}
                 className="px-4 py-2.5 rounded-lg text-sm appearance-none cursor-pointer"
-                style={{ backgroundColor: "#1E293B", color: "#F8FAFC", border: "none" }}
+                style={{
+                  backgroundColor: "#1E293B",
+                  color: "#F8FAFC",
+                  border: "none",
+                }}
               >
                 {sites.map((site) => (
-                  <option key={site} value={site}>{site}</option>
+                  <option key={site} value={site}>
+                    {site}
+                  </option>
                 ))}
               </select>
               <select
                 value={selectedStatus}
                 onChange={(e) => setSelectedStatus(e.target.value)}
                 className="px-4 py-2.5 rounded-lg text-sm appearance-none cursor-pointer"
-                style={{ backgroundColor: "#1E293B", color: "#F8FAFC", border: "none" }}
+                style={{
+                  backgroundColor: "#1E293B",
+                  color: "#F8FAFC",
+                  border: "none",
+                }}
               >
                 {statuses.map((status) => (
-                  <option key={status} value={status}>{status}</option>
+                  <option key={status} value={status}>
+                    {status}
+                  </option>
                 ))}
               </select>
               <select
                 value={selectedEmployee}
                 onChange={(e) => setSelectedEmployee(e.target.value)}
                 className="px-4 py-2.5 rounded-lg text-sm appearance-none cursor-pointer"
-                style={{ backgroundColor: "#1E293B", color: "#F8FAFC", border: "none" }}
+                style={{
+                  backgroundColor: "#1E293B",
+                  color: "#F8FAFC",
+                  border: "none",
+                }}
               >
                 <option value="All Employees">All Employees</option>
                 {employees.map((employee) => (
-                  <option key={employee.id} value={employee.employeeId}>{employee.fullName}</option>
+                  <option key={employee.id} value={employee.employeeId}>
+                    {employee.fullName}
+                  </option>
                 ))}
               </select>
             </div>
 
             <div className="grid grid-cols-5 gap-4">
               {[
-                { label: "Total Records", value: filteredRecords.length, color: "#F8FAFC" },
-                { label: "Valid", value: validCount, color: "var(--compliance-success)" },
-                { label: "Expiring Soon", value: expiringCount, color: "var(--compliance-warning)" },
-                { label: "Expired", value: expiredCount, color: "var(--compliance-danger)" },
-                { label: "Compliance Rate", value: `${complianceRate}%`, color: "var(--compliance-success)" },
+                {
+                  label: "Total Records",
+                  value: filteredRecords.length,
+                  color: "#F8FAFC",
+                },
+                {
+                  label: "Valid",
+                  value: validCount,
+                  color: "var(--compliance-success)",
+                },
+                {
+                  label: "Expiring Soon",
+                  value: expiringCount,
+                  color: "var(--compliance-warning)",
+                },
+                {
+                  label: "Expired",
+                  value: expiredCount,
+                  color: "var(--compliance-danger)",
+                },
+                {
+                  label: "Compliance Rate",
+                  value: `${complianceRate}%`,
+                  color: "var(--compliance-success)",
+                },
               ].map((stat) => (
-                <div key={stat.label} className="px-6 py-4 rounded-lg" style={{ backgroundColor: "#1E293B" }}>
-                  <p className="text-sm mb-2" style={{ color: "#94A3B8" }}>{stat.label}</p>
-                  <p className="text-3xl font-bold" style={{ color: stat.color }}>{stat.value}</p>
+                <div
+                  key={stat.label}
+                  className="px-6 py-4 rounded-lg"
+                  style={{ backgroundColor: "#1E293B" }}
+                >
+                  <p className="text-sm mb-2" style={{ color: "#94A3B8" }}>
+                    {stat.label}
+                  </p>
+                  <p
+                    className="text-3xl font-bold"
+                    style={{ color: stat.color }}
+                  >
+                    {stat.value}
+                  </p>
                 </div>
               ))}
             </div>
@@ -306,19 +407,36 @@ export function TrainingMatrix({ employeeId }: TrainingMatrixProps) {
         )}
 
         <div className="px-8 pb-8">
-          <div className="rounded-lg overflow-hidden" style={{ backgroundColor: "#1E293B" }}>
+          <div
+            className="rounded-lg overflow-hidden"
+            style={{ backgroundColor: "#1E293B" }}
+          >
             {isLoading && (
               <div className="flex items-center justify-center gap-2 py-16">
-                <Loader2 className="size-5 animate-spin" style={{ color: "#94A3B8" }} />
-                <span className="text-sm" style={{ color: "#94A3B8" }}>Loading training records…</span>
+                <Loader2
+                  className="size-5 animate-spin"
+                  style={{ color: "#94A3B8" }}
+                />
+                <span className="text-sm" style={{ color: "#94A3B8" }}>
+                  Loading training records…
+                </span>
               </div>
             )}
 
             {!isLoading && loadError && (
               <div className="flex flex-col items-center justify-center gap-3 py-16">
-                <AlertTriangle className="size-6" style={{ color: "var(--compliance-danger)" }} />
-                <span className="text-sm" style={{ color: "#F8FAFC" }}>{loadError}</span>
-                <button onClick={fetchAll} className="px-4 py-2 rounded-lg text-sm font-medium text-white" style={{ backgroundColor: "#3B82F6" }}>
+                <AlertTriangle
+                  className="size-6"
+                  style={{ color: "var(--compliance-danger)" }}
+                />
+                <span className="text-sm" style={{ color: "#F8FAFC" }}>
+                  {loadError}
+                </span>
+                <button
+                  onClick={fetchAll}
+                  className="px-4 py-2 rounded-lg text-sm font-medium text-white"
+                  style={{ backgroundColor: "#3B82F6" }}
+                >
                   Retry
                 </button>
               </div>
@@ -330,21 +448,65 @@ export function TrainingMatrix({ employeeId }: TrainingMatrixProps) {
                   <thead>
                     <tr style={{ backgroundColor: "#0F172A" }}>
                       {!isEmployeeView && (
-                        <th className="px-6 py-4 text-left text-sm font-medium" style={{ color: "#94A3B8" }}>Employee</th>
+                        <th
+                          className="px-6 py-4 text-left text-sm font-medium"
+                          style={{ color: "#94A3B8" }}
+                        >
+                          Employee
+                        </th>
                       )}
-                      <th className="px-6 py-4 text-left text-sm font-medium" style={{ color: "#94A3B8" }}>Certificate Name</th>
-                      <th className="px-6 py-4 text-left text-sm font-medium" style={{ color: "#94A3B8" }}>Training Provider</th>
-                      <th className="px-6 py-4 text-left text-sm font-medium" style={{ color: "#94A3B8" }}>Completion Date</th>
-                      <th className="px-6 py-4 text-left text-sm font-medium" style={{ color: "#94A3B8" }}>Expiry Date</th>
-                      <th className="px-6 py-4 text-left text-sm font-medium" style={{ color: "#94A3B8" }}>Training Status</th>
-                      <th className="px-6 py-4 text-left text-sm font-medium" style={{ color: "#94A3B8" }}>Certificate</th>
-                      <th className="px-6 py-4 text-left text-sm font-medium" style={{ color: "#94A3B8" }}>Actions</th>
+                      <th
+                        className="px-6 py-4 text-left text-sm font-medium"
+                        style={{ color: "#94A3B8" }}
+                      >
+                        Certificate Name
+                      </th>
+                      <th
+                        className="px-6 py-4 text-left text-sm font-medium"
+                        style={{ color: "#94A3B8" }}
+                      >
+                        Training Provider
+                      </th>
+                      <th
+                        className="px-6 py-4 text-left text-sm font-medium"
+                        style={{ color: "#94A3B8" }}
+                      >
+                        Completion Date
+                      </th>
+                      <th
+                        className="px-6 py-4 text-left text-sm font-medium"
+                        style={{ color: "#94A3B8" }}
+                      >
+                        Expiry Date
+                      </th>
+                      <th
+                        className="px-6 py-4 text-left text-sm font-medium"
+                        style={{ color: "#94A3B8" }}
+                      >
+                        Training Status
+                      </th>
+                      <th
+                        className="px-6 py-4 text-left text-sm font-medium"
+                        style={{ color: "#94A3B8" }}
+                      >
+                        Certificate
+                      </th>
+                      <th
+                        className="px-6 py-4 text-left text-sm font-medium"
+                        style={{ color: "#94A3B8" }}
+                      >
+                        Actions
+                      </th>
                     </tr>
                   </thead>
                   <tbody>
                     {filteredRecords.length === 0 ? (
                       <tr>
-                        <td colSpan={isEmployeeView ? 7 : 8} className="px-6 py-12 text-center text-sm" style={{ color: "#94A3B8" }}>
+                        <td
+                          colSpan={isEmployeeView ? 7 : 8}
+                          className="px-6 py-12 text-center text-sm"
+                          style={{ color: "#94A3B8" }}
+                        >
                           {records.length === 0
                             ? 'No training records yet. Click "Add Training Record" to create one.'
                             : "No training records found matching your filters"}
@@ -354,35 +516,68 @@ export function TrainingMatrix({ employeeId }: TrainingMatrixProps) {
                       filteredRecords.map((record, index) => {
                         const status = getTrainingStatus(record.expiryDate);
                         const statusColor =
-                          status === "expired" ? "var(--compliance-danger)"
-                          : status === "expiring" ? "var(--compliance-warning)"
-                          : "var(--compliance-success)";
+                          status === "expired"
+                            ? "var(--compliance-danger)"
+                            : status === "expiring"
+                              ? "var(--compliance-warning)"
+                              : "var(--compliance-success)";
 
                         return (
                           <tr
                             key={record.id}
                             className="transition-colors hover:bg-opacity-80"
-                            style={{ backgroundColor: index % 2 === 0 ? "#1E293B" : "#0F172A" }}
+                            style={{
+                              backgroundColor:
+                                index % 2 === 0 ? "#1E293B" : "#0F172A",
+                            }}
                           >
                             {!isEmployeeView && (
-                              <td className="px-6 py-4 text-sm font-medium" style={{ color: "#F8FAFC" }}>
+                              <td
+                                className="px-6 py-4 text-sm font-medium"
+                                style={{ color: "#F8FAFC" }}
+                              >
                                 <div>
                                   <p>{record.employeeName}</p>
-                                  <p className="text-xs text-gray-400">{record.employeeId}</p>
+                                  <p className="text-xs text-gray-400">
+                                    {record.employeeId}
+                                  </p>
                                 </div>
                               </td>
                             )}
-                            <td className="px-6 py-4 text-sm" style={{ color: "#F8FAFC" }}>{record.certificateName}</td>
-                            <td className="px-6 py-4 text-sm" style={{ color: "#94A3B8" }}>{record.provider}</td>
-                            <td className="px-6 py-4 text-sm" style={{ color: "#94A3B8" }}>
-                              {new Date(record.completionDate).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}
+                            <td
+                              className="px-6 py-4 text-sm"
+                              style={{ color: "#F8FAFC" }}
+                            >
+                              {record.certificateName}
+                            </td>
+                            <td
+                              className="px-6 py-4 text-sm"
+                              style={{ color: "#94A3B8" }}
+                            >
+                              {record.provider}
+                            </td>
+                            <td
+                              className="px-6 py-4 text-sm"
+                              style={{ color: "#94A3B8" }}
+                            >
+                              {new Date(
+                                record.completionDate,
+                              ).toLocaleDateString("en-GB", {
+                                day: "numeric",
+                                month: "short",
+                              })}
                             </td>
                             <td className="px-6 py-4 text-sm">
                               <span style={{ color: statusColor }}>
-                                {new Date(record.expiryDate).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}
+                                {new Date(record.expiryDate).toLocaleDateString(
+                                  "en-GB",
+                                  { day: "numeric", month: "short" },
+                                )}
                               </span>
                             </td>
-                            <td className="px-6 py-4"><StatusBadge status={status} /></td>
+                            <td className="px-6 py-4">
+                              <StatusBadge status={status} />
+                            </td>
                             <td className="px-6 py-4 text-sm">
                               {record.fileName ? (
                                 <button
@@ -390,8 +585,12 @@ export function TrainingMatrix({ employeeId }: TrainingMatrixProps) {
                                   disabled={fetchingFileId === record.id}
                                   className="px-3 py-1 bg-blue-600 hover:bg-blue-500 rounded text-white text-xs disabled:opacity-60 flex items-center gap-1.5"
                                 >
-                                  {fetchingFileId === record.id && <Loader2 className="size-3 animate-spin" />}
-                                  {fetchingFileId === record.id ? "Loading…" : "View Certificate"}
+                                  {fetchingFileId === record.id && (
+                                    <Loader2 className="size-3 animate-spin" />
+                                  )}
+                                  {fetchingFileId === record.id
+                                    ? "Loading…"
+                                    : "View Certificate"}
                                 </button>
                               ) : (
                                 <span className="text-gray-400">None</span>
@@ -401,10 +600,15 @@ export function TrainingMatrix({ employeeId }: TrainingMatrixProps) {
                               <button
                                 onClick={() => handleDeleteClick(record)}
                                 className="p-2 rounded hover:bg-opacity-20 transition-colors"
-                                style={{ backgroundColor: "rgba(255, 255, 255, 0.1)" }}
+                                style={{
+                                  backgroundColor: "rgba(255, 255, 255, 0.1)",
+                                }}
                                 aria-label="Archive record"
                               >
-                                <Trash2 className="size-4" style={{ color: "var(--compliance-danger)" }} />
+                                <Trash2
+                                  className="size-4"
+                                  style={{ color: "var(--compliance-danger)" }}
+                                />
                               </button>
                             </td>
                           </tr>
@@ -434,7 +638,9 @@ export function TrainingMatrix({ employeeId }: TrainingMatrixProps) {
         onClose={() => setAddModalOpen(false)}
         employees={employees}
         lockedEmployeeId={
-          employeeId ? employees.find((e) => e.employeeId === employeeId)?.id : undefined
+          employeeId
+            ? employees.find((e) => e.employeeId === employeeId)?.id
+            : undefined
         }
         onSubmit={handleAddTraining}
       />
@@ -448,15 +654,30 @@ interface StatusBadgeProps {
 
 function StatusBadge({ status }: StatusBadgeProps) {
   const badgeConfig = {
-    valid: { label: "Valid", color: "var(--compliance-success)", icon: <CheckCircle2 className="size-4" /> },
-    expiring: { label: "Expiring Soon", color: "var(--compliance-warning)", icon: <AlertTriangle className="size-4" /> },
-    expired: { label: "Expired", color: "var(--compliance-danger)", icon: <XCircle className="size-4" /> },
+    valid: {
+      label: "Valid",
+      color: "var(--compliance-success)",
+      icon: <CheckCircle2 className="size-4" />,
+    },
+    expiring: {
+      label: "Expiring Soon",
+      color: "var(--compliance-warning)",
+      icon: <AlertTriangle className="size-4" />,
+    },
+    expired: {
+      label: "Expired",
+      color: "var(--compliance-danger)",
+      icon: <XCircle className="size-4" />,
+    },
   };
 
   const config = badgeConfig[status];
 
   return (
-    <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium text-white" style={{ backgroundColor: config.color }}>
+    <div
+      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium text-white"
+      style={{ backgroundColor: config.color }}
+    >
       {config.icon}
       {config.label}
     </div>

@@ -23,16 +23,12 @@ import {
 } from "../templates/appointment-templates";
 import { LegalAppointmentDetailModal } from "../components/legal-appointment-detail-modal";
 import { getEmployees, EmployeeOption } from "../../api/employees";
-import { getSites } from "../../api/siteAPI";
+// import { getSites } from "../../api/siteAPI";
+import { useAuth } from "../contexts/auth-context";
 
 interface LegalAppointmentsProps {
   employeeId?: string;
   sidebarOpen?: boolean;
-}
-
-interface SiteOption {
-  id: string;
-  name: string;
 }
 
 /**
@@ -70,6 +66,8 @@ export function LegalAppointments({ employeeId }: LegalAppointmentsProps) {
   const { appointments, loading, addAppointment, deleteAppointment } =
     useLegalAppointments();
   const { colors } = useTheme();
+  const { user } = useAuth();
+  const isClient = user?.role === "client";
 
   const [filterType, setFilterType] = useState("all");
   const [filterStatus, setFilterStatus] = useState("all");
@@ -161,13 +159,11 @@ export function LegalAppointments({ employeeId }: LegalAppointmentsProps) {
 
   const [showAddModal, setShowAddModal] = useState(false);
   const [employeeOptions, setEmployeeOptions] = useState<EmployeeOption[]>([]);
-  const [siteOptions, setSiteOptions] = useState<SiteOption[]>([]);
   const [isSaving, setIsSaving] = useState(false);
 
   const emptyForm = {
     employeeId: "",
     appointmentType: "",
-    siteId: "",
     appointerName: "",
     startDate: "",
     endDate: "",
@@ -179,12 +175,6 @@ export function LegalAppointments({ employeeId }: LegalAppointmentsProps) {
       getEmployees()
         .then(setEmployeeOptions)
         .catch((err) => console.error("Failed to load employees:", err));
-
-      getSites()
-        .then((data: any[]) =>
-          setSiteOptions(data.map((s) => ({ id: String(s.id), name: s.name }))),
-        )
-        .catch((err) => console.error("Failed to load sites:", err));
     }
   }, [showAddModal]);
 
@@ -211,12 +201,9 @@ export function LegalAppointments({ employeeId }: LegalAppointmentsProps) {
     if (
       !formData.employeeId ||
       !formData.appointmentType ||
-      !formData.siteId ||
       !formData.startDate
     ) {
-      alert(
-        "Please select an employee, appointment type, site, and start date.",
-      );
+      alert("Please select an employee, appointment type, and start date.");
       return;
     }
 
@@ -229,9 +216,15 @@ export function LegalAppointments({ employeeId }: LegalAppointmentsProps) {
       (emp) => emp.id === formData.employeeId,
     );
     const typeConfig = appointmentTypeMap[formData.appointmentType];
-    const site = siteOptions.find((s) => s.id === formData.siteId);
 
-    if (!employee || !typeConfig || !site) return;
+    if (!employee || !typeConfig) return;
+
+    if (!employee.siteId) {
+      alert(
+        `${employee.fullName} is not linked to a site. Assign a site on the Workforce page first.`,
+      );
+      return;
+    }
 
     setIsSaving(true);
     try {
@@ -242,9 +235,9 @@ export function LegalAppointments({ employeeId }: LegalAppointmentsProps) {
         jobTitle: employee.jobTitle,
         appointmentType: formData.appointmentType,
         legalSection: typeConfig.legalSection,
+        siteId: employee.siteId,
+        siteName: employee.siteLocation,
         department: typeConfig.department,
-        siteId: site.id,
-        siteName: site.name,
         appointerName: formData.appointerName,
         startDate: formData.startDate,
         endDate: formData.endDate,
@@ -480,14 +473,16 @@ export function LegalAppointments({ employeeId }: LegalAppointmentsProps) {
                     <span>Export Register</span>
                   </button>
 
-                  <button
-                    onClick={() => setShowAddModal(true)}
-                    className="flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium"
-                    style={{ backgroundColor: "#3B82F6", color: "white" }}
-                  >
-                    <Plus className="size-4" />
-                    <span>Add Appointment</span>
-                  </button>
+                  {!isClient && (
+                    <button
+                      onClick={() => setShowAddModal(true)}
+                      className="flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium"
+                      style={{ backgroundColor: "#3B82F6", color: "white" }}
+                    >
+                      <Plus className="size-4" />
+                      <span>Add Appointment</span>
+                    </button>
+                  )}
                 </div>
               </div>
             </div>
@@ -681,18 +676,24 @@ export function LegalAppointments({ employeeId }: LegalAppointmentsProps) {
                     >
                       <Eye className="size-4" style={{ color: "#3B82F6" }} />
                     </button>
-                    <button
-                      className="p-1.5 rounded-lg disabled:opacity-60"
-                      style={{ backgroundColor: "rgba(239, 68, 68, 0.1)" }}
-                      disabled={isDeleting}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDelete(appointment);
-                      }}
-                      title="Delete Appointment"
-                    >
-                      <Trash2 className="size-4" style={{ color: "#EF4444" }} />
-                    </button>
+
+                    {!isClient && (
+                      <button
+                        className="p-1.5 rounded-lg disabled:opacity-60"
+                        style={{ backgroundColor: "rgba(239, 68, 68, 0.1)" }}
+                        disabled={isDeleting}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDelete(appointment);
+                        }}
+                        title="Delete Appointment"
+                      >
+                        <Trash2
+                          className="size-4"
+                          style={{ color: "#EF4444" }}
+                        />
+                      </button>
+                    )}
                   </div>
                 </div>
               );
@@ -706,6 +707,7 @@ export function LegalAppointments({ employeeId }: LegalAppointmentsProps) {
         <LegalAppointmentDetailModal
           appointment={viewingAppointment}
           onClose={() => setViewingAppointment(null)}
+          readOnly={isClient}
         />
       )}
 
@@ -789,22 +791,10 @@ export function LegalAppointments({ employeeId }: LegalAppointmentsProps) {
 
               {/* Site — pulled from the Company & Sites page. Its name and
                   registered logo are used on the generated letter/PDF. */}
-              <div>
-                <label className="block text-sm font-medium mb-1">Site</label>
-                <select
-                  name="siteId"
-                  value={formData.siteId}
-                  onChange={handleChange}
-                  className={inputClass}
-                >
-                  <option value="">Select Site</option>
-                  {siteOptions.map((site) => (
-                    <option key={site.id} value={site.id}>
-                      {site.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              <p className="text-xs text-gray-500">
+                The site is taken from the employee's record on the Workforce
+                page.
+              </p>
 
               <input
                 type="text"

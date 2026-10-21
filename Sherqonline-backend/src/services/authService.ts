@@ -179,8 +179,14 @@ async function sendCredentialsEmail(args: {
   role: "client" | "inspector";
   siteName?: string;
 }) {
-  const { identifierLabel, identifier, tempPassword, loginUrl, role, siteName } =
-    args;
+  const {
+    identifierLabel,
+    identifier,
+    tempPassword,
+    loginUrl,
+    role,
+    siteName,
+  } = args;
 
   // No hardcoded fallback address: credentials (including the plaintext
   // password) must only ever go to an address configured for this environment.
@@ -190,7 +196,7 @@ async function sendCredentialsEmail(args: {
       "CREDENTIALS_NOTIFY_EMAIL is not set; cannot deliver credentials",
     );
   }
-
+  console.log("Credentials email recipient:", notifyTo);
   const subject =
     role === "client"
       ? `New client login created — ${siteName ?? "client"}`
@@ -216,6 +222,8 @@ async function sendCredentialsEmail(args: {
     subject,
     html,
   });
+
+  
 }
 
 // --- Client credential issuance (RSS-only) ---
@@ -226,7 +234,7 @@ interface IssueClientCredentialsParams {
   issuedByUserId: number;
   siteId: number;
   siteName?: string; // for the email copy
-  loginUrl: string; // e.g. https://yourapp.com/login/client
+  loginUrl: string;
 }
 
 export async function issueCredentials(params: IssueClientCredentialsParams) {
@@ -429,7 +437,10 @@ export async function provisionInspector(params: ProvisionInspectorParams) {
     deliveryStatus,
   );
 
-  return { user: { id: created.id, username: created.username }, deliveryStatus };
+  return {
+    user: { id: created.id, username: created.username },
+    deliveryStatus,
+  };
 }
 
 export async function deleteInspector(userId: number) {

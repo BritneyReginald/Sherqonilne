@@ -28,6 +28,10 @@ import {
   replaceFirstAidEntries,
 } from "../models/firstAidEntries";
 
+import { getEmployeeById } from "../models/employee";
+import { resolveSite } from "../models/siteResolver";
+import { siteIdsFor } from "../middleware/siteScope";
+
 import {
   uploadIncidentEvidence as uploadToAzure,
   getIncidentEvidenceSasUrl,
@@ -41,6 +45,8 @@ function parseIncidentBody(body: any): IncidentRecordInput {
 
     division: body.division || null,
     site: body.site || null,
+    // siteId is resolved separately (see resolveIncidentSite)
+    siteId: undefined,
     incidentDate: body.incidentDate || null,
     incidentTime: body.incidentTime || null,
 
@@ -60,6 +66,26 @@ function parseIncidentBody(body: any): IncidentRecordInput {
     effect: body.effect || null,
     disablement: body.disablement || null,
   };
+}
+
+/**
+ * Works out which site an incident belongs to: an explicit siteId,
+ * else the site NAME the form sends today, else the employee's site.
+ * Returns { id: null } only if none of those exist.
+ */
+async function resolveIncidentSite(body: any, employeeId: number | null) {
+  if (body.siteId || body.site) {
+    return resolveSite({ siteId: body.siteId, siteLocation: body.site });
+  }
+
+  if (employeeId) {
+    const employee = await getEmployeeById(employeeId);
+    if (employee?.site_id) {
+      return resolveSite({ siteId: employee.site_id });
+    }
+  }
+
+  return { id: null, name: null };
 }
 
 // Maps one incoming first-aid entry (camelCase, matching
@@ -122,8 +148,6 @@ async function buildFullRecord(id: number) {
   ) {
     const rows = await getFirstAidEntriesForRecord(id);
 
-    console.log("FIRST AID ROWS FROM DATABASE:", rows);
-    
     firstAidEntries = rows.map((r) => ({
       id: String(r.id),
       employeeId: r.employee_id ? String(r.employee_id) : undefined,
@@ -150,8 +174,6 @@ export const addIncidentRecord = async (
 ): Promise<void> => {
   try {
     const data = parseIncidentBody(req.body);
-    console.log("CREATE INCIDENT BODY:", JSON.stringify(req.body, null, 2));
-    console.log("FIRST AID ENTRIES:", req.body.entries);
 
     if (!data.type || !["incident", "ncr", "injury"].includes(data.type)) {
       res
@@ -171,6 +193,19 @@ export const addIncidentRecord = async (
       return;
     }
 
+    // Every record must belong to a site, otherwise no client would
+    // ever see it.
+    const site = await resolveIncidentSite(req.body, data.employeeId ?? null);
+    if (!site.id) {
+      res.status(400).json({
+        error:
+          "A site is required. Select a site (or an employee who has one).",
+      });
+      return;
+    }
+    data.siteId = site.id;
+    data.site = site.name;
+
     const record = await createIncidentRecord(data);
 
     // First Aid logs carry their treatment rows in the same submit —
@@ -185,9 +220,11 @@ export const addIncidentRecord = async (
     res.status(201).json(await buildFullRecord(record.id));
   } catch (err: any) {
     console.error(err);
-    res
-      .status(500)
-      .json({ error: err.message, detail: err.detail, code: err.code });
+    res.status(err.status ?? 500).json({
+      error: err.message,
+      detail: err.detail,
+      code: err.code,
+    });
   }
 };
 
@@ -200,6 +237,7 @@ export const getAllIncidentRecords = async (
       type: req.query.type as string | undefined,
       status: req.query.status as string | undefined,
       siteLocation: req.query.site as string | undefined,
+      siteIds: siteIdsFor(req),
     });
 
     // Registry table view doesn't need investigation/evidence/entry
@@ -212,6 +250,7 @@ export const getAllIncidentRecords = async (
   }
 };
 
+// By-id access is site-checked by router.param("id", ...) in the router.
 export const getIncidentRecord = async (
   req: Request,
   res: Response,
@@ -235,10 +274,35 @@ export const editIncidentRecord = async (
   res: Response,
 ): Promise<void> => {
   try {
-    const updated = await updateIncidentRecord(
-      Number(req.params.id),
-      parseIncidentBody(req.body),
-    );
+    const id = Number(req.params.id);
+    const current = await getIncidentRecordById(id);
+
+    if (!current) {
+      res.status(404).json({ message: "Record not found" });
+      return;
+    }
+
+    const data = parseIncidentBody(req.body);
+
+    // Only touch the site if the request actually changes it. Forms
+    // re-send the old site name on every save; resolving it again would
+    // fail for old records whose name no longer matches a site.
+    const sendsNewSite =
+      !!req.body.siteId || (!!req.body.site && req.body.site !== current.site);
+
+    if (sendsNewSite) {
+      const site = await resolveSite({
+        siteId: req.body.siteId,
+        siteLocation: req.body.site,
+      });
+      data.siteId = site.id;
+      data.site = site.name;
+    } else {
+      data.siteId = undefined;
+      data.site = undefined;
+    }
+
+    const updated = await updateIncidentRecord(id, data);
 
     if (!updated) {
       res.status(404).json({ message: "Record not found" });
@@ -254,7 +318,7 @@ export const editIncidentRecord = async (
 
     res.json(await buildFullRecord(updated.id));
   } catch (err: any) {
-    res.status(500).json({ error: err.message });
+    res.status(err.status ?? 500).json({ error: err.message });
   }
 };
 

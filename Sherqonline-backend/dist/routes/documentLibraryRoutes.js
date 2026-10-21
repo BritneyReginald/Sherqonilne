@@ -6,11 +6,14 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
 const multer_1 = __importDefault(require("multer"));
 const documentLibraryController_1 = require("../controllers/documentLibraryController");
+const authMiddleware_1 = require("../middleware/authMiddleware");
 const router = (0, express_1.Router)();
 const upload = (0, multer_1.default)({
     storage: multer_1.default.memoryStorage(),
     limits: { fileSize: 25 * 1024 * 1024 }, // 25MB
 });
+// The document library has no site concept, so it is RSS staff only.
+router.use(authMiddleware_1.authenticate, (0, authMiddleware_1.authorize)("rss_staff"));
 // Folders
 router.get("/folders", documentLibraryController_1.listFolders);
 router.post("/folders", documentLibraryController_1.addFolder);

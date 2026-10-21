@@ -32,11 +32,12 @@ const createRiskAssessment = async (data) => {
         assessors,
         assessment_date,
         before_controls,
-        after_controls
+        after_controls,
+        site_id
       )
       VALUES (
         $1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
-        $11, $12, $13, $14, $15, $16, $17, $18, $19
+        $11, $12, $13, $14, $15, $16, $17, $18, $19, $20
       )
       RETURNING *
       `, [
@@ -59,6 +60,7 @@ const createRiskAssessment = async (data) => {
             data.assessmentDate,
             data.beforeControls,
             data.afterControls ?? null,
+            data.siteId ?? null,
         ]);
         await client.query("COMMIT");
         return result.rows[0];
@@ -72,8 +74,14 @@ const createRiskAssessment = async (data) => {
     }
 };
 exports.createRiskAssessment = createRiskAssessment;
-const getRiskAssessments = async () => {
-    const result = await db_1.default.query("SELECT * FROM risk_assessments ORDER BY saved_date DESC, id DESC");
+/**
+ * siteIds undefined  -> every assessment (RSS staff)
+ * siteIds number[]   -> only those sites (clients)
+ */
+const getRiskAssessments = async (siteIds) => {
+    const result = siteIds
+        ? await db_1.default.query("SELECT * FROM risk_assessments WHERE site_id = ANY($1::int[]) ORDER BY saved_date DESC, id DESC", [siteIds])
+        : await db_1.default.query("SELECT * FROM risk_assessments ORDER BY saved_date DESC, id DESC");
     return result.rows;
 };
 exports.getRiskAssessments = getRiskAssessments;
@@ -86,6 +94,7 @@ const updateRiskAssessment = async (id, data) => {
     const fieldMap = {
         assessmentName: "assessment_name",
         linkedSite: "linked_site",
+        siteId: "site_id",
         linkedDept: "linked_dept",
         revision: "revision",
         reviewDate: "review_date",

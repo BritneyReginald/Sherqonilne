@@ -8,6 +8,10 @@ import {
   deleteLegalAppointment,
 } from "../models/legalAppointment";
 
+import { getEmployeeById } from "../models/employee";
+import { getSiteById } from "../models/siteResolver";
+import { siteIdsFor } from "../middleware/siteScope";
+
 import {
   uploadLegalAppointmentDocument,
   getLegalAppointmentDocumentSasUrl,
@@ -29,9 +33,52 @@ function withFileUrls(row: any) {
   };
 }
 
+/**
+ * The appointment's site is ALWAYS the employee's site. It is never
+ * taken from the request, so an appointment can't be filed under a
+ * different client than the employee actually works for.
+ */
+async function siteFromEmployee(employeeId: unknown) {
+  const id = Number(employeeId);
+  const employee = Number.isInteger(id) && id > 0
+    ? await getEmployeeById(id)
+    : null;
+
+  if (!employee) {
+    return { error: "Employee not found" as const };
+  }
+  if (!employee.site_id) {
+    return {
+      error:
+        "This employee has no site assigned. Assign a site on the Workforce page first." as const,
+    };
+  }
+
+  const site = await getSiteById(employee.site_id);
+  if (!site) return { error: "The employee's site no longer exists" as const };
+
+  return { employee, site };
+}
+
 export const addLegalAppointment = async (req: Request, res: Response) => {
   try {
-    const saved = await createLegalAppointment(req.body);
+    const found = await siteFromEmployee(req.body.employeeId);
+    if ("error" in found) {
+      return res.status(400).json({ message: found.error });
+    }
+
+    const { employee, site } = found;
+
+    const saved = await createLegalAppointment({
+      ...req.body,
+      employeeId: employee.id,
+      employeeName: req.body.employeeName || employee.full_name,
+      employeeNumber: req.body.employeeNumber || employee.employee_number,
+      jobTitle: req.body.jobTitle || employee.job_title,
+      siteId: site.id,
+      siteName: site.name,
+    });
+
     res.status(201).json(withFileUrls(saved));
   } catch (error: any) {
     console.error("Failed to create legal appointment:", error);
@@ -41,9 +88,9 @@ export const addLegalAppointment = async (req: Request, res: Response) => {
   }
 };
 
-export const getAllLegalAppointments = async (_req: Request, res: Response) => {
+export const getAllLegalAppointments = async (req: Request, res: Response) => {
   try {
-    const rows = await getLegalAppointments();
+    const rows = await getLegalAppointments(siteIdsFor(req));
     res.json(rows.map(withFileUrls));
   } catch (error: any) {
     console.error("Failed to fetch legal appointments:", error);
@@ -53,6 +100,7 @@ export const getAllLegalAppointments = async (_req: Request, res: Response) => {
   }
 };
 
+// By-id access is site-checked by router.param("id", ...) in the router.
 export const getLegalAppointment = async (req: Request, res: Response) => {
   try {
     const row = await getLegalAppointmentById(Number(req.params.id));
@@ -68,9 +116,34 @@ export const getLegalAppointment = async (req: Request, res: Response) => {
 
 export const editLegalAppointment = async (req: Request, res: Response) => {
   try {
+    // Files are only ever set by the upload endpoint, and the site only
+    // ever comes from the employee, so none of these are accepted here.
+    const {
+      documentBlobName,
+      documentFileName,
+      documentSize,
+      documentMimeType,
+      siteId,
+      siteName,
+      ...safe
+    } = req.body;
+
+    const updates: Record<string, any> = { ...safe };
+
+    // Re-pointing the appointment at another employee re-derives the site.
+    if (safe.employeeId !== undefined) {
+      const found = await siteFromEmployee(safe.employeeId);
+      if ("error" in found) {
+        return res.status(400).json({ message: found.error });
+      }
+      updates.employeeId = found.employee.id;
+      updates.siteId = found.site.id;
+      updates.siteName = found.site.name;
+    }
+
     const updated = await updateLegalAppointment(
       Number(req.params.id),
-      req.body,
+      updates,
     );
     if (!updated)
       return res.status(404).json({ message: "Appointment not found" });

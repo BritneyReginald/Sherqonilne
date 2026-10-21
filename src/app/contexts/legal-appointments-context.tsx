@@ -17,8 +17,8 @@ export interface LegalAppointment {
   appointmentType: string;
   legalSection: string;
   department: string;
-  siteId: string | null;
-  siteName: string;
+  siteId?: string | null;
+  siteName?: string;
   appointerName: string;
   startDate: string;
   endDate: string;

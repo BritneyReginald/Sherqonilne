@@ -10,6 +10,8 @@ import {
   restorePPETransaction,
 } from "../models/ppeTransaction";
 
+import { siteIdsFor } from "../middleware/siteScope";
+
 export const issuePPE = async (req: Request, res: Response): Promise<void> => {
   try {
     const {
@@ -73,6 +75,7 @@ export const getAllPPETransactions = async (
         : undefined,
       category: req.query.category as string | undefined,
       siteLocation: req.query.site as string | undefined,
+      siteIds: siteIdsFor(req),
     });
 
     res.json(transactions);
@@ -82,6 +85,7 @@ export const getAllPPETransactions = async (
   }
 };
 
+// By-id access is site-checked by router.param("id", ...) in the router.
 export const getPPETransaction = async (
   req: Request,
   res: Response,
@@ -98,9 +102,8 @@ export const getPPETransaction = async (
   }
 };
 
-// Returns the logged-in user's id if an auth middleware attached one,
-// otherwise null. Used only to record deleted_by; it is NOT a permission
-// check.
+// Returns the logged-in user's id (set by authenticate). Used only to
+// record deleted_by; it is NOT a permission check.
 const currentUserId = (req: Request): number | null =>
   ((req as any).user as { id?: number } | undefined)?.id ?? null;
 

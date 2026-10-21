@@ -25,6 +25,7 @@ const SELECT_BASE = `
     e.employee_number,
     e.full_name        AS employee_name,
     e.site_location,
+    e.site_id,
     mr.exam_type,
     mr.practitioner_name,
     mr.practitioner_type,
@@ -72,6 +73,10 @@ async function createMedicalRecord(data, file) {
 async function getMedicalRecords(filters) {
     const conditions = ["mr.deleted_at IS NULL"];
     const values = [];
+    if (filters.siteIds) {
+        values.push(filters.siteIds);
+        conditions.push(`e.site_id = ANY($${values.length}::int[])`);
+    }
     if (filters.employeeId) {
         values.push(filters.employeeId);
         conditions.push(`mr.employee_id = $${values.length}`);

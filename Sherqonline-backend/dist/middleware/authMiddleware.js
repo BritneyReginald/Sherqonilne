@@ -3,10 +3,11 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.authenticate = authenticate;
 exports.authorize = authorize;
+exports.scopeSites = scopeSites;
 exports.scopeClient = scopeClient;
 exports.scopeInspector = scopeInspector;
-exports.requireSiteAccess = requireSiteAccess;
 exports.scopeFirstAider = scopeFirstAider;
+exports.requireSiteAccess = requireSiteAccess;
 const authService_1 = require("../services/authService");
 const user_1 = require("../models/user");
 // ============================================================
@@ -64,50 +65,107 @@ function authorize(...allowedRoles) {
     };
 }
 // ============================================================
-// 3. SCOPE CLIENT
+// 3. SCOPE SITES  (use this on every data router)
+// ============================================================
+//
+// Resolves which sites the caller may see and stores them on
+// req.user.siteIds:
+//   - rss_staff   -> untouched (unrestricted; see siteScope.ts)
+//   - client      -> [their one site]
+//   - inspector   -> their assigned sites
+//   - first_aider -> their assigned sites
+// Anyone with no sites is rejected outright, so a half-configured
+// account can never fall through to "no filter".
+async function scopeSites(req, res, next) {
+    try {
+        const user = req.user;
+        if (!user || user.role === "rss_staff")
+            return next();
+        let ids = [];
+        if (user.role === "client") {
+            const siteId = await (0, user_1.getClientSiteId)(user.id);
+            if (siteId) {
+                user.siteId = siteId;
+                ids = [siteId];
+            }
+        }
+        else if (user.role === "inspector") {
+            ids = await (0, user_1.getInspectorSiteIds)(user.id);
+        }
+        else if (user.role === "first_aider") {
+            ids = await (0, user_1.getFirstAiderSiteIds)(user.id);
+        }
+        if (ids.length === 0) {
+            return res.status(403).json({
+                error: "No site linked to this account",
+            });
+        }
+        user.siteIds = ids;
+        next();
+    }
+    catch (err) {
+        next(err);
+    }
+}
+// ============================================================
+// 4. LEGACY PER-ROLE SCOPERS (kept for any routes still using them)
 // ============================================================
 async function scopeClient(req, res, next) {
-    if (req.user?.role !== "client")
-        return next();
-    const siteId = await (0, user_1.getClientSiteId)(req.user.id);
-    if (!siteId) {
-        return res.status(403).json({
-            error: "No site linked to this account",
-        });
+    try {
+        if (req.user?.role !== "client")
+            return next();
+        const siteId = await (0, user_1.getClientSiteId)(req.user.id);
+        if (!siteId) {
+            return res.status(403).json({
+                error: "No site linked to this account",
+            });
+        }
+        req.user.siteId = siteId;
+        req.user.siteIds = [siteId];
+        next();
     }
-    req.user.siteId = siteId;
-    next();
+    catch (err) {
+        next(err);
+    }
 }
-// ============================================================
-// 4. SCOPE INSPECTOR
-// ============================================================
 async function scopeInspector(req, res, next) {
-    if (req.user?.role !== "inspector")
-        return next();
-    const siteIds = await (0, user_1.getInspectorSiteIds)(req.user.id);
-    req.user.siteIds = siteIds;
-    next();
+    try {
+        if (req.user?.role !== "inspector")
+            return next();
+        req.user.siteIds = await (0, user_1.getInspectorSiteIds)(req.user.id);
+        next();
+    }
+    catch (err) {
+        next(err);
+    }
+}
+async function scopeFirstAider(req, res, next) {
+    try {
+        if (req.user?.role !== "first_aider")
+            return next();
+        req.user.siteIds = await (0, user_1.getFirstAiderSiteIds)(req.user.id);
+        next();
+    }
+    catch (err) {
+        next(err);
+    }
 }
 // ============================================================
-// 5. REQUIRE SITE ACCESS
+// 5. REQUIRE SITE ACCESS (only for routes with a :siteId param)
 // ============================================================
 function requireSiteAccess(siteIdParam = "siteId") {
     return (req, res, next) => {
         const requestedSiteId = Number(req.params[siteIdParam]);
-        // RSS staff can access every site
         if (req.user?.role === "rss_staff") {
             return next();
         }
-        // Inspectors can only access assigned sites
-        if (req.user?.role === "inspector") {
+        if (req.user?.role === "inspector" ||
+            req.user?.role === "first_aider") {
             if (req.user.siteIds?.includes(requestedSiteId)) {
                 return next();
             }
-            return res.status(403).json({
-                error: "Not assigned to this site",
-            });
+            return res.status(403).json({ error: "Not assigned to this site" });
         }
-        // Clients can only access their own site
         if (req.user?.role === "client") {
             if (req.user.siteId === requestedSiteId) {
                 return next();
@@ -116,21 +174,6 @@ function requireSiteAccess(siteIdParam = "siteId") {
                 error: "You do not have access to this site",
             });
         }
-        if (req.user?.role === "first_aider") {
-            if (req.user.siteIds?.includes(requestedSiteId)) {
-                return next();
-            }
-            return res.status(403).json({ error: "Not assigned to this site" });
-        }
-        return res.status(403).json({
-            error: "Access denied",
-        });
+        return res.status(403).json({ error: "Access denied" });
     };
-}
-async function scopeFirstAider(req, res, next) {
-    if (req.user?.role !== "first_aider")
-        return next();
-    const siteIds = await (0, user_1.getFirstAiderSiteIds)(req.user.id); // add to models/user.ts
-    req.user.siteIds = siteIds;
-    next();
 }

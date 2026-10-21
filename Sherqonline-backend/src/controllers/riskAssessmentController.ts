@@ -8,6 +8,9 @@ import {
   deleteRiskAssessment,
 } from "../models/riskAssessment";
 
+import { resolveSite } from "../models/siteResolver";
+import { siteIdsFor } from "../middleware/siteScope";
+
 import {
   uploadRiskAssessmentLogo,
   uploadRiskAssessmentPdf,
@@ -29,17 +32,30 @@ function withFileUrls(row: any) {
 
 export const addRiskAssessment = async (req: Request, res: Response) => {
   try {
-    const saved = await createRiskAssessment(req.body);
+    // Every assessment must belong to a site, otherwise no client would
+    // ever see it.
+    const site = await resolveSite({ siteId: req.body.siteId });
+    if (!site.id) {
+      return res.status(400).json({ message: "siteId is required" });
+    }
+
+    const saved = await createRiskAssessment({
+      ...req.body,
+      siteId: site.id,
+      linkedSite: site.name,
+    });
     res.status(201).json(withFileUrls(saved));
   } catch (error: any) {
     console.error("Failed to create risk assessment:", error);
-    res.status(500).json({ message: error.message || "Failed to create risk assessment" });
+    res
+      .status(error.status ?? 500)
+      .json({ message: error.message || "Failed to create risk assessment" });
   }
 };
 
-export const getAllRiskAssessments = async (_req: Request, res: Response) => {
+export const getAllRiskAssessments = async (req: Request, res: Response) => {
   try {
-    const rows = await getRiskAssessments();
+    const rows = await getRiskAssessments(siteIdsFor(req));
     res.json(rows.map(withFileUrls));
   } catch (error: any) {
     console.error("Failed to fetch risk assessments:", error);
@@ -47,6 +63,7 @@ export const getAllRiskAssessments = async (_req: Request, res: Response) => {
   }
 };
 
+// By-id access is site-checked by router.param("id", ...) in the router.
 export const getRiskAssessment = async (req: Request, res: Response) => {
   try {
     const row = await getRiskAssessmentById(Number(req.params.id));
@@ -60,12 +77,39 @@ export const getRiskAssessment = async (req: Request, res: Response) => {
 
 export const editRiskAssessment = async (req: Request, res: Response) => {
   try {
-    const updated = await updateRiskAssessment(Number(req.params.id), req.body);
+    // Files are only ever set by the upload endpoints, and linkedSite is
+    // always derived from siteId, so none of these are accepted as-is.
+    const {
+      companyLogoBlobName,
+      companyLogoFileName,
+      companyLogoSize,
+      companyLogoMimeType,
+      pdfBlobName,
+      pdfFileName,
+      pdfSize,
+      pdfMimeType,
+      linkedSite,
+      ...safe
+    } = req.body;
+
+    const updates: Record<string, any> = { ...safe };
+
+    if (safe.siteId) {
+      const site = await resolveSite({ siteId: safe.siteId });
+      updates.siteId = site.id;
+      updates.linkedSite = site.name;
+    } else {
+      delete updates.siteId;
+    }
+
+    const updated = await updateRiskAssessment(Number(req.params.id), updates);
     if (!updated) return res.status(404).json({ message: "Risk assessment not found" });
     res.json(withFileUrls(updated));
   } catch (error: any) {
     console.error("Failed to update risk assessment:", error);
-    res.status(500).json({ message: error.message || "Failed to update risk assessment" });
+    res
+      .status(error.status ?? 500)
+      .json({ message: error.message || "Failed to update risk assessment" });
   }
 };
 

@@ -37,8 +37,14 @@ const getLegalAppointmentById = async (id) => {
     return result.rows[0];
 };
 exports.getLegalAppointmentById = getLegalAppointmentById;
-const getLegalAppointments = async () => {
-    const result = await db_1.default.query("SELECT * FROM legal_appointments ORDER BY id DESC");
+/**
+ * siteIds undefined  -> every appointment (RSS staff)
+ * siteIds number[]   -> only those sites (clients etc.)
+ */
+const getLegalAppointments = async (siteIds) => {
+    const result = siteIds
+        ? await db_1.default.query("SELECT * FROM legal_appointments WHERE site_id = ANY($1::int[]) ORDER BY id DESC", [siteIds])
+        : await db_1.default.query("SELECT * FROM legal_appointments ORDER BY id DESC");
     return result.rows;
 };
 exports.getLegalAppointments = getLegalAppointments;
