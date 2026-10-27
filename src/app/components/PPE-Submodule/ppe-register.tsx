@@ -46,13 +46,26 @@ function authHeaders(): Record<string, string> {
   }
 }
 
+// Turns an HTTP failure into a message a person can act on.
+function httpErrorMessage(status: number, what: string): string {
+  if (status === 401) return `Your session has expired. Please log in again.`;
+  if (status === 403) return `You don't have permission to access ${what}.`;
+  return `Failed to load ${what} (HTTP ${status}).`;
+}
+
 export function PPERegister({ employeeId }: { employeeId?: string }) {
   const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
   const { dismissAlert } = useAlerts();
   const { user } = useAuth();
-  // Clients get a read-only view of their own site's PPE issue log.
-  // The employee list and the PPE catalogue (RSS stock) are staff-only.
+
+  // The backend only lets two roles into /ppe:
+  //   rss_staff : full access (issue, delete, catalogue, employee list)
+  //   client    : read-only view of their own site's issue log
+  // Any other role (inspector, first_aider, ...) is refused with 403, so we
+  // don't fire requests for them; we show a clear message instead.
+  const isStaff = user?.role === "rss_staff";
   const isClient = user?.role === "client";
+  const hasAccess = isStaff || isClient;
 
   const [transactions, setTransactions] = useState<PPETransaction[]>([]);
   const [employees, setEmployees] = useState<EmployeeOption[]>([]);
@@ -60,6 +73,9 @@ export function PPERegister({ employeeId }: { employeeId?: string }) {
 
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  // Non-blocking: the register loaded but staff-only extras (employees /
+  // catalogue) did not, so "Issue PPE" is unavailable.
+  const [partialWarning, setPartialWarning] = useState<string | null>(null);
 
   const [showIssueModal, setShowIssueModal] = useState(false);
   const [showCatalogue, setShowCatalogue] = useState(false);
@@ -73,22 +89,49 @@ export function PPERegister({ employeeId }: { employeeId?: string }) {
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
+  // Wait until the logged-in user (and therefore the role) is known.
+  // Running this with [] fires before auth resolves, which made staff-only
+  // requests go out for non-staff users and come back 403.
   useEffect(() => {
+    if (!user) return; // auth still resolving; keep the spinner
+    if (!hasAccess) {
+      setIsLoading(false);
+      return;
+    }
     fetchAll();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.role]);
 
   const fetchAll = async () => {
     setIsLoading(true);
     setLoadError(null);
+    setPartialWarning(null);
     try {
-      await Promise.all([
-        fetchTransactions(),
-        ...(isClient ? [] : [fetchEmployees(), fetchCatalogueItems()]),
-      ]);
-    } catch (error) {
+      // The issue log is the only thing the page can't work without.
+      await fetchTransactions();
+
+      // Employees + catalogue are extras for staff. If one fails it must not
+      // blank the whole register, so use allSettled rather than all.
+      if (isStaff) {
+        const results = await Promise.allSettled([
+          fetchEmployees(),
+          fetchCatalogueItems(),
+        ]);
+        const failed = results.filter(
+          (r): r is PromiseRejectedResult => r.status === "rejected",
+        );
+        failed.forEach((r) => console.error("Secondary load failed:", r.reason));
+        if (failed.length > 0) {
+          setPartialWarning(
+            `${failed[0].reason?.message || "Some data failed to load"}. Issuing PPE may be unavailable.`,
+          );
+        }
+      }
+    } catch (error: any) {
       console.error("Error loading PPE register:", error);
       setLoadError(
-        "Couldn't load the PPE register. Check your connection and try again.",
+        error?.message ||
+          "Couldn't load the PPE register. Check your connection and try again.",
       );
     } finally {
       setIsLoading(false);
@@ -96,8 +139,11 @@ export function PPERegister({ employeeId }: { employeeId?: string }) {
   };
 
   const fetchTransactions = async () => {
-    const response = await fetch(`${API_URL}/ppe/transactions`);
-    if (!response.ok) throw new Error("Failed to fetch PPE transactions");
+    const response = await fetch(`${API_URL}/ppe/transactions`, {
+      headers: authHeaders(),
+    });
+    if (!response.ok)
+      throw new Error(httpErrorMessage(response.status, "the PPE register"));
     const data = await response.json();
 
     const formatted: PPETransaction[] = data.map((t: any) => ({
@@ -120,14 +166,16 @@ export function PPERegister({ employeeId }: { employeeId?: string }) {
   };
 
   const fetchEmployees = async () => {
-    const response = await fetch(`${API_URL}/employees`);
-    if (!response.ok) throw new Error("Failed to fetch employees");
+    const response = await fetch(`${API_URL}/employees`, {
+      headers: authHeaders(),
+    });
+    if (!response.ok)
+      throw new Error(httpErrorMessage(response.status, "the employee list"));
     const data = await response.json();
 
-    // NOTE: employeeNumber is included here (in addition to the existing
-    // fields) so the register can be filtered by the employee's number
-    // (e.g. "EMP001") from the employee profile page, even though PPE
-    // transactions themselves only store the employee's name.
+    // employeeNumber is included so the register can be filtered by the
+    // employee's number (e.g. "EMP001") from the employee profile page,
+    // even though PPE transactions only store the employee's name.
     const formatted: EmployeeOption[] = data
       .filter((e: any) => e.status !== "Inactive")
       .map((e: any) => ({
@@ -142,8 +190,11 @@ export function PPERegister({ employeeId }: { employeeId?: string }) {
   };
 
   const fetchCatalogueItems = async () => {
-    const response = await fetch(`${API_URL}/ppe/catalogue`);
-    if (!response.ok) throw new Error("Failed to fetch PPE catalogue");
+    const response = await fetch(`${API_URL}/ppe/catalogue`, {
+      headers: authHeaders(),
+    });
+    if (!response.ok)
+      throw new Error(httpErrorMessage(response.status, "the PPE catalogue"));
     const data = await response.json();
 
     const formatted: PPECatalogueItem[] = data.map((item: any) => ({
@@ -164,7 +215,7 @@ export function PPERegister({ employeeId }: { employeeId?: string }) {
   }) => {
     const response = await fetch(`${API_URL}/ppe/transactions`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...authHeaders() },
       body: JSON.stringify({
         employeeId: data.employee.id,
         employeeName: data.employee.name,
@@ -226,11 +277,12 @@ export function PPERegister({ employeeId }: { employeeId?: string }) {
 
   // Staff build these filters from the employee list / catalogue.
   // Clients can't load those, so they come from the issue records instead.
+  // If staff extras failed to load, fall back to the issue records too.
   const sites = [
     "All Sites",
     ...(Array.from(
       new Set(
-        (isClient
+        (isClient || employees.length === 0
           ? transactions.map((t) => t.siteLocation)
           : employees.map((e) => e.siteLocation)
         ).filter(Boolean),
@@ -242,7 +294,7 @@ export function PPERegister({ employeeId }: { employeeId?: string }) {
     "All PPE Types",
     ...Array.from(
       new Set(
-        isClient
+        isClient || catalogueItems.length === 0
           ? transactions.map((t) => t.ppeCategory)
           : catalogueItems.map((c) => c.category),
       ),
@@ -319,7 +371,7 @@ export function PPERegister({ employeeId }: { employeeId?: string }) {
   };
 
   const DeleteButton = ({ t }: { t: PPETransaction }) =>
-    isClient ? null : (
+    isStaff ? (
       <button
         onClick={() => openDeleteConfirm(t)}
         className="p-2 rounded-lg transition-colors hover:bg-red-500/10"
@@ -332,7 +384,27 @@ export function PPERegister({ employeeId }: { employeeId?: string }) {
           style={{ color: "var(--compliance-danger)" }}
         />
       </button>
+    ) : null;
+
+  // Roles the backend refuses (inspector, first_aider, ...).
+  if (user && !hasAccess) {
+    return (
+      <div
+        className="h-full flex items-center justify-center"
+        style={{ backgroundColor: "#0F172A" }}
+      >
+        <div className="flex flex-col items-center gap-3 text-center px-8">
+          <ShieldCheck className="size-8" style={{ color: "#94A3B8" }} />
+          <h2 className="text-xl" style={{ color: "#F8FAFC" }}>
+            PPE Register is not available for your role
+          </h2>
+          <p className="text-sm" style={{ color: "#94A3B8" }}>
+            Contact an RSS administrator if you need access.
+          </p>
+        </div>
+      </div>
     );
+  }
 
   return (
     <div
@@ -369,7 +441,7 @@ export function PPERegister({ employeeId }: { employeeId?: string }) {
                     </p>
                   </div>
                 </div>
-                {!isClient && (
+                {isStaff && (
                   <div className="flex gap-3">
                     <button
                       onClick={() => setShowCatalogue(true)}
@@ -396,6 +468,26 @@ export function PPERegister({ employeeId }: { employeeId?: string }) {
                   </div>
                 )}
               </div>
+
+              {partialWarning && (
+                <div
+                  className="mb-6 px-4 py-3 rounded-lg text-sm flex items-center gap-2"
+                  style={{
+                    backgroundColor: "rgba(245, 158, 11, 0.15)",
+                    color: "var(--compliance-warning)",
+                  }}
+                >
+                  <AlertTriangle className="size-4 flex-shrink-0" />
+                  <span className="flex-1">{partialWarning}</span>
+                  <button
+                    onClick={fetchAll}
+                    className="underline font-medium"
+                    style={{ color: "var(--compliance-warning)" }}
+                  >
+                    Retry
+                  </button>
+                </div>
+              )}
 
               <div className="flex items-center gap-3 mb-6">
                 <Filter className="size-5" style={{ color: "#94A3B8" }} />
@@ -636,49 +728,24 @@ export function PPERegister({ employeeId }: { employeeId?: string }) {
                           borderBottom: "1px solid rgba(255, 255, 255, 0.1)",
                         }}
                       >
-                        <th
-                          className="text-left px-6 py-3 text-xs font-medium uppercase tracking-wider"
-                          style={thStyle}
-                        >
-                          Employee
-                        </th>
-                        <th
-                          className="text-left px-6 py-3 text-xs font-medium uppercase tracking-wider"
-                          style={thStyle}
-                        >
-                          Site
-                        </th>
-                        <th
-                          className="text-left px-6 py-3 text-xs font-medium uppercase tracking-wider"
-                          style={thStyle}
-                        >
-                          PPE Item
-                        </th>
-                        <th
-                          className="text-left px-6 py-3 text-xs font-medium uppercase tracking-wider"
-                          style={thStyle}
-                        >
-                          Issue Date
-                        </th>
-                        <th
-                          className="text-left px-6 py-3 text-xs font-medium uppercase tracking-wider"
-                          style={thStyle}
-                        >
-                          Condition
-                        </th>
-                        <th
-                          className="text-left px-6 py-3 text-xs font-medium uppercase tracking-wider"
-                          style={thStyle}
-                        >
-                          Replacement Due
-                        </th>
-                        <th
-                          className="text-left px-6 py-3 text-xs font-medium uppercase tracking-wider"
-                          style={thStyle}
-                        >
-                          Sign-Off
-                        </th>
-                        {!isClient && (
+                        {[
+                          "Employee",
+                          "Site",
+                          "PPE Item",
+                          "Issue Date",
+                          "Condition",
+                          "Replacement Due",
+                          "Sign-Off",
+                        ].map((label) => (
+                          <th
+                            key={label}
+                            className="text-left px-6 py-3 text-xs font-medium uppercase tracking-wider"
+                            style={thStyle}
+                          >
+                            {label}
+                          </th>
+                        ))}
+                        {isStaff && (
                           <th
                             className="text-center px-6 py-3 text-xs font-medium uppercase tracking-wider"
                             style={thStyle}
@@ -692,7 +759,7 @@ export function PPERegister({ employeeId }: { employeeId?: string }) {
                       {filteredTransactions.length === 0 ? (
                         <tr>
                           <td
-                            colSpan={isClient ? 7 : 8}
+                            colSpan={isStaff ? 8 : 7}
                             className="text-center py-10 text-sm"
                             style={{ color: "#94A3B8" }}
                           >
@@ -818,7 +885,7 @@ export function PPERegister({ employeeId }: { employeeId?: string }) {
                                   </span>
                                 )}
                               </td>
-                              {!isClient && (
+                              {isStaff && (
                                 <td className="px-6 py-4">
                                   <div className="flex items-center justify-center">
                                     <DeleteButton t={t} />
@@ -838,7 +905,7 @@ export function PPERegister({ employeeId }: { employeeId?: string }) {
       </div>
 
       {/* Staff-only: issuing PPE and managing the catalogue (RSS stock) */}
-      {!isClient && (
+      {isStaff && (
         <>
           <IssuePPEModal
             isOpen={showIssueModal}
@@ -857,7 +924,7 @@ export function PPERegister({ employeeId }: { employeeId?: string }) {
       )}
 
       {/* Delete confirmation */}
-      {!isClient && deleteTarget && (
+      {isStaff && deleteTarget && (
         <>
           <div
             className="fixed inset-0 bg-black bg-opacity-50 z-40"

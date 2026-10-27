@@ -4,7 +4,6 @@ import {
   Mail,
   Phone,
   MapPin,
-  FileText,
   Edit,
   Download,
   CheckCircle2,
@@ -18,7 +17,7 @@ import { LegalAppointments } from "./legal-appointments";
 import { MedicalSurveillanceEnhanced } from "./medical-surveillance-enhanced";
 import { PPERegister } from "../components/PPE-Submodule/ppe-register";
 import { useRecycleBin } from "../contexts/recycle-bin-context";
-import { getSites } from "../../api/siteAPI"; 
+import { getSites } from "../../api/siteAPI";
 
 interface EmployeeProfileProps {
   employee: any;
@@ -26,13 +25,7 @@ interface EmployeeProfileProps {
   onEmployeeUpdate?: (updated: any) => void;
 }
 
-type TabType =
-  | "personal"
-  | "appointments"
-  | "training"
-  | "medical"
-  | "ppe"
-  | "documents";
+type TabType = "personal" | "appointments" | "training" | "medical" | "ppe";
 type EditTabType = "personal" | "contact" | "employment" | "emergency";
 
 const tabs = [
@@ -41,7 +34,6 @@ const tabs = [
   { id: "training" as TabType, label: "Training Matrix" },
   { id: "medical" as TabType, label: "Medical Surveillance" },
   { id: "ppe" as TabType, label: "PPE Issued" },
-  { id: "documents" as TabType, label: "Scanned Documents" },
 ];
 
 const editTabs: { id: EditTabType; label: string }[] = [
@@ -333,15 +325,33 @@ export function EmployeeProfile({
     setIsSaving(true);
     setSaveError(null);
     try {
-      // Empty strings are invalid for date columns — send null instead
+      const contractEnd =
+        editForm.employment_type === "Contract" && editForm.contract_end_date
+          ? editForm.contract_end_date
+          : null;
+
+      // Keys must match the backend's updateEmployee fieldMap (camelCase)
       const payload = {
-        ...editForm,
-        date_of_birth: editForm.date_of_birth || null,
-        start_date: editForm.start_date || null,
-        contract_end_date:
-          editForm.employment_type === "Contract" && editForm.contract_end_date
-            ? editForm.contract_end_date
-            : null,
+        fullName: editForm.full_name,
+        dateOfBirth: editForm.date_of_birth || null,
+        gender: editForm.gender,
+        nationality: editForm.nationality,
+        email: editForm.email,
+        phone: editForm.phone,
+        mobile: editForm.mobile,
+        address: editForm.address,
+        reportingManager: editForm.reporting_manager,
+        jobTitle: editForm.job_title,
+        siteLocation: editForm.site_location,
+        employmentType: editForm.employment_type,
+        complianceStatus: editForm.compliance_status,
+        salaryGrade: editForm.salary_grade,
+        startDate: editForm.start_date || null,
+        contractEndDate: contractEnd,
+        workSchedule: editForm.work_schedule,
+        emergencyContact: editForm.emergency_contact,
+        relationship: editForm.relationship,
+        emergencyPhone: editForm.emergency_phone,
       };
 
       const response = await fetch(`${API_URL}/employees/${localEmployee.id}`, {
@@ -357,10 +367,9 @@ export function EmployeeProfile({
 
       const saved = await response.json().catch(() => ({}));
 
-      // Start from what the user submitted, then overlay the server response
       const submitted = formToLocal(localEmployee, {
         ...editForm,
-        contract_end_date: payload.contract_end_date ?? "",
+        contract_end_date: contractEnd ?? "",
       });
       const updated = mergeSaved(saved, submitted);
 
@@ -373,7 +382,6 @@ export function EmployeeProfile({
       setIsSaving(false);
     }
   };
-
   const handleDeactivate = async () => {
     setIsActioning(true);
     setActionError(null);
@@ -756,9 +764,6 @@ export function EmployeeProfile({
         )}
         {activeTab === "ppe" && (
           <PPERegister employeeId={localEmployee.employeeId} />
-        )}
-        {activeTab === "documents" && (
-          <PlaceholderTab title="Scanned Documents" />
         )}
       </div>
 
@@ -1515,28 +1520,6 @@ function InfoField({
         {label}
       </p>
       <p style={{ color: "var(--grey-900)" }}>{value || "N/A"}</p>
-    </div>
-  );
-}
-
-function PlaceholderTab({ title }: { title: string }) {
-  return (
-    <div
-      className="rounded-lg border p-12"
-      style={{ backgroundColor: "white", borderColor: "var(--grey-200)" }}
-    >
-      <div className="text-center">
-        <FileText
-          className="size-12 mx-auto mb-4"
-          style={{ color: "var(--grey-400)" }}
-        />
-        <h2 className="text-2xl mb-2" style={{ color: "var(--grey-700)" }}>
-          {title}
-        </h2>
-        <p style={{ color: "var(--grey-500)" }}>
-          This section is under development
-        </p>
-      </div>
     </div>
   );
 }

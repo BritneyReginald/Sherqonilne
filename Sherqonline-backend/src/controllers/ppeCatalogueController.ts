@@ -9,25 +9,50 @@ import {
   CatalogueItemInput,
 } from "../models/ppeCatalogue";
 
+function parseSizes(sizes: any): string[] | null {
+  if (!sizes) return null;
+  if (Array.isArray(sizes)) return sizes;
+  return String(sizes)
+    .split(",")
+    .map((s: string) => s.trim())
+    .filter(Boolean);
+}
+
+// Used for POST: missing fields get sensible defaults.
 function parseCatalogueBody(body: any): CatalogueItemInput {
   return {
     itemName: body.itemName,
     category: body.category,
     supplier: body.supplier || null,
-    requiresSize:
-      body.requiresSize === true || body.requiresSize === "true",
-    sizes: body.sizes
-      ? Array.isArray(body.sizes)
-        ? body.sizes
-        : String(body.sizes)
-            .split(",")
-            .map((s: string) => s.trim())
-            .filter(Boolean)
-      : null,
+    requiresSize: body.requiresSize === true || body.requiresSize === "true",
+    sizes: parseSizes(body.sizes),
     replacementDays: Number(body.replacementDays) || 180,
     stockLevel: Number(body.stockLevel) || 0,
     minStockLevel: Number(body.minStockLevel) || 0,
   };
+}
+
+// Used for PATCH: only fields actually present in the body are returned, so a
+// partial update can never overwrite untouched columns with defaults.
+function parseCatalogueUpdate(body: any): Partial<CatalogueItemInput> {
+  const out: Partial<CatalogueItemInput> = {};
+
+  if (body.itemName !== undefined) out.itemName = body.itemName;
+  if (body.category !== undefined) out.category = body.category;
+  if (body.supplier !== undefined) out.supplier = body.supplier || null;
+  if (body.requiresSize !== undefined) {
+    out.requiresSize = body.requiresSize === true || body.requiresSize === "true";
+  }
+  if (body.sizes !== undefined) out.sizes = parseSizes(body.sizes);
+  if (body.replacementDays !== undefined) {
+    out.replacementDays = Number(body.replacementDays) || 180;
+  }
+  if (body.stockLevel !== undefined) out.stockLevel = Number(body.stockLevel) || 0;
+  if (body.minStockLevel !== undefined) {
+    out.minStockLevel = Number(body.minStockLevel) || 0;
+  }
+
+  return out;
 }
 
 export const addCatalogueItem = async (
@@ -86,7 +111,7 @@ export const editCatalogueItem = async (
   try {
     const item = await updateCatalogueItem(
       Number(req.params.id),
-      parseCatalogueBody(req.body),
+      parseCatalogueUpdate(req.body),
     );
     if (!item) {
       res.status(404).json({ message: "Catalogue item not found" });

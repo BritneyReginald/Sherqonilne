@@ -1,16 +1,18 @@
 import { useEffect, useState } from "react";
 import {
-  Plus,
   Key,
   MoreVertical,
   KeyRound,
   MapPinned,
   UserX,
   Trash2,
+  Eye,
+  EyeOff,
+  Copy,
+  Check,
 } from "lucide-react";
 import { getSites } from "../../api/siteAPI";
 import {
-  createInspector,
   getInspectors,
   resetInspectorPassword,
   updateInspectorSites,
@@ -92,6 +94,7 @@ export function SecurityPrivacy() {
     </div>
   );
 }
+
 function PersonnelCredentialsTable({
   role,
   config,
@@ -110,8 +113,13 @@ function PersonnelCredentialsTable({
     left: number;
   } | null>(null);
 
+  // Passwords stay masked until someone clicks the eye icon on that row.
+  const [revealedIds, setRevealedIds] = useState<Set<number>>(new Set());
+  const [copiedId, setCopiedId] = useState<number | null>(null);
+
   useEffect(() => {
     loadPeople();
+    setRevealedIds(new Set()); // re-mask when switching tabs
   }, [role]); // re-fetch whenever the active tab/role changes
 
   useEffect(() => {
@@ -148,6 +156,27 @@ function PersonnelCredentialsTable({
 
     return () => window.removeEventListener("click", handleClick);
   }, []);
+
+  function toggleReveal(id: number) {
+    setRevealedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  async function handleCopyPassword(person: any) {
+    if (!person.password) return;
+    try {
+      await navigator.clipboard.writeText(person.password);
+      setCopiedId(person.id);
+      setTimeout(() => setCopiedId((cur) => (cur === person.id ? null : cur)), 2000);
+    } catch (err) {
+      console.error(err);
+      alert("Couldn't copy to the clipboard.");
+    }
+  }
 
   async function handleReset(person: any) {
     const password = prompt(`Enter a new password for ${person.fullName}:`);
@@ -243,6 +272,7 @@ function PersonnelCredentialsTable({
               <tr className="border-b">
                 <th className="text-left py-3">Name</th>
                 <th className="text-left py-3">Username</th>
+                <th className="text-left py-3">Password</th>
                 <th className="text-left py-3">Employee No.</th>
                 <th className="text-left py-3">Assigned Sites</th>
                 <th className="text-left py-3">Status</th>
@@ -253,136 +283,185 @@ function PersonnelCredentialsTable({
             <tbody>
               {people.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="py-6 text-center">
+                  <td colSpan={7} className="py-6 text-center">
                     No {config.label.toLowerCase()}s found.
                   </td>
                 </tr>
               ) : (
-                people.map((person) => (
-                  <tr key={person.id} className="border-b">
-                    <td className="py-3">
-                      {person.fullName} {person.surname}
-                    </td>
+                people.map((person) => {
+                  const revealed = revealedIds.has(person.id);
+                  const hasPassword = !!person.password;
 
-                    <td>{person.username}</td>
+                  return (
+                    <tr key={person.id} className="border-b">
+                      <td className="py-3">
+                        {person.fullName} {person.surname}
+                      </td>
 
-                    <td>{person.employeeNumber}</td>
+                      <td>{person.username}</td>
 
-                    <td>{person.sites.join(", ")}</td>
-
-                    <td>
-                      <span
-                        className={`px-2 py-1 rounded text-sm ${
-                          person.status === "active"
-                            ? "bg-green-100 text-green-700"
-                            : "bg-red-100 text-red-700"
-                        }`}
-                      >
-                        {person.status}
-                      </span>
-                    </td>
-
-                    <td className="relative">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-
-                          if (openMenu === person.id) {
-                            setOpenMenu(null);
-                            return;
-                          }
-
-                          const rect = e.currentTarget.getBoundingClientRect();
-                          const menuHeight = 200; // approx height of the 4-item dropdown
-                          const spaceBelow = window.innerHeight - rect.bottom;
-
-                          const top =
-                            spaceBelow >= menuHeight
-                              ? rect.bottom + window.scrollY + 4 // enough room — open downward
-                              : rect.top + window.scrollY - menuHeight - 4; // not enough — open upward instead
-
-                          setMenuPosition({
-                            top,
-                            left: rect.right + window.scrollX - 224,
-                          });
-                          setOpenMenu(person.id);
-                        }}
-                      >
-                        <MoreVertical size={18} />
-                      </button>
-
-                      {openMenu === person.id &&
-                        menuPosition &&
-                        createPortal(
-                          <div
-                            className="fixed w-56 bg-white border rounded-xl shadow-lg z-50 overflow-hidden"
-                            style={{
-                              top: menuPosition.top,
-                              left: menuPosition.left,
-                            }}
-                            onClick={(e) => e.stopPropagation()}
+                      <td>
+                        {hasPassword ? (
+                          <div className="flex items-center gap-2">
+                            <span className="font-mono text-sm select-all">
+                              {revealed ? person.password : "••••••••"}
+                            </span>
+                            <button
+                              onClick={() => toggleReveal(person.id)}
+                              className="p-1 rounded hover:bg-gray-100 text-gray-500"
+                              aria-label={
+                                revealed ? "Hide password" : "Show password"
+                              }
+                              title={revealed ? "Hide password" : "Show password"}
+                            >
+                              {revealed ? (
+                                <EyeOff size={16} />
+                              ) : (
+                                <Eye size={16} />
+                              )}
+                            </button>
+                            <button
+                              onClick={() => handleCopyPassword(person)}
+                              className="p-1 rounded hover:bg-gray-100 text-gray-500"
+                              aria-label="Copy password"
+                              title="Copy password"
+                            >
+                              {copiedId === person.id ? (
+                                <Check size={16} className="text-green-600" />
+                              ) : (
+                                <Copy size={16} />
+                              )}
+                            </button>
+                          </div>
+                        ) : (
+                          <span
+                            className="text-sm text-gray-400"
+                            title="The stored password couldn't be read. Use Reset Password to set a new one."
                           >
-                            <button
-                              onClick={() => {
-                                setOpenMenu(null);
-                                handleReset(person);
-                              }}
-                              className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 text-gray-600"
-                            >
-                              <KeyRound size={18} />
-                              Reset Password
-                            </button>
-
-                            <button
-                              onClick={() => {
-                                setOpenMenu(null);
-                                setEditingPerson(person);
-                                const selected = sites
-                                  .filter((site) =>
-                                    person.sites.includes(site.name),
-                                  )
-                                  .map((site) => site.id);
-                                setSelectedSites(selected);
-                              }}
-                              className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 text-gray-600"
-                            >
-                              <MapPinned size={18} />
-                              Edit Sites
-                            </button>
-
-                            <button
-                              onClick={() => {
-                                setOpenMenu(null);
-                                handleToggleStatus(person);
-                              }}
-                              className={`w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 ${
-                                person.status === "active"
-                                  ? "text-orange-600"
-                                  : "text-green-600"
-                              }`}
-                            >
-                              <UserX size={18} />
-                              {person.status === "active"
-                                ? "Disable Account"
-                                : "Enable Account"}
-                            </button>
-
-                            <button
-                              onClick={() => {
-                                setOpenMenu(null);
-                                handleDelete(person);
-                              }}
-                              className="w-full flex items-center gap-3 px-4 py-3 hover:bg-red-50 text-red-600"
-                            >
-                              <Trash2 size={18} />
-                              Delete {config.label}
-                            </button>
-                          </div>,
-                          document.body,
+                            Not available
+                          </span>
                         )}
-                    </td>
-                  </tr>
-                ))
+                      </td>
+
+                      <td>{person.employeeNumber}</td>
+
+                      <td>{(person.sites ?? []).join(", ")}</td>
+
+                      <td>
+                        <span
+                          className={`px-2 py-1 rounded text-sm ${
+                            person.status === "active"
+                              ? "bg-green-100 text-green-700"
+                              : "bg-red-100 text-red-700"
+                          }`}
+                        >
+                          {person.status}
+                        </span>
+                      </td>
+
+                      <td className="relative">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+
+                            if (openMenu === person.id) {
+                              setOpenMenu(null);
+                              return;
+                            }
+
+                            const rect =
+                              e.currentTarget.getBoundingClientRect();
+                            const menuHeight = 200; // approx height of the 4-item dropdown
+                            const spaceBelow = window.innerHeight - rect.bottom;
+
+                            const top =
+                              spaceBelow >= menuHeight
+                                ? rect.bottom + window.scrollY + 4 // enough room — open downward
+                                : rect.top + window.scrollY - menuHeight - 4; // not enough — open upward instead
+
+                            setMenuPosition({
+                              top,
+                              left: rect.right + window.scrollX - 224,
+                            });
+                            setOpenMenu(person.id);
+                          }}
+                        >
+                          <MoreVertical size={18} />
+                        </button>
+
+                        {openMenu === person.id &&
+                          menuPosition &&
+                          createPortal(
+                            <div
+                              className="fixed w-56 bg-white border rounded-xl shadow-lg z-50 overflow-hidden"
+                              style={{
+                                top: menuPosition.top,
+                                left: menuPosition.left,
+                              }}
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <button
+                                onClick={() => {
+                                  setOpenMenu(null);
+                                  handleReset(person);
+                                }}
+                                className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 text-gray-600"
+                              >
+                                <KeyRound size={18} />
+                                Reset Password
+                              </button>
+
+                              <button
+                                onClick={() => {
+                                  setOpenMenu(null);
+                                  setEditingPerson(person);
+                                  const selected = sites
+                                    .filter((site) =>
+                                      (person.sites ?? []).includes(site.name),
+                                    )
+                                    .map((site) => site.id);
+                                  setSelectedSites(selected);
+                                }}
+                                className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 text-gray-600"
+                              >
+                                <MapPinned size={18} />
+                                Edit Sites
+                              </button>
+
+                              <button
+                                onClick={() => {
+                                  setOpenMenu(null);
+                                  handleToggleStatus(person);
+                                }}
+                                className={`w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 ${
+                                  person.status === "active"
+                                    ? "text-orange-600"
+                                    : "text-green-600"
+                                }`}
+                              >
+                                <UserX size={18} />
+                                {person.status === "active"
+                                  ? "Disable Account"
+                                  : "Enable Account"}
+                              </button>
+
+                              <button
+                                onClick={() => {
+                                  setOpenMenu(null);
+                                  handleDelete(person);
+                                }}
+                                className="w-full flex items-center gap-3 px-4 py-3 hover:bg-red-50 text-red-600"
+                              >
+                                <Trash2 size={18} />
+                                Delete {config.label}
+                              </button>
+                            </div>,
+                            document.body,
+                          )}
+                      </td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>

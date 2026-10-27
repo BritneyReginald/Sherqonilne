@@ -1,11 +1,28 @@
-import { useEffect, useState } from "react";
-import { getSites } from "../../api/siteAPI";
+import { useEffect, useMemo, useState } from "react";
 import { createInspector, createFirstAider } from "../../api/adminAPI";
-import { Copy, Check } from "lucide-react";
+import { Copy, Check, Loader2, AlertTriangle } from "lucide-react";
 
-interface Site {
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
+
+function authHeaders(): Record<string, string> {
+  try {
+    const stored = localStorage.getItem("sherq_auth");
+    const token = stored ? JSON.parse(stored).token : null;
+    return token ? { Authorization: `Bearer ${token}` } : {};
+  } catch {
+    return {};
+  }
+}
+
+// Raw row from GET /employees (snake_case, straight from the DB)
+interface EmployeeRow {
   id: number;
-  name: string;
+  employee_number: string | null;
+  full_name: string | null;
+  job_title: string | null;
+  site_id: number | null;
+  site_location: string | null;
+  status: string | null;
 }
 
 type Role = "inspector" | "first_aider";
@@ -19,6 +36,22 @@ const ROLE_CREATE: Record<Role, (data: any) => Promise<any>> = {
   inspector: createInspector,
   first_aider: createFirstAider,
 };
+
+// Employees only store one "full_name" string, but the account profile needs
+// a name and a surname. The last word becomes the surname and the rest the
+// name (a single word is used for both, since both are required).
+// If your usernames are built from these, adjust the split here.
+function splitName(full: string): { fullName: string; surname: string } {
+  const parts = full.trim().split(/\s+/).filter(Boolean);
+  if (parts.length <= 1) {
+    const only = parts[0] ?? "";
+    return { fullName: only, surname: only };
+  }
+  return {
+    fullName: parts.slice(0, -1).join(" "),
+    surname: parts[parts.length - 1],
+  };
+}
 
 // Pulls the server's error message out of whatever shape the API layer throws
 // (axios-style, a fetch wrapper's custom error, or a plain Error).
@@ -42,12 +75,11 @@ function isConflict(err: any): boolean {
 }
 
 export function OnboardingForm({ role }: { role: Role }) {
-  const [employeeNumber, setEmployeeNumber] = useState("");
-  const [fullName, setFullName] = useState("");
-  const [surname, setSurname] = useState("");
+  const [employees, setEmployees] = useState<EmployeeRow[]>([]);
+  const [employeesLoading, setEmployeesLoading] = useState(true);
+  const [employeesError, setEmployeesError] = useState<string | null>(null);
 
-  const [sites, setSites] = useState<Site[]>([]);
-  const [selectedSites, setSelectedSites] = useState<number[]>([]);
+  const [selectedEmployeeId, setSelectedEmployeeId] = useState("");
 
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -58,44 +90,66 @@ export function OnboardingForm({ role }: { role: Role }) {
   } | null>(null);
 
   useEffect(() => {
-    loadSites();
+    loadEmployees();
   }, []);
 
   // Reset the form whenever the role tab changes, so leftover state
   // from "Create Inspector" doesn't bleed into "Create First Aider"
   useEffect(() => {
-    setEmployeeNumber("");
-    setFullName("");
-    setSurname("");
-    setSelectedSites([]);
+    setSelectedEmployeeId("");
     setGeneratedCredentials(null);
   }, [role]);
 
-  async function loadSites() {
+  async function loadEmployees() {
+    setEmployeesLoading(true);
+    setEmployeesError(null);
     try {
-      const data = await getSites();
-      setSites(data);
-    } catch (err) {
+      const res = await fetch(`${API_URL}/employees`, {
+        headers: authHeaders(),
+      });
+      if (!res.ok) {
+        throw new Error(
+          res.status === 403
+            ? "You don't have permission to view employees."
+            : `Failed to load employees (HTTP ${res.status}).`,
+        );
+      }
+      const data: EmployeeRow[] = await res.json();
+      setEmployees(
+        data
+          .filter((e) => e.status !== "Inactive" && e.employee_number)
+          .sort((a, b) => (a.full_name ?? "").localeCompare(b.full_name ?? "")),
+      );
+    } catch (err: any) {
       console.error(err);
+      setEmployeesError(err?.message ?? "Failed to load employees.");
+    } finally {
+      setEmployeesLoading(false);
     }
   }
 
-  function toggleSite(siteId: number) {
-    setSelectedSites((prev) =>
-      prev.includes(siteId)
-        ? prev.filter((id) => id !== siteId)
-        : [...prev, siteId],
-    );
-  }
+  const selectedEmployee = useMemo(
+    () => employees.find((e) => String(e.id) === selectedEmployeeId) ?? null,
+    [employees, selectedEmployeeId],
+  );
+
+  const derivedName = selectedEmployee
+    ? splitName(selectedEmployee.full_name ?? "")
+    : null;
+
+  // Site comes from the employee record (set in Workforce), never typed here.
+  const employeeHasSite = !!selectedEmployee?.site_id;
 
   async function handleCreate() {
-    if (!employeeNumber.trim() || !fullName.trim() || !surname.trim()) {
-      alert("Please complete all required fields.");
+    if (!selectedEmployee || !derivedName) {
+      alert("Please select an employee.");
       return;
     }
 
-    if (selectedSites.length === 0) {
-      alert("Please assign at least one site.");
+    if (!selectedEmployee.site_id) {
+      alert(
+        "This employee has no site assigned. Assign a site to them in Workforce first.",
+      );
       return;
     }
 
@@ -103,10 +157,11 @@ export function OnboardingForm({ role }: { role: Role }) {
 
     try {
       const result = await ROLE_CREATE[role]({
-        employeeNumber: employeeNumber.trim(),
-        fullName,
-        surname,
-        siteIds: selectedSites,
+        employeeId: selectedEmployee.id,
+        employeeNumber: (selectedEmployee.employee_number ?? "").trim(),
+        fullName: derivedName.fullName,
+        surname: derivedName.surname,
+        siteIds: [selectedEmployee.site_id],
       });
 
       setGeneratedCredentials({
@@ -114,10 +169,7 @@ export function OnboardingForm({ role }: { role: Role }) {
         password: result.plainPassword,
       });
 
-      setEmployeeNumber("");
-      setFullName("");
-      setSurname("");
-      setSelectedSites([]);
+      setSelectedEmployeeId("");
     } catch (err) {
       console.error(err);
 
@@ -162,62 +214,108 @@ Password: ${generatedCredentials.password}`;
           Create {ROLE_LABEL[role]}
         </h2>
 
-        <div className="grid grid-cols-2 gap-5">
-          <div>
-            <label className="block mb-2 font-medium">Employee Number</label>
+        <div>
+          <label className="block mb-2 font-medium">Employee</label>
 
-            <input
-              className="w-full border rounded-lg p-3"
-              value={employeeNumber}
-              onChange={(e) => setEmployeeNumber(e.target.value)}
-            />
-          </div>
-
-          <div>
-            <label className="block mb-2 font-medium">Surname</label>
-
-            <input
-              className="w-full border rounded-lg p-3"
-              value={surname}
-              onChange={(e) => setSurname(e.target.value)}
-            />
-          </div>
-
-          <div className="col-span-2">
-            <label className="block mb-2 font-medium">Full Name</label>
-
-            <input
-              className="w-full border rounded-lg p-3"
-              value={fullName}
-              onChange={(e) => setFullName(e.target.value)}
-            />
-          </div>
-        </div>
-
-        <div className="mt-8">
-          <h3 className="font-semibold mb-3">Assign Sites</h3>
-
-          <div className="grid grid-cols-2 gap-3">
-            {sites.map((site) => (
-              <label
-                key={site.id}
-                className="border rounded-lg p-3 flex items-center gap-3 cursor-pointer hover:border-blue-500 transition"
+          {employeesLoading ? (
+            <div className="flex items-center gap-2 text-sm text-gray-500 py-3">
+              <Loader2 className="size-4 animate-spin" />
+              Loading employees…
+            </div>
+          ) : employeesError ? (
+            <div className="flex items-center gap-3 text-sm text-red-600 py-3">
+              <AlertTriangle className="size-4" />
+              <span>{employeesError}</span>
+              <button
+                onClick={loadEmployees}
+                className="underline font-medium"
               >
-                <input
-                  type="checkbox"
-                  checked={selectedSites.includes(site.id)}
-                  onChange={() => toggleSite(site.id)}
-                />
-
-                <span>{site.name}</span>
-              </label>
-            ))}
-          </div>
+                Retry
+              </button>
+            </div>
+          ) : (
+            <select
+              className="w-full border rounded-lg p-3 bg-white"
+              value={selectedEmployeeId}
+              onChange={(e) => setSelectedEmployeeId(e.target.value)}
+            >
+              <option value="">
+                {employees.length === 0
+                  ? "No registered employees found"
+                  : "Select an employee…"}
+              </option>
+              {employees.map((e) => (
+                <option key={e.id} value={String(e.id)}>
+                  {e.employee_number} — {e.full_name}
+                  {e.site_location ? ` (${e.site_location})` : " (no site)"}
+                </option>
+              ))}
+            </select>
+          )}
+          <p className="text-xs text-gray-500 mt-2">
+            Only employees registered in Workforce can be onboarded. Add them
+            there first if they're missing.
+          </p>
         </div>
+
+        {selectedEmployee && derivedName && (
+          <div className="mt-6 grid grid-cols-2 gap-5">
+            <div>
+              <p className="text-sm text-gray-500 mb-1">Employee Number</p>
+              <div className="border rounded-lg p-3 bg-gray-50">
+                {selectedEmployee.employee_number}
+              </div>
+            </div>
+            <div>
+              <p className="text-sm text-gray-500 mb-1">Job Title</p>
+              <div className="border rounded-lg p-3 bg-gray-50">
+                {selectedEmployee.job_title || "—"}
+              </div>
+            </div>
+            <div>
+              <p className="text-sm text-gray-500 mb-1">Full Name</p>
+              <div className="border rounded-lg p-3 bg-gray-50">
+                {derivedName.fullName}
+              </div>
+            </div>
+            <div>
+              <p className="text-sm text-gray-500 mb-1">Surname</p>
+              <div className="border rounded-lg p-3 bg-gray-50">
+                {derivedName.surname}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {selectedEmployee && (
+          <div className="mt-8">
+            <h3 className="font-semibold mb-3">Assigned Site</h3>
+            {employeeHasSite ? (
+              <div className="border rounded-lg p-3 bg-gray-50">
+                {selectedEmployee.site_location}
+                <span className="block text-xs text-gray-500 mt-1">
+                  Taken from the employee's record in Workforce.
+                </span>
+              </div>
+            ) : (
+              <div className="flex items-start gap-2 border border-amber-300 bg-amber-50 text-amber-800 rounded-lg p-3 text-sm">
+                <AlertTriangle className="size-4 mt-0.5 shrink-0" />
+                <span>
+                  This employee isn't linked to a registered site
+                  {selectedEmployee.site_location
+                    ? ` ("${selectedEmployee.site_location}" doesn't match any site)`
+                    : ""}
+                  . Edit their profile in Workforce and choose a site before
+                  onboarding.
+                </span>
+              </div>
+            )}
+          </div>
+        )}
 
         <button
           onClick={handleCreate}
-          disabled={loading}
+          disabled={loading || !selectedEmployee || !employeeHasSite}
           className="mt-8 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white px-6 py-3 rounded-lg"
         >
           {loading ? "Generating Credentials..." : "Generate Credentials"}

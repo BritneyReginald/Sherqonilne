@@ -10,6 +10,7 @@ import {
   Trash2,
   UserX,
   Camera,
+  FileText,
 } from "lucide-react";
 import { createPortal } from "react-dom";
 import { EmployeeProfile } from "../components/employee-profile";
@@ -77,11 +78,48 @@ function mapApiEmployee(employee: any): Employee {
   };
 }
 
+const complianceLabel = (value: string) =>
+  statuses.find((s) => s.value === value)?.label ?? "Compliant";
+
+const escapeHtml = (value: unknown) =>
+  String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+
+const registerHeaders = [
+  "Employee ID",
+  "Full Name",
+  "Job Title",
+  "Site Location",
+  "Employment Type",
+  "Worker Type",
+  "Compliance Status",
+  "Status",
+];
+
+function downloadBlob(blob: Blob, fileName: string) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = fileName;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
 export function Workforce() {
   const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
   const { colors } = useTheme();
   const { selectedSite } = useSiteFilter();
   const [selectedStatus, setSelectedStatus] = useState("all");
+  // Site filter — starts on the globally selected site (if any) and
+  // can be changed here to any registered site.
+  const [siteFilter, setSiteFilter] = useState<string>(
+    selectedSite?.name ?? "all",
+  );
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(
     null,
@@ -95,6 +133,8 @@ export function Workforce() {
   const { moveToRecycleBin } = useRecycleBin();
   const [currentStep, setCurrentStep] = useState(1);
   const [availableSites, setAvailableSites] = useState<SiteOption[]>([]);
+  const [showExportMenu, setShowExportMenu] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
 
   const [menuAnchor, setMenuAnchor] = useState<{
     employee: Employee;
@@ -116,6 +156,11 @@ export function Workforce() {
       .catch((err) => console.error("Failed to load sites:", err));
   }, []);
 
+  // Keep the dropdown in step with the global site selector
+  useEffect(() => {
+    setSiteFilter(selectedSite?.name ?? "all");
+  }, [selectedSite]);
+
   const fetchEmployees = async () => {
     try {
       const response = await fetch(`${API_URL}/employees`);
@@ -130,7 +175,7 @@ export function Workforce() {
 
   const filteredEmployees = employeeList.filter((employee) => {
     const matchesSite =
-      !selectedSite || employee.siteLocation === selectedSite.name;
+      siteFilter === "all" || employee.siteLocation === siteFilter;
     const matchesStatus =
       selectedStatus === "all" || employee.complianceStatus === selectedStatus;
     const matchesSearch =
@@ -141,6 +186,128 @@ export function Workforce() {
 
     return matchesSite && matchesStatus && matchesSearch;
   });
+
+  // Employment-type breakdown for the Total Employees card
+  const permanentCount = filteredEmployees.filter(
+    (e) => e.employmentType === "Permanent",
+  ).length;
+  const contractCount = filteredEmployees.filter(
+    (e) => e.employmentType === "Contract",
+  ).length;
+  const temporaryCount = filteredEmployees.filter(
+    (e) => e.employmentType === "Temporary",
+  ).length;
+
+  /* -------------------------------------------------------------- */
+  /* Export register (PDF / Word)                                   */
+  /* -------------------------------------------------------------- */
+
+  const registerRows = () =>
+    filteredEmployees.map((e) => [
+      e.employeeId ?? "",
+      e.fullName ?? "",
+      e.jobTitle ?? "",
+      e.siteLocation ?? "",
+      e.employmentType ?? "",
+      e.workerType ?? "",
+      complianceLabel(e.complianceStatus),
+      e.status ?? "",
+    ]);
+
+  const exportFileStem = () =>
+    `employee-register-${new Date().toISOString().slice(0, 10)}`;
+
+  const exportSubtitle = () => {
+    const parts = [
+      `Generated ${new Date().toLocaleDateString("en-ZA", {
+        day: "2-digit",
+        month: "long",
+        year: "numeric",
+      })}`,
+      `${filteredEmployees.length} employee${filteredEmployees.length === 1 ? "" : "s"}`,
+    ];
+    if (siteFilter !== "all") parts.push(`Site: ${siteFilter}`);
+    if (selectedStatus !== "all") parts.push(complianceLabel(selectedStatus));
+    return parts.join("  |  ");
+  };
+
+  const handleExportPdf = async () => {
+    setShowExportMenu(false);
+    setIsExporting(true);
+    try {
+      const { default: jsPDF } = await import("jspdf");
+      const autoTable = (await import("jspdf-autotable")).default;
+
+      const doc = new jsPDF({ orientation: "landscape" });
+      doc.setFontSize(16);
+      doc.text("Employee Register", 14, 16);
+      doc.setFontSize(9);
+      doc.text(exportSubtitle(), 14, 23);
+
+      autoTable(doc, {
+        head: [registerHeaders],
+        body: registerRows(),
+        startY: 28,
+        styles: { fontSize: 8, cellPadding: 2 },
+        headStyles: { fillColor: [59, 130, 246] },
+      });
+
+      doc.save(`${exportFileStem()}.pdf`);
+    } catch (err) {
+      console.error("PDF export failed:", err);
+      alert("Failed to export the PDF. Please try again.");
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const handleExportWord = () => {
+    setShowExportMenu(false);
+    try {
+      const head = registerHeaders
+        .map((h) => `<th>${escapeHtml(h)}</th>`)
+        .join("");
+      const body = registerRows()
+        .map(
+          (row) =>
+            `<tr>${row.map((cell) => `<td>${escapeHtml(cell)}</td>`).join("")}</tr>`,
+        )
+        .join("");
+
+      const html = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">
+<head>
+<meta charset="utf-8" />
+<title>Employee Register</title>
+<style>
+  @page Section1 { size: 841.9pt 595.3pt; mso-page-orientation: landscape; margin: 36pt; }
+  div.Section1 { page: Section1; }
+  body { font-family: Arial, sans-serif; }
+  table { border-collapse: collapse; width: 100%; }
+  th, td { border: 1px solid #999999; padding: 4px 6px; font-size: 10pt; text-align: left; }
+  th { background: #3B82F6; color: #ffffff; }
+</style>
+</head>
+<body>
+<div class="Section1">
+  <h2>Employee Register</h2>
+  <p style="font-size:9pt;color:#555555;">${escapeHtml(exportSubtitle())}</p>
+  <table>
+    <thead><tr>${head}</tr></thead>
+    <tbody>${body}</tbody>
+  </table>
+</div>
+</body>
+</html>`;
+
+      downloadBlob(
+        new Blob(["\ufeff", html], { type: "application/msword" }),
+        `${exportFileStem()}.doc`,
+      );
+    } catch (err) {
+      console.error("Word export failed:", err);
+      alert("Failed to export the Word document. Please try again.");
+    }
+  };
 
   const [showAddModal, setShowAddModal] = useState(false);
   const [idDocumentFile, setIdDocumentFile] = useState<File | null>(null);
@@ -314,7 +481,12 @@ export function Workforce() {
     return (
       <EmployeeProfile
         employee={selectedEmployee}
-        onBack={() => setSelectedEmployee(null)}
+        onBack={() => {
+          setSelectedEmployee(null);
+          // Compliance depends on the employee's module records, which may
+          // have changed while the profile was open — reload the list.
+          fetchEmployees();
+        }}
         onEmployeeUpdate={(updated: any) => {
           if (updated._deleted) {
             setEmployeeList((prev) => prev.filter((e) => e.id !== updated.id));
@@ -372,15 +544,23 @@ export function Workforce() {
           {/* Filters */}
           <div className="flex items-center gap-3 mb-6">
             <Filter className="size-5" style={{ color: colors.subText }} />
-            <div
-              className="px-4 py-2.5 rounded-lg text-sm font-medium"
+            <select
+              value={siteFilter}
+              onChange={(e) => setSiteFilter(e.target.value)}
+              className="px-4 py-2.5 rounded-lg text-sm appearance-none cursor-pointer"
               style={{
                 backgroundColor: colors.surface,
                 color: colors.primaryText,
+                border: "none",
               }}
             >
-              Site: {selectedSite?.name ?? "All Sites"}
-            </div>
+              <option value="all">All Sites</option>
+              {availableSites.map((site) => (
+                <option key={site.id} value={site.name}>
+                  {site.name}
+                </option>
+              ))}
+            </select>
             <select
               value={selectedStatus}
               onChange={(e) => setSelectedStatus(e.target.value)}
@@ -417,16 +597,58 @@ export function Workforce() {
               />
             </div>
 
-            <button
-              className="px-4 py-2.5 rounded-lg flex items-center justify-center gap-2 font-medium transition-opacity hover:opacity-90"
-              style={{
-                backgroundColor: colors.surface,
-                color: colors.primaryText,
-              }}
-            >
-              <Download className="size-4" />
-              Export
-            </button>
+            <div className="relative">
+              <button
+                onClick={() => setShowExportMenu((v) => !v)}
+                disabled={isExporting || filteredEmployees.length === 0}
+                className="px-4 py-2.5 rounded-lg flex items-center justify-center gap-2 font-medium transition-opacity hover:opacity-90 disabled:opacity-60"
+                style={{
+                  backgroundColor: colors.surface,
+                  color: colors.primaryText,
+                }}
+              >
+                <Download className="size-4" />
+                {isExporting ? "Exporting…" : "Export"}
+              </button>
+
+              {showExportMenu && (
+                <>
+                  <div
+                    className="fixed inset-0 z-40"
+                    onClick={() => setShowExportMenu(false)}
+                  />
+                  <div
+                    className="absolute right-0 mt-1 w-52 rounded-lg border shadow-lg z-50 overflow-hidden"
+                    style={{
+                      backgroundColor: colors.surface,
+                      borderColor: colors.border || "var(--grey-200)",
+                    }}
+                  >
+                    <button
+                      onClick={handleExportPdf}
+                      className="w-full px-4 py-3 text-sm text-left flex items-center gap-2 hover:opacity-80"
+                      style={{ color: colors.primaryText }}
+                    >
+                      <FileText className="size-4" />
+                      Export as PDF
+                    </button>
+                    <div
+                      style={{
+                        borderTop: `1px solid ${colors.border || "var(--grey-100)"}`,
+                      }}
+                    />
+                    <button
+                      onClick={handleExportWord}
+                      className="w-full px-4 py-3 text-sm text-left flex items-center gap-2 hover:opacity-80"
+                      style={{ color: colors.primaryText }}
+                    >
+                      <FileText className="size-4" />
+                      Export as Word
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
           </div>
 
           {/* Stats */}
@@ -443,6 +665,10 @@ export function Workforce() {
                 style={{ color: colors.primaryText }}
               >
                 {filteredEmployees.length}
+              </p>
+              <p className="text-xs mt-2" style={{ color: colors.subText }}>
+                Permanent: {permanentCount} · Contract: {contractCount} ·
+                Temporary: {temporaryCount}
               </p>
             </div>
             <div
@@ -1161,6 +1387,13 @@ export function Workforce() {
                           </option>
                         ))}
                       </select>
+                      <p
+                        className="text-xs mt-1"
+                        style={{ color: colors.subText }}
+                      >
+                        Updates automatically once Legal Appointment, Training,
+                        Medical or PPE records exist for this employee.
+                      </p>
                     </div>
                   </div>
                 </div>

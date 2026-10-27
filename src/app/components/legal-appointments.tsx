@@ -91,7 +91,15 @@ export function LegalAppointments({ employeeId }: LegalAppointmentsProps) {
   }, [appointments, viewingAppointment]);
 
   const filteredAppointments = appointments
-    .filter((appt) => (employeeId ? appt.employeeId === employeeId : true))
+    // The employee profile passes the employee NUMBER (e.g. "EMP004"),
+    // same as the Training / Medical / PPE modules, so match on the
+    // appointment's employee number (falling back to employeeId).
+    .filter((appt) =>
+      employeeId
+        ? (appt as any).employeeNumber === employeeId ||
+          appt.employeeId === employeeId
+        : true,
+    )
     .filter((appt) => {
       const matchesType =
         filterType === "all" || appt.appointmentType === filterType;

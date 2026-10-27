@@ -8,6 +8,16 @@ interface PPECatalogueProps {
   onCatalogueChanged?: () => void;
 }
 
+function authHeaders(): Record<string, string> {
+  try {
+    const stored = localStorage.getItem("sherq_auth");
+    const token = stored ? JSON.parse(stored).token : null;
+    return token ? { Authorization: `Bearer ${token}` } : {};
+  } catch {
+    return {};
+  }
+}
+
 export function PPECatalogue({ isOpen, onClose, onCatalogueChanged }: PPECatalogueProps) {
   const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
 
@@ -20,19 +30,26 @@ export function PPECatalogue({ isOpen, onClose, onCatalogueChanged }: PPECatalog
 
   useEffect(() => {
     if (isOpen) fetchCatalogue();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen]);
 
   const fetchCatalogue = async () => {
     setIsLoading(true);
     setLoadError(null);
     try {
-      const response = await fetch(`${API_URL}/ppe/catalogue`);
-      if (!response.ok) throw new Error("Failed to fetch PPE catalogue");
+      const response = await fetch(`${API_URL}/ppe/catalogue`, {
+        headers: authHeaders(),
+      });
+      if (!response.ok) {
+        if (response.status === 401) throw new Error("Your session has expired. Please log in again.");
+        if (response.status === 403) throw new Error("You don't have permission to view the PPE catalogue.");
+        throw new Error(`Failed to fetch PPE catalogue (HTTP ${response.status}).`);
+      }
       const data = await response.json();
       setItems(data);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error fetching PPE catalogue:", error);
-      setLoadError("Couldn't load the PPE catalogue. Check your connection and try again.");
+      setLoadError(error?.message || "Couldn't load the PPE catalogue. Check your connection and try again.");
     } finally {
       setIsLoading(false);
     }
@@ -110,7 +127,7 @@ export function PPECatalogue({ isOpen, onClose, onCatalogueChanged }: PPECatalog
 
     const response = await fetch(url, {
       method,
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...authHeaders() },
       body: JSON.stringify(body),
     });
 
@@ -225,13 +242,11 @@ export function PPECatalogue({ isOpen, onClose, onCatalogueChanged }: PPECatalog
                 <table className="w-full border-collapse">
                   <thead>
                     <tr style={{ backgroundColor: "#0F172A" }}>
-                      <th className="px-6 py-4 text-left"><span className="text-sm font-medium" style={{ color: "#94A3B8" }}>Item Name</span></th>
-                      <th className="px-6 py-4 text-left"><span className="text-sm font-medium" style={{ color: "#94A3B8" }}>Category</span></th>
-                      <th className="px-6 py-4 text-left"><span className="text-sm font-medium" style={{ color: "#94A3B8" }}>Supplier</span></th>
-                      <th className="px-6 py-4 text-left"><span className="text-sm font-medium" style={{ color: "#94A3B8" }}>Replacement Cycle</span></th>
-                      <th className="px-6 py-4 text-left"><span className="text-sm font-medium" style={{ color: "#94A3B8" }}>Available Sizes</span></th>
-                      <th className="px-6 py-4 text-left"><span className="text-sm font-medium" style={{ color: "#94A3B8" }}>Stock Level</span></th>
-                      <th className="px-6 py-4 text-left"><span className="text-sm font-medium" style={{ color: "#94A3B8" }}>Actions</span></th>
+                      {["Item Name", "Category", "Supplier", "Replacement Cycle", "Available Sizes", "Stock Level", "Actions"].map((label) => (
+                        <th key={label} className="px-6 py-4 text-left">
+                          <span className="text-sm font-medium" style={{ color: "#94A3B8" }}>{label}</span>
+                        </th>
+                      ))}
                     </tr>
                   </thead>
                   <tbody>

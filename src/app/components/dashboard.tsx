@@ -5,6 +5,8 @@ import {
   Clock,
   ArrowRight,
   UserPlus,
+  ClipboardCheck,
+  HeartPulse,
   X,
   Loader2,
   AlertTriangle,
@@ -46,6 +48,68 @@ interface DashboardProps {
    */
   onNavigate?: (page: string) => void;
 }
+
+/* ------------------------------------------------------------------ */
+/* Onboarding quick actions                                           */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Each quick action stores a value in sessionStorage and navigates to the
+ * page that owns the form. That page reads the value on mount:
+ *   - Workforce opens its Add Employee modal.
+ *   - Onboarding preselects the Inspector / First Aider tab.
+ *
+ * >>> `page` must be the id your onNavigate() uses for each page. <<<
+ */
+const ONBOARDING_TARGETS = {
+  employee: {
+    page: "workforce",
+    flag: "workforce:openAddModal",
+    value: "1",
+  },
+  inspector: {
+    page: "inspectors",
+    flag: "onboarding:role",
+    value: "inspector",
+  },
+  firstAider: {
+    page: "inspectors",
+    flag: "onboarding:role",
+    value: "first_aider",
+  },
+} as const;
+
+type OnboardingKey = keyof typeof ONBOARDING_TARGETS;
+
+const QUICK_ACTIONS: {
+  key: OnboardingKey;
+  title: string;
+  subtitle: string;
+  color: string;
+  icon: React.ReactNode;
+}[] = [
+  {
+    key: "employee",
+    title: "Add New Employee",
+    subtitle: "Onboard workforce member",
+    color: "#3B82F6",
+    icon: <UserPlus className="size-5" style={{ color: "white" }} />,
+  },
+  {
+    key: "inspector",
+    title: "Add New Inspector",
+    subtitle: "Onboard site inspector",
+    color: "#8B5CF6",
+    icon: <ClipboardCheck className="size-5" style={{ color: "white" }} />,
+  },
+  {
+    key: "firstAider",
+    title: "Add New First Aider",
+    subtitle: "Onboard first aid responder",
+    color: "#10B981",
+    icon: <HeartPulse className="size-5" style={{ color: "white" }} />,
+  },
+];
 
 /* ------------------------------------------------------------------ */
 /* Helpers                                                            */
@@ -425,10 +489,15 @@ export function Dashboard({ onNavigate }: DashboardProps) {
     );
   };
 
-  const handleAddEmployee = () => {
-    // Workforce reads this flag on mount and opens the Add Employee form.
-    sessionStorage.setItem("workforce:openAddModal", "1");
-    onNavigate?.("workforce");
+  // Stores what the destination page should preselect/open, then navigates.
+  const handleOnboard = (key: OnboardingKey) => {
+    const target = ONBOARDING_TARGETS[key];
+    try {
+      sessionStorage.setItem(target.flag, target.value);
+    } catch {
+      // sessionStorage unavailable: still navigate, the form just won't auto-open
+    }
+    onNavigate?.(target.page);
   };
 
   const metricCards = [
@@ -683,29 +752,32 @@ export function Dashboard({ onNavigate }: DashboardProps) {
               Quick Actions
             </h2>
             <div className="space-y-3">
-              <button
-                onClick={handleAddEmployee}
-                className="w-full p-4 rounded-lg text-left flex items-center gap-4 transition-all hover:scale-[1.02]"
-                style={{ backgroundColor: "#3B82F6" }}
-              >
-                <div
-                  className="p-2 rounded-lg"
-                  style={{ backgroundColor: "rgba(255, 255, 255, 0.2)" }}
+              {QUICK_ACTIONS.map((action) => (
+                <button
+                  key={action.key}
+                  onClick={() => handleOnboard(action.key)}
+                  className="w-full p-4 rounded-lg text-left flex items-center gap-4 transition-all hover:scale-[1.02]"
+                  style={{ backgroundColor: action.color }}
                 >
-                  <UserPlus className="size-5" style={{ color: "white" }} />
-                </div>
-                <div className="flex-1">
-                  <p className="font-medium" style={{ color: "white" }}>
-                    Add New Employee
-                  </p>
-                  <p
-                    className="text-xs"
-                    style={{ color: "rgba(255, 255, 255, 0.8)" }}
+                  <div
+                    className="p-2 rounded-lg"
+                    style={{ backgroundColor: "rgba(255, 255, 255, 0.2)" }}
                   >
-                    Onboard workforce member
-                  </p>
-                </div>
-              </button>
+                    {action.icon}
+                  </div>
+                  <div className="flex-1">
+                    <p className="font-medium" style={{ color: "white" }}>
+                      {action.title}
+                    </p>
+                    <p
+                      className="text-xs"
+                      style={{ color: "rgba(255, 255, 255, 0.8)" }}
+                    >
+                      {action.subtitle}
+                    </p>
+                  </div>
+                </button>
+              ))}
 
               {/* Upload Documents, Generate Reports and Schedule Audit —
                   commented out for now, planned for a later update.

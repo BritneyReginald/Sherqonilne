@@ -1,17 +1,39 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { OnboardingForm } from "./onboarding-form";
 
+type OnboardingRole = "inspector" | "first_aider";
 
+const ROLE_FLAG = "onboarding:role";
+
+// The dashboard Quick Actions store the wanted role here before navigating.
+// Read it (without removing) in the initializer so React StrictMode's
+// double-invoke can't lose it; it's cleared in the effect below.
+function initialRole(): OnboardingRole {
+  try {
+    const v = sessionStorage.getItem(ROLE_FLAG);
+    return v === "first_aider" ? "first_aider" : "inspector";
+  } catch {
+    return "inspector";
+  }
+}
 
 export function OnboardingPage() {
-  const [role, setRole] = useState<"inspector" | "first_aider">("inspector");
+  const [role, setRole] = useState<OnboardingRole>(initialRole);
+
+  useEffect(() => {
+    try {
+      sessionStorage.removeItem(ROLE_FLAG);
+    } catch {
+      // ignore
+    }
+  }, []);
 
   return (
     <div className="p-6 space-y-6 text-gray-900">
       <div>
         <h1 className="text-2xl font-bold">Onboarding</h1>
         <p className="text-gray-500">
-          Create accounts and assign them to sites.
+          Create login accounts for registered employees. Each account is assigned to the employee's site automatically.
         </p>
       </div>
 
