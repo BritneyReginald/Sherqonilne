@@ -367,7 +367,7 @@ def view_report(report_id):
 def admin_alerts():
     if not session.get('admin_logged_in'):
         return redirect(url_for('login'))
-    raw_alerts = InspectionReport.query.filter(InspectionReport.category.like('%Recovery%')).order_by(InspectionReport.inspection_date.desc()).all()
+    raw_alerts = InspectionReport.query.filter(InspectionReport.category.like('%Recovery%'), InspectionReport.deleted_at.is_(None)).order_by(InspectionReport.inspection_date.desc()).all()
     misplaced_alerts = []
     for alert in raw_alerts:
         try:
@@ -404,12 +404,12 @@ def resolve_alert(report_id):
 def admin_dashboard():
     if not session.get('admin_logged_in'):
         return redirect(url_for('login'))
-    all_reports = InspectionReport.query.order_by(InspectionReport.inspection_date.desc()).limit(10).all()
-    total_inspections = InspectionReport.query.count()
-    completed = InspectionReport.query.filter_by(report_status='Completed').count()
-    in_progress = InspectionReport.query.filter_by(report_status='In Progress').count()
-    created = InspectionReport.query.filter_by(report_status='Created').count()
-    raw_alerts = InspectionReport.query.filter(InspectionReport.category.like('%Recovery%')).order_by(InspectionReport.inspection_date.desc()).all()
+    all_reports = InspectionReport.query.filter(InspectionReport.deleted_at.is_(None)).order_by(InspectionReport.inspection_date.desc()).limit(10).all()
+    total_inspections = InspectionReport.query.filter(InspectionReport.deleted_at.is_(None)).count()
+    completed = InspectionReport.query.filter_by(report_status='Completed', deleted_at=None).count()
+    in_progress = InspectionReport.query.filter_by(report_status='In Progress', deleted_at=None).count()
+    created = InspectionReport.query.filter_by(report_status='Created', deleted_at=None).count()
+    raw_alerts = InspectionReport.query.filter(InspectionReport.category.like('%Recovery%'), InspectionReport.deleted_at.is_(None)).order_by(InspectionReport.inspection_date.desc()).all()
     misplaced_alerts = []
     for alert in raw_alerts:
         try:
@@ -472,7 +472,7 @@ def view_history(qr_id):
     if not session.get('admin_logged_in'):
         return redirect(url_for('login'))
     unit, category = get_unit_and_category(qr_id)
-    historical_reports = InspectionReport.query.filter_by(qr_code_id=qr_id).order_by(InspectionReport.inspection_date.desc()).all()
+    historical_reports = InspectionReport.query.filter_by(qr_code_id=qr_id, deleted_at=None).order_by(InspectionReport.inspection_date.desc()).all()
     return render_template('history.html', qr_code_id=qr_id, unit=unit, category=category, reports=historical_reports)
 
 # --- DOWNLOAD INSPECTION REPORTS AS PDF ---
@@ -624,7 +624,7 @@ def download_report(report_id):
 def download_all_reports(qr_id):
     if not session.get('admin_logged_in'):
         return redirect(url_for('login'))
-    reports = InspectionReport.query.filter_by(qr_code_id=qr_id).order_by(InspectionReport.inspection_date.desc()).all()
+    reports = InspectionReport.query.filter_by(qr_code_id=qr_id, deleted_at=None).order_by(InspectionReport.inspection_date.desc()).all()
     if not reports:
         flash(f"No reports found for {qr_id}.", "warning")
         return redirect(url_for('view_history', qr_id=qr_id))
