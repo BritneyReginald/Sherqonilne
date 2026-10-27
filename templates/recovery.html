@@ -13,6 +13,14 @@
         /* Keep all interaction fields hidden until a choice is made */
         .interaction-area { display: none; }
         .hidden-fields { display: none; }
+
+        /* ===== Electronic signature ===== */
+        .sig-wrap { position: relative; border: 2px dashed #99cc33; border-radius: 10px; background: #ffffff; touch-action: none; }
+        .sig-canvas { display: block; width: 100%; height: 170px; cursor: crosshair; touch-action: none; }
+        .sig-placeholder { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+                           color: #9aa5b1; font-size: 0.95rem; pointer-events: none; }
+        .sig-wrap.has-ink .sig-placeholder { display: none; }
+        .sig-wrap.sig-missing { border-color: #dc3545; }
     </style>
 </head>
 <body>
@@ -25,7 +33,7 @@
                 </a>
             </div>
             <div class="col-6 text-center">
-                <h2 class="fw-bold mb-0" style="font-size: 1.5rem; white-space: nowrap;">REGINALD<span class="brand-green">SHERQ</span> RECOVERY</h2>
+                <h2 class="fw-bold mb-0" style="font-size: clamp(0.95rem, 4.6vw, 1.5rem); white-space: normal; overflow-wrap: anywhere;">REGINALD<span class="brand-green">SHERQ</span> RECOVERY</h2>
             </div>
             <div class="col-3"></div> </div>
 
@@ -35,7 +43,7 @@
                 <h4 class="fw-bold">{{ unit.authorized_location }}</h4>
             </div>
 
-            <form action="/submit_recovery/{{ unit.qr_code_id }}" method="POST">
+            <form action="/submit_recovery/{{ unit.qr_code_id }}" method="POST" onsubmit="if (this.dataset.submitting === 'yes') { return false; } if (!window.sigPad || !window.sigPad.hasInk()) { if (window.sigPad) window.sigPad.showMissing(); return false; } window.sigPad.capture(); this.dataset.submitting = 'yes'; var b = this.querySelector('button[type=submit]'); if (b) { b.disabled = true; b.innerText = 'Submitting... please wait'; } return true;">
                 <p class="fw-bold text-dark text-center mb-4">Are you returning this unit to its original location now?</p>
                 
                 <div class="btn-group w-100 mb-4" role="group">
@@ -76,6 +84,20 @@
                         </div>
                     </div>
 
+
+                    <div class="signature-block mt-3">
+                    <label class="form-label fw-bold required text-dark">Signature:</label>
+                    <div class="sig-wrap" id="sigWrap">
+                        <canvas id="signaturePad" class="sig-canvas"></canvas>
+                        <span class="sig-placeholder">Sign here with your finger or mouse</span>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center mt-1">
+                        <small id="sigError" class="text-danger fw-bold d-none">Please sign before submitting.</small>
+                        <button type="button" class="btn btn-sm btn-outline-secondary ms-auto" id="sigClear">Clear signature</button>
+                    </div>
+                    <input type="hidden" name="signature_data" id="signatureData">
+                </div>
+
                     <div class="d-grid mt-4">
                         <button type="submit" class="btn btn-primary btn-lg" style="background-color: #003366;">Submit Recovery Log</button>
                     </div>
@@ -109,6 +131,60 @@
                 document.getElementsByName('due_date')[0].required = false;
             }
         }
+    </script>
+
+    <script>
+        // ===== Electronic signature pad (works with finger, stylus or mouse) =====
+        window.sigPad = (function () {
+            var canvas = document.getElementById('signaturePad');
+            var wrap = document.getElementById('sigWrap');
+            var ctx = canvas.getContext('2d');
+            var drawing = false, hasInk = false, last = null;
+
+            function setup() {
+                var rect = canvas.getBoundingClientRect();
+                if (!rect.width) return;
+                var ratio = window.devicePixelRatio || 1;
+                var old = hasInk ? canvas.toDataURL('image/png') : null;
+                canvas.width = Math.round(rect.width * ratio);
+                canvas.height = Math.round(rect.height * ratio);
+                ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+                ctx.lineWidth = 2.4; ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.strokeStyle = '#0b2545';
+                if (old) { var img = new Image(); img.onload = function () { ctx.drawImage(img, 0, 0, rect.width, rect.height); }; img.src = old; }
+            }
+            function pos(e) { var r = canvas.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; }
+            canvas.addEventListener('pointerdown', function (e) {
+                e.preventDefault(); drawing = true; last = pos(e);
+                if (canvas.setPointerCapture) canvas.setPointerCapture(e.pointerId);
+                ctx.beginPath(); ctx.arc(last.x, last.y, 1.1, 0, Math.PI * 2); ctx.fillStyle = '#0b2545'; ctx.fill();
+                mark();
+            });
+            canvas.addEventListener('pointermove', function (e) {
+                if (!drawing) return; e.preventDefault();
+                var p = pos(e); ctx.beginPath(); ctx.moveTo(last.x, last.y); ctx.lineTo(p.x, p.y); ctx.stroke(); last = p;
+            });
+            ['pointerup', 'pointercancel', 'pointerleave'].forEach(function (t) { canvas.addEventListener(t, function () { drawing = false; }); });
+            function mark() {
+                hasInk = true; wrap.classList.add('has-ink'); wrap.classList.remove('sig-missing');
+                var err = document.getElementById('sigError'); if (err) err.classList.add('d-none');
+            }
+            function clear() {
+                ctx.clearRect(0, 0, canvas.width, canvas.height); hasInk = false;
+                wrap.classList.remove('has-ink'); document.getElementById('signatureData').value = '';
+            }
+            document.getElementById('sigClear').addEventListener('click', clear);
+            if (window.ResizeObserver) { new ResizeObserver(setup).observe(canvas); } else { window.addEventListener('resize', setup); }
+            setup();
+            return {
+                hasInk: function () { return hasInk; },
+                capture: function () { document.getElementById('signatureData').value = hasInk ? canvas.toDataURL('image/png') : ''; },
+                showMissing: function () {
+                    wrap.classList.add('sig-missing');
+                    var err = document.getElementById('sigError'); if (err) err.classList.remove('d-none');
+                    wrap.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+            };
+        })();
     </script>
 </body>
 </html>

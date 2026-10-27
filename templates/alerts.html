@@ -18,9 +18,56 @@
         .brand-green { color: #99cc33; }
         .table thead { background-color: #003366; color: white; }
         .text-navy { color: #003366; }
+    
+        /* ===== Phone layout: side panel becomes a slide-out menu ===== */
+        .mobile-topbar { display: none; }
+        .sidebar-backdrop { display: none; }
+        @media (max-width: 767.98px) {
+            .mobile-topbar {
+                display: flex; align-items: center; gap: 10px;
+                position: sticky; top: 0; z-index: 1040;
+                background: #1a365d; color: #fff; padding: 10px 14px;
+                border-bottom: 3px solid #99cc33;
+            }
+            .mobile-topbar .menu-btn {
+                background: transparent; border: 1px solid rgba(255,255,255,0.5); color: #fff;
+                border-radius: 8px; font-size: 1.3rem; line-height: 1; padding: 6px 10px;
+            }
+            .mobile-topbar img { height: 30px; width: auto; }
+            .mobile-topbar .brand { font-weight: bold; font-size: 0.85rem; white-space: nowrap; }
+            .sidebar {
+                display: flex !important; flex-direction: column;
+                position: fixed !important; top: 0; left: 0; bottom: 0;
+                width: 260px !important; max-width: 82vw; min-height: 100vh;
+                padding: 20px !important; overflow-y: auto;
+                transform: translateX(-105%); transition: transform 0.25s ease;
+                z-index: 1050; flex: none !important;
+            }
+            body.menu-open .sidebar { transform: translateX(0); }
+            body.menu-open .sidebar-backdrop {
+                display: block; position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 1045;
+            }
+            body.menu-open { overflow: hidden; }
+            .container-fluid, .row { min-width: 0 !important; }
+            main, .dashboard-main, .register-main, .main-content {
+                margin-left: 0 !important; width: 100% !important; padding: 16px !important;
+            }
+            .metrics-row { flex-wrap: wrap !important; }
+            .metric-col { flex: 1 1 calc(50% - 15px) !important; }
+            h2 { font-size: 1.4rem; }
+        }
+        @media print { .mobile-topbar, .sidebar-backdrop { display: none !important; } }
     </style>
 </head>
 <body>
+
+    <!-- Phone-only top bar with menu button -->
+    <div class="mobile-topbar">
+        <button type="button" class="menu-btn" aria-label="Open menu">&#9776;</button>
+        <img src="{{ url_for('static', filename='logo.png') }}" alt="Reginald SHERQ Services logo">
+        <span class="brand">REGINALD<span style="color:#99cc33;">SHERQ</span>SERVICES</span>
+    </div>
+    <div class="sidebar-backdrop"></div>
 
 <div class="container-fluid">
     <div class="row">
@@ -127,5 +174,18 @@
     }
 </script>
 
+
+    <script>
+        // Phone menu: open/close the side panel
+        (function () {
+            function closeMenu() { document.body.classList.remove('menu-open'); }
+            document.querySelectorAll('.menu-btn').forEach(function (btn) {
+                btn.addEventListener('click', function () { document.body.classList.toggle('menu-open'); });
+            });
+            var backdrop = document.querySelector('.sidebar-backdrop');
+            if (backdrop) backdrop.addEventListener('click', closeMenu);
+            document.querySelectorAll('.sidebar a').forEach(function (a) { a.addEventListener('click', closeMenu); });
+        })();
+    </script>
 </body>
 </html>

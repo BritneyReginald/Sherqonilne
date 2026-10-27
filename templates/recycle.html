@@ -67,18 +67,18 @@
                                     </a>
 
                                     <!-- Restore Button -->
-                                    <form action="{{ url_for('restore_inspection', report_id=report.id) }}" method="POST" class="d-inline">
+                                    <form action="{{ url_for('restore_item', report_id=report.id) }}" method="POST" class="d-inline">
                                         <button type="submit" class="btn btn-sm btn-success" title="Restore Record">
                                             <i class="fas fa-undo"></i> Restore
                                         </button>
                                     </form>
 
                                     <!-- Permanent Delete Button -->
-                                    <form action="{{ url_for('delete_permanent', report_id=report.id) }}" method="POST" class="d-inline" onsubmit="return confirm('Are you sure you want to permanently delete this record?');">
-                                        <button type="submit" class="btn btn-sm btn-danger" title="Delete Permanently">
-                                            <i class="fas fa-times"></i> Delete
-                                        </button>
-                                    </form>
+                                    <button type="button" class="btn btn-sm btn-danger js-delete" title="Delete Permanently"
+                                            data-action="{{ url_for('delete_permanent', report_id=report.id) }}"
+                                            data-label="#{{ report.id }} ({{ report.qr_code_id }})">
+                                        <i class="fas fa-times"></i> Delete
+                                    </button>
                                 </td>
                             </tr>
                             {% endfor %}
@@ -94,5 +94,37 @@
         </div>
     </div>
 
+    <!-- In-app confirmation for permanent delete -->
+    <div class="modal fade" id="deleteModal" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header" style="background-color: #1a365d; color: white; border-bottom: 4px solid #99cc33;">
+                    <h5 class="modal-title" id="deleteModalLabel"><i class="fas fa-trash-alt me-2"></i>Delete Permanently</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="mb-1">Are you sure you want to permanently delete report <strong id="deleteLabel"></strong>?</p>
+                    <p class="text-danger small mb-0">This can't be undone. The report and its photo will be removed.</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <form id="deleteForm" method="POST" class="d-inline">
+                        <button type="submit" class="btn btn-danger fw-bold"><i class="fas fa-times me-1"></i> Yes, Delete</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        document.querySelectorAll('.js-delete').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                document.getElementById('deleteForm').action = btn.dataset.action;
+                document.getElementById('deleteLabel').textContent = btn.dataset.label;
+                new bootstrap.Modal(document.getElementById('deleteModal')).show();
+            });
+        });
+    </script>
 </body>
 </html>

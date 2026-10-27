@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=1200"> <!-- Forces mobile browsers to render at desktop width -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Reginald SHERQ | Dashboard</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
@@ -10,14 +10,14 @@
     <style>
         body { background-color: #f4f7f6; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; overflow-x: auto; }
         
-        .container-fluid, .row { width: 100%; min-width: 1100px; margin: 0; }
+        .container-fluid, .row { width: 100%; margin: 0; }
 
         /* Fixed Desktop Sidebar Layout */
         .sidebar { background-color: #1a365d; min-height: 100vh; color: white; padding: 20px; position: fixed; top: 0; left: 0; width: 250px; z-index: 1000; }
         .sidebar .nav-link { color: rgba(255,255,255,0.8); margin: 5px 0; border-radius: 6px; text-decoration: none; display: block; padding: 10px; }
         .sidebar .nav-link:hover, .sidebar .nav-link.active { background-color: #99cc33; color: #1a365d; font-weight: bold; }
         .brand-green { color: #99cc33; }
-        .sidebar-brand-name { font-size: 0.95rem; white-space: nowrap; letter-spacing: 0.2px; color: #ffffff; }
+        .sidebar-brand-name { font-size: 0.85rem; white-space: nowrap; letter-spacing: 0.2px; color: #ffffff; }
         .sidebar-logo { display: block; margin: 0 auto; max-width: 110px; max-height: 90px; object-fit: contain; }
         
         /* Main Content Offset to accommodate fixed sidebar */
@@ -35,9 +35,56 @@
         .status-created { background-color: #ffebee; color: #c62828; border: 1px solid #ffcdd2; }
 
         .table-container { background: white; border-radius: 12px; padding: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+    
+        /* ===== Phone layout: side panel becomes a slide-out menu ===== */
+        .mobile-topbar { display: none; }
+        .sidebar-backdrop { display: none; }
+        @media (max-width: 767.98px) {
+            .mobile-topbar {
+                display: flex; align-items: center; gap: 10px;
+                position: sticky; top: 0; z-index: 1040;
+                background: #1a365d; color: #fff; padding: 10px 14px;
+                border-bottom: 3px solid #99cc33;
+            }
+            .mobile-topbar .menu-btn {
+                background: transparent; border: 1px solid rgba(255,255,255,0.5); color: #fff;
+                border-radius: 8px; font-size: 1.3rem; line-height: 1; padding: 6px 10px;
+            }
+            .mobile-topbar img { height: 30px; width: auto; }
+            .mobile-topbar .brand { font-weight: bold; font-size: 0.85rem; white-space: nowrap; }
+            .sidebar {
+                display: flex !important; flex-direction: column;
+                position: fixed !important; top: 0; left: 0; bottom: 0;
+                width: 260px !important; max-width: 82vw; min-height: 100vh;
+                padding: 20px !important; overflow-y: auto;
+                transform: translateX(-105%); transition: transform 0.25s ease;
+                z-index: 1050; flex: none !important;
+            }
+            body.menu-open .sidebar { transform: translateX(0); }
+            body.menu-open .sidebar-backdrop {
+                display: block; position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 1045;
+            }
+            body.menu-open { overflow: hidden; }
+            .container-fluid, .row { min-width: 0 !important; }
+            main, .dashboard-main, .register-main, .main-content {
+                margin-left: 0 !important; width: 100% !important; padding: 16px !important;
+            }
+            .metrics-row { flex-wrap: wrap !important; }
+            .metric-col { flex: 1 1 calc(50% - 15px) !important; }
+            h2 { font-size: 1.4rem; }
+        }
+        @media print { .mobile-topbar, .sidebar-backdrop { display: none !important; } }
     </style>
 </head>
 <body>
+
+    <!-- Phone-only top bar with menu button -->
+    <div class="mobile-topbar">
+        <button type="button" class="menu-btn" aria-label="Open menu">&#9776;</button>
+        <img src="{{ url_for('static', filename='logo.png') }}" alt="Reginald SHERQ Services logo">
+        <span class="brand">REGINALD<span style="color:#99cc33;">SHERQ</span>SERVICES</span>
+    </div>
+    <div class="sidebar-backdrop"></div>
 
 <div class="container-fluid">
     <div class="row">
@@ -144,5 +191,18 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+    <script>
+        // Phone menu: open/close the side panel
+        (function () {
+            function closeMenu() { document.body.classList.remove('menu-open'); }
+            document.querySelectorAll('.menu-btn').forEach(function (btn) {
+                btn.addEventListener('click', function () { document.body.classList.toggle('menu-open'); });
+            });
+            var backdrop = document.querySelector('.sidebar-backdrop');
+            if (backdrop) backdrop.addEventListener('click', closeMenu);
+            document.querySelectorAll('.sidebar a').forEach(function (a) { a.addEventListener('click', closeMenu); });
+        })();
+    </script>
 </body>
 </html>

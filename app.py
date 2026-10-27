@@ -51,6 +51,7 @@ if auth_db_url:
 
 UPLOAD_FOLDER = 'static/uploads'
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+app.config['MAX_CONTENT_LENGTH'] = 25 * 1024 * 1024  # allow phone photos up to 25MB
 
 if not os.path.exists(UPLOAD_FOLDER):
     os.makedirs(UPLOAD_FOLDER)
@@ -96,6 +97,26 @@ class InspectionReport(db.Model):
     report_status = db.Column(db.String(50), default='Created')
     deleted_at = db.Column(db.Date, nullable=True)
 
+# Photo taken during an inspection. Stored in the database (not as a file) because files saved
+# inside the app on Azure are wiped on every deploy/restart.
+class InspectionPhoto(db.Model):
+    __tablename__ = 'inspection_photos'
+    id = db.Column(db.Integer, primary_key=True)
+    report_id = db.Column(db.Integer, index=True, nullable=False)
+    filename = db.Column(db.String(255))
+    mimetype = db.Column(db.String(100))
+    data = db.Column(db.LargeBinary, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+# Electronic signature captured on the checklist (stored as a PNG in the database)
+class InspectionSignature(db.Model):
+    __tablename__ = 'inspection_signatures'
+    id = db.Column(db.Integer, primary_key=True)
+    report_id = db.Column(db.Integer, index=True, nullable=False)
+    signer_name = db.Column(db.String(150))
+    data = db.Column(db.LargeBinary, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
 # --- NEW: EMPLOYEE & USER MANAGEMENT SCHEMA ---
 class Employee(db.Model):
     __tablename__ = 'employees'
@@ -127,6 +148,105 @@ def get_unit_and_category(qr_id):
         category = 'Fire Hydrant'
     return unit, category
 
+# --- DUPLICATE SUBMISSION GUARD ---
+def find_duplicate_report(qr_code_id, inspector_name, inspection_date, category, responses_json):
+    """Returns an identical, non-deleted report (same unit, inspector, date, type and answers) if one
+    already exists. Stops double-taps on Submit and page refreshes from creating copies."""
+    return InspectionReport.query.filter(
+        InspectionReport.qr_code_id == qr_code_id,
+        InspectionReport.inspector_name == inspector_name,
+        InspectionReport.inspection_date == inspection_date,
+        InspectionReport.category == category,
+        InspectionReport.responses == responses_json,
+        InspectionReport.deleted_at.is_(None),
+    ).order_by(InspectionReport.id.desc()).first()
+
+
+# --- INSPECTION PHOTO HELPERS ---
+with app.app_context():
+    try:
+        InspectionPhoto.__table__.create(db.engine, checkfirst=True)
+    except Exception as e:
+        print("Could not create inspection_photos table:", e)
+    try:
+        InspectionSignature.__table__.create(db.engine, checkfirst=True)
+    except Exception as e:
+        print("Could not create inspection_signatures table:", e)
+
+
+def save_inspection_signature(report_id, data_url, signer_name):
+    """Stores the signature drawn on the form (sent as a base64 PNG data URL)."""
+    import base64
+    prefix = 'data:image/png;base64,'
+    if not data_url or not data_url.startswith(prefix):
+        return None
+    try:
+        png = base64.b64decode(data_url[len(prefix):], validate=True)
+    except Exception:
+        return None
+    if not png or len(png) > 2 * 1024 * 1024:
+        return None
+    sig = InspectionSignature(report_id=report_id, signer_name=(signer_name or '').strip(), data=png)
+    db.session.add(sig)
+    return sig
+
+
+def get_report_signature(report_id):
+    return InspectionSignature.query.filter_by(report_id=report_id).order_by(InspectionSignature.id.desc()).first()
+
+
+@app.route('/report_signature/<int:report_id>')
+def report_signature(report_id):
+    sig = get_report_signature(report_id)
+    if not sig:
+        return "No signature", 404
+    return send_file(io.BytesIO(sig.data), mimetype='image/png', download_name=f'signature_{report_id}.png')
+
+
+def save_inspection_photo(report_id, uploaded_file):
+    """Shrinks a phone photo (max 1600px, JPEG) and stores it against the report.
+    PDFs and anything Pillow can't open are stored as-is."""
+    if not uploaded_file or not uploaded_file.filename:
+        return None
+    raw = uploaded_file.read()
+    if not raw:
+        return None
+    filename = secure_filename(uploaded_file.filename) or 'photo'
+    mimetype = uploaded_file.mimetype or 'application/octet-stream'
+    data = raw
+    if mimetype.startswith('image/') or not filename.lower().endswith('.pdf'):
+        try:
+            from PIL import Image, ImageOps
+            img = Image.open(io.BytesIO(raw))
+            img = ImageOps.exif_transpose(img)
+            if img.mode not in ('RGB', 'L'):
+                img = img.convert('RGB')
+            img.thumbnail((1600, 1600))
+            out = io.BytesIO()
+            img.save(out, format='JPEG', quality=80, optimize=True)
+            data = out.getvalue()
+            mimetype = 'image/jpeg'
+            filename = filename.rsplit('.', 1)[0] + '.jpg'
+        except Exception as e:
+            print("Photo could not be processed, storing original:", e)
+    photo = InspectionPhoto(report_id=report_id, filename=filename, mimetype=mimetype, data=data)
+    db.session.add(photo)
+    return photo
+
+
+def get_report_photo(report_id):
+    return InspectionPhoto.query.filter_by(report_id=report_id).order_by(InspectionPhoto.id.desc()).first()
+
+
+@app.route('/report_photo/<int:report_id>')
+def report_photo(report_id):
+    photo = get_report_photo(report_id)
+    if not photo:
+        return "No photo", 404
+    return send_file(io.BytesIO(photo.data), mimetype=photo.mimetype or 'image/jpeg',
+                     download_name=photo.filename or f'report_{report_id}.jpg')
+
+
 # --- CUSTOM FPDF DESIGN CLASS ---
 class SHERQ_PDF(FPDF):
     def header(self):
@@ -136,14 +256,14 @@ class SHERQ_PDF(FPDF):
         self.set_font("Helvetica", "B", 18)
         self.cell(0, 12, "OFFICIAL INSPECTION RECORD", align="C", ln=True)
         self.set_font("Helvetica", "", 10)
-        self.cell(0, 4, "Reginald SHERQ Management System", align="C", ln=True)
+        self.cell(0, 4, "REGINALD SHERQ SERVICES", align="C", ln=True)
         self.ln(12)
 
     def footer(self):
         self.set_y(-15)
         self.set_font("Helvetica", "I", 8)
         self.set_text_color(160, 174, 192)
-        self.cell(0, 10, "Automated operational report generated by Reginald SHERQ Dashboard System.", align="C")
+        self.cell(0, 10, "Generated by REGINALD SHERQ SERVICES", align="C")
 
 # --- INJECTED GLOBAL FRONTEND CSS OVERRIDES ---
 @app.context_processor
@@ -204,40 +324,7 @@ def send_report_email(report_id):
                 current_questions[key] = key
 
     try:
-        pdf = SHERQ_PDF()
-        pdf.add_page()
-        pdf.set_margins(15, 20, 15)
-        pdf.set_fill_color(247, 250, 252)
-        pdf.set_text_color(45, 55, 72)
-        pdf.set_font("Helvetica", "B", 10)
-        pdf.cell(90, 8, f" Asset Reference: {report.qr_code_id}", border=1, fill=True)
-        pdf.cell(90, 8, f" Asset Category: {category}", border=1, fill=True, ln=True)
-        location_txt = unit.authorized_location if unit else 'N/A'
-        inspector_txt = report.inspector_name if report.inspector_name else 'N/A'
-        pdf.cell(90, 8, f" Assigned Location: {location_txt}", border=1, fill=True)
-        pdf.cell(90, 8, f" Inspector: {inspector_txt}", border=1, fill=True, ln=True)
-        pdf.cell(90, 8, f" Inspection Date: {report.inspection_date}", border=1, fill=True)
-        pdf.cell(90, 8, f" Operational Status: {report.report_status}", border=1, fill=True, ln=True)
-        pdf.ln(10)
-        pdf.set_font("Helvetica", "B", 11)
-        pdf.set_text_color(26, 54, 93)
-        pdf.cell(140, 10, "Checklist Audit Question", border="B")
-        pdf.cell(40, 10, "Response Metric", border="B", align="C", ln=True)
-        pdf.set_font("Helvetica", "", 10)
-        pdf.set_text_color(74, 85, 104)
-        for key, val in responses.items():
-            question_text = current_questions.get(key, key)
-            status_val = str(val).upper()
-            pdf.cell(140, 9, question_text, border="B")
-            if status_val == 'YES':
-                pdf.set_text_color(40, 167, 69)
-            elif status_val == 'NO':
-                pdf.set_text_color(220, 53, 69)
-            else:
-                pdf.set_text_color(108, 117, 125)
-            pdf.cell(40, 9, status_val, border="B", align="C", ln=True)
-            pdf.set_text_color(74, 85, 104)
-        pdf_bytes = pdf.output()
+        pdf_bytes = build_reports_pdf([report])
 
         subject_heading = f"Reginald SHERQ | Download Official Inspection Report for {report.qr_code_id}"
         msg = Message(subject=subject_heading, sender=app.config['MAIL_USERNAME'], recipients=[recipient])
@@ -274,7 +361,7 @@ def view_report(report_id):
             if key not in current_questions:
                 current_questions[key] = key
 
-    return render_template('view_report.html', report=report, unit=unit, responses=responses, current_questions=current_questions)
+    return render_template('view_report.html', report=report, unit=unit, responses=responses, current_questions=current_questions, photo=get_report_photo(report.id), signature=get_report_signature(report.id))
 
 @app.route('/admin/alerts')
 def admin_alerts():
@@ -448,6 +535,8 @@ def build_reports_pdf(reports):
         pdf.set_text_color(74, 85, 104)
 
         for key, val in responses.items():
+            if key.endswith('_comment'):
+                continue  # printed underneath its question below
             question_text = _pdf_text(REPORT_QUESTIONS.get(key, key))
             status_val = _pdf_text(val).upper()
             if len(status_val) > 18:
@@ -467,6 +556,57 @@ def build_reports_pdf(reports):
                 pdf.set_text_color(108, 117, 125)
             pdf.cell(40, 9, status_val, border="B", align="C", ln=True)
             pdf.set_text_color(74, 85, 104)
+            comment = responses.get(f"{key}_comment")
+            if comment:
+                pdf.set_x(pdf.l_margin)
+                pdf.set_font("Helvetica", "I", 9)
+                pdf.multi_cell(180, 6, _pdf_text(f"Comment: {comment}"), border="B", new_x="LMARGIN", new_y="NEXT")
+                pdf.set_font("Helvetica", "", 10)
+
+        signature = get_report_signature(report.id)
+        if signature:
+            try:
+                if pdf.get_y() + 45 > pdf.h - 20:
+                    pdf.add_page()
+                pdf.ln(6)
+                pdf.set_font("Helvetica", "B", 11)
+                pdf.set_text_color(26, 54, 93)
+                pdf.cell(0, 10, "Signature", border="B", ln=True)
+                pdf.ln(2)
+                pdf.image(io.BytesIO(signature.data), x=pdf.l_margin, w=60, h=24)
+                pdf.set_font("Helvetica", "", 9)
+                pdf.set_text_color(74, 85, 104)
+                signed_on = signature.created_at.strftime('%Y-%m-%d %H:%M') if signature.created_at else ''
+                pdf.cell(0, 6, _pdf_text(f"Signed by: {signature.signer_name or report.inspector_name or 'N/A'}   {signed_on} (UTC)"), ln=True)
+            except Exception as e:
+                print("Could not add signature to PDF:", e)
+
+        photo = get_report_photo(report.id)
+        if photo and (photo.mimetype or '').startswith('image/'):
+            try:
+                from PIL import Image
+                img = Image.open(io.BytesIO(photo.data))
+                w_px, h_px = img.size
+                width_mm = 120
+                height_mm = width_mm * h_px / w_px
+                if height_mm > 150:
+                    height_mm = 150
+                    width_mm = height_mm * w_px / h_px
+                if pdf.get_y() + height_mm + 20 > pdf.h - 20:
+                    pdf.add_page()
+                pdf.ln(8)
+                pdf.set_font("Helvetica", "B", 11)
+                pdf.set_text_color(26, 54, 93)
+                pdf.cell(0, 10, "Inspection Photo", border="B", ln=True)
+                pdf.ln(4)
+                pdf.image(io.BytesIO(photo.data), x=(pdf.w - width_mm) / 2, w=width_mm, h=height_mm)
+                pdf.set_text_color(74, 85, 104)
+            except Exception as e:
+                print("Could not add photo to PDF:", e)
+        elif photo:
+            pdf.ln(6)
+            pdf.set_font("Helvetica", "I", 10)
+            pdf.cell(0, 8, _pdf_text(f"Attached document: {photo.filename} (view it on the online report)"), ln=True)
     return bytes(pdf.output())
 
 
@@ -585,7 +725,6 @@ def delete_inspection(report_id):
     report = InspectionReport.query.get_or_404(report_id)
     report.deleted_at = date.today() # Mark date for 30-day countdown
     db.session.commit()
-    flash("Report moved to Recycle Bin.", "warning")
     return redirect(url_for('inspection_register'))
 
      
@@ -639,22 +778,64 @@ def submit_recovery(qr_code_id):
     res_dict = {"Is Unit Returned To Authorized Position?": clean_resp.upper(), "Operational Comments / Reason for Move": request.form.get('comments', 'No comments.')}
     if clean_resp == 'no':
         res_dict.update({"Reported Escalation Manager": request.form.get('responsible', 'N/A'), "Expected Target Resolution Date": request.form.get('due_date')})
+    existing = find_duplicate_report(qr_code_id, request.form.get('inspector_name'), date.today(), f"Recovery Checklist: {category}", json.dumps(res_dict))
+    if existing:
+        return redirect(url_for('view_report', report_id=existing.id))
     new_report = InspectionReport(qr_code_id=qr_code_id, inspector_name=request.form.get('inspector_name'), inspection_date=date.today(), category=f"Recovery Checklist: {category}", responses=json.dumps(res_dict), report_status="In Progress" if clean_resp == 'no' else "Completed")
     db.session.add(new_report)
     if unit: unit.status = 'In Position' if clean_resp == 'yes' else 'Displaced'
     db.session.commit()
+    try:
+        if save_inspection_signature(new_report.id, request.form.get('signature_data'), request.form.get('inspector_name')):
+            db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        print("Failed to save signature:", e)
     return redirect(url_for('view_report', report_id=new_report.id))
 
 @app.route('/submit_inspection/<string:qr_code_id>', methods=['POST'])
 def submit_inspection(qr_code_id):
     unit, category = get_unit_and_category(qr_code_id)
     if not unit: return "Not Found", 404
-    resp = {k: v for k, v in request.form.items() if k not in ['inspector_name', 'inspection_date'] and not k.endswith('_comment')}
-    new_report = InspectionReport(qr_code_id=qr_code_id, inspector_name=request.form.get('inspector_name'), inspection_date=date.fromisoformat(request.form.get('inspection_date', str(date.today()))), category=category, responses=json.dumps(resp), report_status='Completed')
+    # Keep the checklist answers plus any comments the inspector typed (empty comment boxes are skipped)
+    resp = {k: v.strip() for k, v in request.form.items()
+            if k not in ['inspector_name', 'inspection_date', 'signature_data'] and (not k.endswith('_comment') or v.strip())}
+    inspector_name = (request.form.get('inspector_name') or '').strip()
+    inspection_date = date.fromisoformat(request.form.get('inspection_date', str(date.today())))
+    responses_json = json.dumps(resp)
+    existing = find_duplicate_report(qr_code_id, inspector_name, inspection_date, category, responses_json)
+    if existing:
+        return redirect(url_for('inspection_done', report_id=existing.id))
+    new_report = InspectionReport(qr_code_id=qr_code_id, inspector_name=inspector_name, inspection_date=inspection_date, category=category, responses=responses_json, report_status='Completed')
     db.session.add(new_report)
     unit.status = 'In Position'
     db.session.commit()
-    return render_template('thank_you.html', unit=unit, category=category, unit_id=qr_code_id, inspector_name=request.form.get('inspector_name'), report_id=new_report.id)
+    # Save the inspection photo (taken with the camera or chosen from files)
+    try:
+        photo_file = request.files.get('inspection_photo_camera')
+        if not photo_file or not photo_file.filename:
+            photo_file = request.files.get('inspection_photo_file')
+        if save_inspection_photo(new_report.id, photo_file):
+            db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        print("Failed to save inspection photo:", e)
+    try:
+        if save_inspection_signature(new_report.id, request.form.get('signature_data'), inspector_name):
+            db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        print("Failed to save signature:", e)
+    return redirect(url_for('inspection_done', report_id=new_report.id))
+
+
+@app.route('/inspection_done/<int:report_id>')
+def inspection_done(report_id):
+    # Thank-you page is shown via a normal link, so refreshing it can't submit the inspection again
+    report = InspectionReport.query.get_or_404(report_id)
+    unit, category = get_unit_and_category(report.qr_code_id)
+    return render_template('thank_you.html', unit=unit, category=category, unit_id=report.qr_code_id,
+                           inspector_name=report.inspector_name, report_id=report.id)
 
 # Add this to your app.py
 @app.route('/admin/print_qr/<qr_code_id>')
@@ -682,6 +863,8 @@ def recycle_bin():
     ).all()
     
     for item in old_items:
+        InspectionPhoto.query.filter_by(report_id=item.id).delete()
+        InspectionSignature.query.filter_by(report_id=item.id).delete()
         db.session.delete(item)
     db.session.commit()
 
@@ -698,6 +881,22 @@ def restore_item(report_id):
     report.deleted_at = None 
     db.session.commit()
     flash("Report restored successfully!", "success")
+    return redirect(url_for('recycle_bin'))
+
+@app.route('/delete_permanent/<int:report_id>', methods=['POST'])
+def delete_permanent(report_id):
+    if not session.get('admin_logged_in'):
+        return redirect(url_for('login'))
+    report = InspectionReport.query.get_or_404(report_id)
+    if report.deleted_at is None:
+        # Safety: only reports that are already in the Recycle Bin can be permanently deleted
+        flash("Only reports in the Recycle Bin can be permanently deleted.", "warning")
+        return redirect(url_for('recycle_bin'))
+    InspectionPhoto.query.filter_by(report_id=report.id).delete()
+    InspectionSignature.query.filter_by(report_id=report.id).delete()
+    db.session.delete(report)
+    db.session.commit()
+    flash(f"Report #{report_id} permanently deleted.", "success")
     return redirect(url_for('recycle_bin'))
 
 @app.route('/choose-method/<category>')

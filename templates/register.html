@@ -10,6 +10,15 @@
         body { background-color: #f8f9fa; font-family: Arial, sans-serif; }
         .navbar { background-color: #003366; border-bottom: 4px solid #99cc33; }
         .brand-green { color: #99cc33; }
+
+        /* Side panel (matches the dashboard) */
+        .sidebar { background-color: #1a365d; min-height: 100vh; color: white; padding: 20px; position: fixed; top: 0; left: 0; width: 250px; z-index: 1000; overflow-y: auto; }
+        .sidebar .nav-link { color: rgba(255,255,255,0.8); margin: 5px 0; border-radius: 6px; text-decoration: none; display: block; padding: 10px; }
+        .sidebar .nav-link:hover, .sidebar .nav-link.active { background-color: #99cc33; color: #1a365d; font-weight: bold; }
+        .sidebar-logo { display: block; margin: 0 auto; max-width: 110px; max-height: 90px; object-fit: contain; }
+        .sidebar-brand-name { font-size: 0.85rem; white-space: nowrap; letter-spacing: 0.2px; color: #ffffff; }
+        .register-main { margin-left: 250px; padding: 30px; }
+        .register-main > .container { max-width: 100%; padding: 0; }
         .table-container { background: white; border-radius: 10px; padding: 25px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); margin-bottom: 40px; }
         .thead-dark { background-color: #003366; color: white; }
         .section-title { color: #003366; font-weight: bold; border-left: 5px solid #99cc33; padding-left: 15px; }
@@ -25,6 +34,7 @@
 
         /* ---------- PRINT: show the whole register on paper ---------- */
         @media print {
+            .register-main { margin-left: 0 !important; padding: 0 !important; }
             @page { size: A4 landscape; margin: 10mm; }
             body { background: #fff !important; font-size: 11px; }
             .no-print { display: none !important; }
@@ -42,22 +52,77 @@
             .section-title { page-break-after: avoid; break-after: avoid; }
             * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
         }
+    
+        /* ===== Phone layout: side panel becomes a slide-out menu ===== */
+        .mobile-topbar { display: none; }
+        .sidebar-backdrop { display: none; }
+        @media (max-width: 767.98px) {
+            .mobile-topbar {
+                display: flex; align-items: center; gap: 10px;
+                position: sticky; top: 0; z-index: 1040;
+                background: #1a365d; color: #fff; padding: 10px 14px;
+                border-bottom: 3px solid #99cc33;
+            }
+            .mobile-topbar .menu-btn {
+                background: transparent; border: 1px solid rgba(255,255,255,0.5); color: #fff;
+                border-radius: 8px; font-size: 1.3rem; line-height: 1; padding: 6px 10px;
+            }
+            .mobile-topbar img { height: 30px; width: auto; }
+            .mobile-topbar .brand { font-weight: bold; font-size: 0.85rem; white-space: nowrap; }
+            .sidebar {
+                display: flex !important; flex-direction: column;
+                position: fixed !important; top: 0; left: 0; bottom: 0;
+                width: 260px !important; max-width: 82vw; min-height: 100vh;
+                padding: 20px !important; overflow-y: auto;
+                transform: translateX(-105%); transition: transform 0.25s ease;
+                z-index: 1050; flex: none !important;
+            }
+            body.menu-open .sidebar { transform: translateX(0); }
+            body.menu-open .sidebar-backdrop {
+                display: block; position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 1045;
+            }
+            body.menu-open { overflow: hidden; }
+            .container-fluid, .row { min-width: 0 !important; }
+            main, .dashboard-main, .register-main, .main-content {
+                margin-left: 0 !important; width: 100% !important; padding: 16px !important;
+            }
+            .metrics-row { flex-wrap: wrap !important; }
+            .metric-col { flex: 1 1 calc(50% - 15px) !important; }
+            h2 { font-size: 1.4rem; }
+        }
+        @media print { .mobile-topbar, .sidebar-backdrop { display: none !important; } }
     </style>
 </head>
 <body>
 
-    <nav class="navbar navbar-dark shadow mb-4 no-print">
-        <div class="container py-2">
-            <a class="navbar-brand fw-bold d-flex align-items-center gap-2" href="{{ url_for('admin_dashboard') }}">
-                <img src="{{ url_for('static', filename='logo.png') }}" alt="Reginald SHERQ Services logo" style="height: 38px; width: auto;">
-                <span>REGINALD<span class="brand-green">SHERQ</span><span class="text-white">SERVICES</span> REGISTER</span>
-            </a>
-            <div class="d-flex gap-2 align-items-center">
-                <button onclick="window.print()" class="btn btn-success btn-sm">Print Register</button>
-                <a href="{{ url_for('admin_dashboard') }}" class="btn btn-sm btn-outline-light">Back to Dashboard</a>
-            </div>
+    <!-- Phone-only top bar with menu button -->
+    <div class="mobile-topbar">
+        <button type="button" class="menu-btn" aria-label="Open menu">&#9776;</button>
+        <img src="{{ url_for('static', filename='logo.png') }}" alt="Reginald SHERQ Services logo">
+        <span class="brand">REGINALD<span style="color:#99cc33;">SHERQ</span>SERVICES</span>
+    </div>
+    <div class="sidebar-backdrop"></div>
+
+    <!-- Side panel (same as the dashboard) -->
+    <div class="sidebar d-flex flex-column no-print">
+        <div class="sidebar-brand text-center border-bottom border-secondary pb-3">
+            <img class="sidebar-logo" src="{{ url_for('static', filename='logo.png') }}" alt="Reginald SHERQ Services logo">
+            <h5 class="sidebar-brand-name fw-bold mt-2 mb-0">REGINALD<span class="brand-green">SHERQ</span><span class="text-white">SERVICES</span></h5>
         </div>
-    </nav>
+        <ul class="nav flex-column mt-3 flex-grow-1">
+            <li class="nav-item"><a href="/admin/dashboard" class="nav-link"><i class="fa-solid fa-gauge me-2"></i> Dashboard</a></li>
+            <li class="nav-item"><a href="/admin/register" class="nav-link active"><i class="fa-solid fa-boxes-stacked me-2"></i> Asset Register</a></li>
+            <li class="nav-item"><a href="/admin/inspection_register" class="nav-link"><i class="fa-solid fa-clipboard-list me-2"></i> Inspection Register</a></li>
+            <li class="nav-item"><a href="/admin/alerts" class="nav-link"><i class="fa-solid fa-triangle-exclamation me-2"></i> Alerts</a></li>
+            <li class="nav-item"><a href="{{ url_for('recycle_bin') }}" class="nav-link"><i class="fa-solid fa-trash-can me-2"></i> Recycle Bin</a></li>
+        </ul>
+    </div>
+
+    <main class="register-main">
+        <div class="d-flex justify-content-between align-items-center mb-4 no-print">
+            <h2 class="fw-bold m-0" style="color: #1a365d;">Asset Register</h2>
+            <button onclick="window.print()" class="btn btn-success"><i class="fa-solid fa-print me-1"></i> Print Register</button>
+        </div>
 
     <div class="container">
         <div class="print-only print-header">
@@ -247,6 +312,7 @@
             </div>
         </div>
     </div>
+    </main>
 
     <script>
         document.getElementById('printDate').textContent = new Date().toLocaleString();
@@ -320,6 +386,19 @@
                 window.location.href = "{{ url_for('logout') }}";
             }
         }
+    </script>
+
+    <script>
+        // Phone menu: open/close the side panel
+        (function () {
+            function closeMenu() { document.body.classList.remove('menu-open'); }
+            document.querySelectorAll('.menu-btn').forEach(function (btn) {
+                btn.addEventListener('click', function () { document.body.classList.toggle('menu-open'); });
+            });
+            var backdrop = document.querySelector('.sidebar-backdrop');
+            if (backdrop) backdrop.addEventListener('click', closeMenu);
+            document.querySelectorAll('.sidebar a').forEach(function (a) { a.addEventListener('click', closeMenu); });
+        })();
     </script>
 </body>
 </html>
