@@ -39,6 +39,10 @@ def came_from_sherq_online():
 @app.before_request
 def remember_sherq_online_visitors():
     if came_from_sherq_online():
+        # Every time someone comes (back) from SHERQ Online they must log in again,
+        # so an old session is never kept open.
+        session.pop('admin_logged_in', None)
+        session.pop('username', None)
         session['login_required'] = True
 
 

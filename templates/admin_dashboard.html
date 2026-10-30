@@ -17,6 +17,7 @@
         .sidebar .nav-link { color: rgba(255,255,255,0.8); margin: 5px 0; border-radius: 6px; text-decoration: none; display: block; padding: 10px; }
         .sidebar .nav-link:hover, .sidebar .nav-link.active { background-color: #99cc33; color: #1a365d; font-weight: bold; }
         .brand-green { color: #99cc33; }
+        .sidebar .logout-link:hover { background-color: #c62828; color: #ffffff; font-weight: bold; }
         .sidebar-brand-name { font-size: 0.85rem; white-space: nowrap; letter-spacing: 0.2px; color: #ffffff; }
         .sidebar-logo { display: block; margin: 0 auto; max-width: 110px; max-height: 90px; object-fit: contain; }
         
@@ -104,6 +105,12 @@
                 <li class="nav-item"><a href="/admin/alerts" class="nav-link"><i class="fa-solid fa-triangle-exclamation me-2"></i> Alerts</a></li>
                 <li class="nav-item"><a href="{{ url_for('recycle_bin') }}" class="nav-link"><i class="fa-solid fa-trash-can me-2"></i> Recycle Bin</a></li>
             </ul>
+            {% if session.get('login_required') %}
+            <!-- Logout only for people who came in through SHERQ Online's inspector login -->
+            <div class="border-top border-secondary pt-3">
+                <a href="{{ url_for('logout') }}" class="nav-link logout-link"><i class="fa-solid fa-right-from-bracket me-2"></i> Logout</a>
+            </div>
+            {% endif %}
         </div>
 
         <!-- Main Content Area -->
