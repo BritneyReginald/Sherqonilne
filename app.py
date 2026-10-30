@@ -990,7 +990,6 @@ def login():
         elif user:
             session['admin_logged_in'] = True
             session['username'] = user
-            flash("Logged in successfully!", "success")
             return redirect(url_for('admin_dashboard'))
         else:
             flash("Invalid username or password.", "danger")
@@ -1056,7 +1055,6 @@ def find_login_user(login_input, password_input):
 def logout():
     session.pop('admin_logged_in', None)
     session.pop('username', None)
-    flash("You have been logged out.", "info")
     if not session.get('login_required'):
         # Direct visitors have no login page, so send them back to the start page
         return redirect(url_for('home'))
