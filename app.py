@@ -19,6 +19,29 @@ app = Flask(__name__)
 #def bypass_login():
 #   @ session['admin_logged_in'] = True
 
+# --- LOGIN RULES ---
+# Opening the Fire app link directly: no login page, the admin goes straight in.
+# Arriving from SHERQ Online (e.g. its /login/inspector page): login is still required.
+# We know where someone came from by the browser's Referer header; once a visitor has
+# come from SHERQ Online, the rest of their session keeps asking for login.
+SHERQ_ONLINE_HOSTS = [h.strip().lower() for h in os.environ.get(
+    'SHERQ_ONLINE_HOSTS',
+    'ohs-online-web-hsc0c5a6f2d2ghg8.southafricanorth-01.azurewebsites.net,ohs.sherq.co.za'
+).split(',') if h.strip()]
+
+
+def came_from_sherq_online():
+    from urllib.parse import urlparse
+    referrer_host = (urlparse(request.referrer or '').hostname or '').lower()
+    return referrer_host in SHERQ_ONLINE_HOSTS
+
+
+@app.before_request
+def remember_sherq_online_visitors():
+    if came_from_sherq_online():
+        session['login_required'] = True
+
+
 @app.route('/', methods=['GET'])
 def home():
     return render_template('scan_landing.html')
@@ -946,6 +969,12 @@ from werkzeug.security import check_password_hash
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
+    # Direct visitors (not from SHERQ Online) skip the login page and go straight in
+    if request.method == 'GET' and not session.get('login_required'):
+        session['admin_logged_in'] = True
+        session['username'] = session.get('username') or 'Admin'
+        return redirect(url_for('admin_dashboard'))
+
     if request.method == 'POST':
         login_input = (request.form.get('username') or '').strip()
         password_input = request.form.get('password') or ''
@@ -1024,6 +1053,9 @@ def logout():
     session.pop('admin_logged_in', None)
     session.pop('username', None)
     flash("You have been logged out.", "info")
+    if not session.get('login_required'):
+        # Direct visitors have no login page, so send them back to the start page
+        return redirect(url_for('home'))
     return redirect(url_for('login'))
 
 if __name__ == '__main__':
