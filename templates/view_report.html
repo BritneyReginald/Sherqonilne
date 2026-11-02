@@ -74,6 +74,11 @@
 </head>
 <body class="py-5">
     <div class="container">
+        <!-- Back button: returns to the page you came from (register, history, dashboard, alerts, recycle bin) -->
+        <div class="mx-auto mb-3 d-print-none" style="max-width: 800px;">
+            <a href="{{ url_for('inspection_register') if session.get('admin_logged_in') else url_for('home') }}"
+               id="backBtn" class="btn btn-outline-secondary fw-bold">&larr; Back</a>
+        </div>
         <div class="card shadow mx-auto" style="max-width: 800px;">
             <div class="report-header text-center">
                 <h3>OFFICIAL INSPECTION RECORD</h3>
@@ -188,5 +193,15 @@
         </div>
     </div>
 
+    <script>
+        document.getElementById('backBtn').addEventListener('click', function (e) {
+            var from = document.referrer || '';
+            // Go back to the previous page if it was inside this app (but never back into a checklist form)
+            if (from.indexOf(window.location.origin) === 0 && !/\/(questionnaire|recovery|submit_)/.test(from) && window.history.length > 1) {
+                e.preventDefault();
+                window.history.back();
+            }
+        });
+    </script>
 </body>
 </html>
