@@ -36,8 +36,24 @@ def came_from_sherq_online():
     return referrer_host in SHERQ_ONLINE_HOSTS
 
 
+# The admin's own address: anyone opening the app on these addresses never sees a login page.
+ADMIN_BYPASS_HOSTS = [h.strip().lower() for h in os.environ.get(
+    'ADMIN_BYPASS_HOSTS', 'fire.sherq.co.za'
+).split(',') if h.strip()]
+
+
+def on_admin_address():
+    return (request.host or '').split(':')[0].lower() in ADMIN_BYPASS_HOSTS
+
+
 @app.before_request
 def remember_sherq_online_visitors():
+    if on_admin_address():
+        # fire.sherq.co.za: bypass all logins
+        session.pop('login_required', None)
+        session['admin_logged_in'] = True
+        session['username'] = session.get('username') or 'Admin'
+        return None
     if came_from_sherq_online():
         # Every time someone comes (back) from SHERQ Online they must log in again,
         # so an old session is never kept open.
