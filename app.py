@@ -701,6 +701,18 @@ def toggle_inactive(category, qr_id):
         flash(f"Asset {qr_id} marked as inactive.")
     return redirect(url_for('register'))
 
+@app.route('/admin/set_active/<category>/<qr_id>')
+def set_active(category, qr_id):
+    """Brings an inactive asset back into use (status back to 'In Position')."""
+    if not session.get('admin_logged_in'):
+        return redirect(url_for('login'))
+    unit, assigned_category = get_unit_and_category(qr_id)
+    if unit:
+        unit.status = 'In Position'
+        db.session.commit()
+        flash(f"Asset {qr_id} marked as active.")
+    return redirect(url_for('register'))
+
 @app.route('/admin/inspection_register')
 def inspection_register():
     if not session.get('admin_logged_in'): 
