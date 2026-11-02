@@ -57,9 +57,11 @@ export const issuePPE = async (req: Request, res: Response): Promise<void> => {
 
     res.status(201).json(created);
   } catch (err: any) {
-    console.error(err);
+    // err.status is set for expected failures (missing size, out of stock,
+    // unknown item) so the user sees the real message, not a generic 500.
+    if (!err.status) console.error(err);
     res
-      .status(500)
+      .status(err.status || 500)
       .json({ error: err.message, detail: err.detail, code: err.code });
   }
 };

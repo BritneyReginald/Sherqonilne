@@ -197,12 +197,15 @@ export function PPERegister({ employeeId }: { employeeId?: string }) {
       throw new Error(httpErrorMessage(response.status, "the PPE catalogue"));
     const data = await response.json();
 
+    // Sizing and stock now come from the catalogue: size_type picks which
+    // sizes exist (S-L, 32-44, 3-12), size_stock is how many of each are left.
     const formatted: PPECatalogueItem[] = data.map((item: any) => ({
       id: item.id,
       name: item.item_name,
       category: item.category,
-      requiresSize: item.requires_size,
-      sizes: item.sizes || undefined,
+      sizeType: item.size_type,
+      stockLevel: item.stock_level,
+      sizeStock: item.size_stock || [],
     }));
 
     setCatalogueItems(formatted);
@@ -664,9 +667,13 @@ export function PPERegister({ employeeId }: { employeeId?: string }) {
                               className="text-sm"
                               style={{ color: "#94A3B8" }}
                             >
-                              {t.ppeBrand}
-                              {t.ppeSize ? ` • ${t.ppeSize}` : ""} • Issued{" "}
-                              {formatDate(t.issueDate)}
+                              {[
+                                t.ppeBrand,
+                                t.ppeSize ? `Size ${t.ppeSize}` : null,
+                                `Issued ${formatDate(t.issueDate)}`,
+                              ]
+                                .filter(Boolean)
+                                .join(" • ")}
                             </div>
                           </div>
                           <div className="flex items-center gap-4">
@@ -817,7 +824,11 @@ export function PPERegister({ employeeId }: { employeeId?: string }) {
                                   className="text-xs"
                                   style={{ color: "#94A3B8" }}
                                 >
-                                  {[t.ppeBrand, t.ppeSize, t.ppeCategory]
+                                  {[
+                                    t.ppeBrand,
+                                    t.ppeSize ? `Size ${t.ppeSize}` : null,
+                                    t.ppeCategory,
+                                  ]
                                     .filter(Boolean)
                                     .join(" • ")}
                                 </div>

@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.uploadProfilePictureController = exports.uploadIdDocumentController = exports.deleteEmployeeController = exports.deactivateEmployeeController = exports.editEmployee = exports.getEmployee = exports.getAllEmployees = exports.addEmployee = void 0;
+exports.uploadProfilePictureController = exports.uploadIdDocumentController = exports.deleteEmployeeController = exports.activateEmployeeController = exports.deactivateEmployeeController = exports.editEmployee = exports.getEmployee = exports.getAllEmployees = exports.addEmployee = void 0;
 const employee_1 = require("../models/employee");
 const employeeBlob_1 = require("../config/employeeBlob");
 /**
@@ -79,6 +79,19 @@ const deactivateEmployeeController = async (req, res) => {
     }
 };
 exports.deactivateEmployeeController = deactivateEmployeeController;
+const activateEmployeeController = async (req, res) => {
+    try {
+        const updated = await (0, employee_1.activateEmployee)(Number(req.params.id));
+        if (!updated)
+            return res.status(404).json({ message: "Employee not found" });
+        res.json(withFileUrls(updated));
+    }
+    catch (error) {
+        console.error("Failed to activate employee:", error);
+        res.status(500).json({ message: error.message || "Failed to activate employee" });
+    }
+};
+exports.activateEmployeeController = activateEmployeeController;
 const deleteEmployeeController = async (req, res) => {
     try {
         const deleted = await (0, employee_1.deleteEmployee)(Number(req.params.id));

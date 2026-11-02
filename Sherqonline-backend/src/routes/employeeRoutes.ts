@@ -7,6 +7,7 @@ import {
   getEmployee,
   editEmployee,
   deactivateEmployeeController,
+  activateEmployeeController,
   deleteEmployeeController,
   uploadIdDocumentController,
   uploadProfilePictureController,
@@ -43,6 +44,9 @@ router.post(
 
 // Soft delete
 router.patch("/:id/deactivate", deactivateEmployeeController);
+
+// Restore a deactivated employee
+router.patch("/:id/activate", activateEmployeeController);
 
 // Hard delete
 router.delete("/:id", deleteEmployeeController);

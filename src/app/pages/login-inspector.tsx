@@ -7,8 +7,7 @@ import { useTheme } from "../contexts/theme-context";
 
 // Inspectors skip the main AppShell entirely — they land straight in
 // Fire Equipment, per your access rules.
-const FIRE_EQUIPMENT_URL =
-  "https://ohs-online-fire-a2a2duhchxd2cjcg.southafricanorth-01.azurewebsites.net/";
+const FIRE_EQUIPMENT_URL = "https://fire.sherq.co.za/";
 
 export function LoginInspector() {
   const { loginInspector } = useAuth();

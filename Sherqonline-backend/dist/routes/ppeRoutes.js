@@ -11,7 +11,8 @@ router.use(authMiddleware_1.authenticate, (0, authMiddleware_1.authorize)("rss_s
 const catalogue = (0, express_1.Router)();
 catalogue.use((0, authMiddleware_1.authorize)("rss_staff"));
 catalogue.get("/", ppeCatalogueController_1.getAllCatalogueItems);
-catalogue.post("/", ppeCatalogueController_1.addCatalogueItem);
+catalogue.get("/types", ppeCatalogueController_1.getPPETypes); // MUST be above "/:id"
+catalogue.post("/stock", ppeCatalogueController_1.addStockByNameController);
 catalogue.get("/:id", ppeCatalogueController_1.getCatalogueItem);
 catalogue.patch("/:id", ppeCatalogueController_1.editCatalogueItem);
 catalogue.delete("/:id", ppeCatalogueController_1.deleteCatalogueItemController);

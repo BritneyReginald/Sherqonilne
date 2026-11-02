@@ -16,6 +16,7 @@ const pool = new pg_1.Pool({
         rejectUnauthorized: false,
     },
 });
+pg_1.types.setTypeParser(1082, (v) => v);
 pool.on("connect", () => {
     console.log("Connected to PostgreSQL");
 });

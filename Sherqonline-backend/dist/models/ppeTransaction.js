@@ -13,13 +13,19 @@ exports.restorePPETransaction = restorePPETransaction;
 exports.purgeExpiredPPETransactions = purgeExpiredPPETransactions;
 const db_1 = __importDefault(require("../config/db"));
 const ppeCatalogue_1 = require("./ppeCatalogue");
+const ppeSizes_1 = require("../config/ppeSizes");
 exports.PPE_RETENTION_DAYS = 30;
+const httpError = (status, message) => Object.assign(new Error(message), { status });
 /**
  * Issues one or more PPE items to an employee in a single atomic
  * operation: every item gets its own transaction row AND has its
  * catalogue stock decremented, all inside one BEGIN/COMMIT so a
  * failure partway through never leaves stock counts out of sync
  * with the issue log.
+ *
+ * Sized items (boots, overalls, etc.) must be issued with a valid
+ * size, and the stock for THAT size is decremented. Issuing a size
+ * that is out of stock fails the whole issuance (nothing is saved).
  *
  * The site is taken from the EMPLOYEE (site_id), never from the
  * request, so an issue can't be filed under the wrong client.
@@ -33,7 +39,7 @@ async function createPPETransactions(data) {
          LEFT JOIN sites s ON s.id = e.site_id
         WHERE e.id = $1`, [data.employeeId]);
         if (!employeeResult.rows[0]) {
-            throw new Error(`Employee ${data.employeeId} not found`);
+            throw httpError(404, `Employee ${data.employeeId} not found`);
         }
         const siteId = employeeResult.rows[0].site_id ?? null;
         const siteLocation = employeeResult.rows[0].site_name ?? data.siteLocation ?? null;
@@ -46,7 +52,16 @@ async function createPPETransactions(data) {
         for (const item of data.items) {
             const catalogueItem = await (0, ppeCatalogue_1.getCatalogueItemById)(item.itemId);
             if (!catalogueItem) {
-                throw new Error(`PPE catalogue item ${item.itemId} not found`);
+                throw httpError(404, `PPE catalogue item ${item.itemId} not found`);
+            }
+            // Sized items need a valid size; unsized items never store one.
+            const sizeType = catalogueItem.size_type;
+            let size = null;
+            if (sizeType !== "none") {
+                if (!item.size || !ppeSizes_1.SIZE_TYPES[sizeType].includes(item.size)) {
+                    throw httpError(400, `Select a valid size for ${catalogueItem.item_name}.`);
+                }
+                size = item.size;
             }
             const replacementDue = new Date();
             replacementDue.setDate(replacementDue.getDate() + (catalogueItem.replacement_days || 180));
@@ -67,8 +82,8 @@ async function createPPETransactions(data) {
                 catalogueItem.id,
                 catalogueItem.item_name,
                 catalogueItem.category,
-                catalogueItem.supplier || "Standard Issue",
-                item.size || null,
+                null, // ppe_brand: suppliers were removed from the catalogue
+                size,
                 today,
                 item.condition,
                 replacementDue.toISOString().slice(0, 10),
@@ -76,12 +91,10 @@ async function createPPETransactions(data) {
                 data.signatureData,
                 siteId,
             ]);
-            // Stock is allowed to go negative rather than blocking
-            // issuance — a compliance officer issuing PPE for safety
-            // reasons should never be stopped by a stock-count edge case.
-            // Low/negative stock surfaces via the catalogue's stock alerts
-            // instead, which is a purchasing signal, not an issuance gate.
-            await (0, ppeCatalogue_1.decrementStockWithClient)(client, catalogueItem.id, 1);
+            // Decrements the per-size stock (sized items) or the item's
+            // stock_level (unsized). Throws a 400 if there isn't enough, which
+            // rolls back the entire issuance.
+            await (0, ppeCatalogue_1.decrementStockWithClient)(client, catalogueItem.id, 1, size);
             createdIds.push(insertResult.rows[0].id);
         }
         await client.query("COMMIT");

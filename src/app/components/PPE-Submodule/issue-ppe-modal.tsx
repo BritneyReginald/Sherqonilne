@@ -1,16 +1,19 @@
 import { X, Search, Check, PenTool, Eraser, Loader2 } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
+import { SIZE_TYPES, SizeType } from "./ppe-sizes";
 
 export interface PPECatalogueItem {
   id: number;
   name: string;
   category: string;
-  sizes?: string[];
-  requiresSize: boolean;
+  sizeType: SizeType;
+  stockLevel: number; // total across all sizes
+  sizeStock: { size: string; quantity: number }[];
 }
 
 export interface EmployeeOption {
   id: number;
+  employeeNumber?: string;
   name: string;
   jobTitle: string;
   siteLocation?: string;
@@ -63,6 +66,13 @@ export function IssuePPEModal({
       emp.name.toLowerCase().includes(employeeSearch.toLowerCase()) ||
       emp.jobTitle.toLowerCase().includes(employeeSearch.toLowerCase()),
   );
+
+  // Every size this item comes in, with how many are left of each.
+  const sizeOptions = (item: PPECatalogueItem) =>
+    SIZE_TYPES[item.sizeType].map((size) => ({
+      size,
+      quantity: item.sizeStock.find((s) => s.size === size)?.quantity ?? 0,
+    }));
 
   const toggleItem = (itemId: string) => {
     const newSelected = new Map(selectedItems);
@@ -136,6 +146,18 @@ export function IssuePPEModal({
   const handleSubmit = async () => {
     if (!selectedEmployee || selectedItems.size === 0 || !hasSigned) {
       setSubmitError("Please select an employee, at least one PPE item, and provide a signature.");
+      return;
+    }
+
+    // Sized items (boots, overalls, aprons...) must have a size chosen.
+    const missingSize = catalogueItems.find(
+      (i) =>
+        selectedItems.has(String(i.id)) &&
+        i.sizeType !== "none" &&
+        !selectedItems.get(String(i.id))?.size,
+    );
+    if (missingSize) {
+      setSubmitError(`Select a size for ${missingSize.name}.`);
       return;
     }
 
@@ -268,22 +290,33 @@ export function IssuePPEModal({
               </h3>
               <div className="border rounded-lg overflow-hidden" style={{ borderColor: "var(--grey-200)" }}>
                 <div className="divide-y" style={{ borderColor: "var(--grey-200)" }}>
+                  {catalogueItems.length === 0 && (
+                    <div className="p-4 text-sm" style={{ color: "var(--grey-600)" }}>
+                      No PPE in stock yet. Add stock from the PPE Catalogue first.
+                    </div>
+                  )}
+
                   {catalogueItems.map((item) => {
                     const itemKey = String(item.id);
                     const isSelected = selectedItems.has(itemKey);
                     const itemDetails = selectedItems.get(itemKey);
+                    const outOfStock = item.stockLevel <= 0;
 
                     return (
                       <div
                         key={item.id}
                         className="p-4"
-                        style={{ backgroundColor: isSelected ? "var(--brand-blue)05" : "transparent" }}
+                        style={{
+                          backgroundColor: isSelected ? "var(--brand-blue)05" : "transparent",
+                          opacity: outOfStock ? 0.6 : 1,
+                        }}
                       >
                         <div className="flex items-start gap-3">
                           <div className="pt-1">
                             <button
                               onClick={() => toggleItem(itemKey)}
-                              className="size-5 rounded border-2 flex items-center justify-center transition-colors"
+                              disabled={outOfStock}
+                              className="size-5 rounded border-2 flex items-center justify-center transition-colors disabled:cursor-not-allowed"
                               style={{
                                 borderColor: isSelected ? "var(--brand-blue)" : "var(--grey-300)",
                                 backgroundColor: isSelected ? "var(--brand-blue)" : "white",
@@ -297,7 +330,18 @@ export function IssuePPEModal({
                             <div className="flex items-start justify-between mb-2">
                               <div>
                                 <div className="font-medium" style={{ color: "var(--grey-900)" }}>{item.name}</div>
-                                <div className="text-sm" style={{ color: "var(--grey-600)" }}>{item.category}</div>
+                                <div className="text-sm" style={{ color: "var(--grey-600)" }}>
+                                  {item.category} ·{" "}
+                                  <span
+                                    style={{
+                                      color: outOfStock
+                                        ? "var(--compliance-danger)"
+                                        : "var(--grey-600)",
+                                    }}
+                                  >
+                                    {outOfStock ? "Out of stock" : `${item.stockLevel} in stock`}
+                                  </span>
+                                </div>
                               </div>
                             </div>
 
@@ -316,7 +360,7 @@ export function IssuePPEModal({
                                   </select>
                                 </div>
 
-                                {item.requiresSize && (
+                                {item.sizeType !== "none" && (
                                   <div className="flex-1">
                                     <label className="block text-xs font-medium mb-1" style={{ color: "var(--grey-700)" }}>Size</label>
                                     <select
@@ -326,8 +370,10 @@ export function IssuePPEModal({
                                       style={{ borderColor: "var(--grey-300)", color: "var(--grey-900)" }}
                                     >
                                       <option value="">Select size...</option>
-                                      {item.sizes?.map((size) => (
-                                        <option key={size} value={size}>{size}</option>
+                                      {sizeOptions(item).map(({ size, quantity }) => (
+                                        <option key={size} value={size} disabled={quantity === 0}>
+                                          {size} {quantity === 0 ? "(out of stock)" : `(${quantity} left)`}
+                                        </option>
                                       ))}
                                     </select>
                                   </div>

@@ -1,6 +1,12 @@
 import { useState, useEffect } from "react";
-import { Plus, Edit, X, Package, AlertCircle, Filter, ShieldCheck, Loader2 } from "lucide-react";
-import { PPECatalogueItemModal, CatalogueItem } from "./ppe-catalogue-item-modal";
+import { Edit, X, Package, AlertCircle, Filter, ShieldCheck, Loader2, PackagePlus } from "lucide-react";
+import {
+  PPECatalogueItemModal,
+  CatalogueItem,
+  CatalogueItemForm,
+} from "./ppe-catalogue-item-modal";
+import { PPEAddStockModal, StockSubmit } from "./ppe-add-stock-modal";
+import { SIZE_TYPES, PPEType } from "./ppe-sizes";
 
 interface PPECatalogueProps {
   isOpen: boolean;
@@ -27,26 +33,38 @@ export function PPECatalogue({ isOpen, onClose, onCatalogueChanged }: PPECatalog
   const [selectedCategory, setSelectedCategory] = useState("All Categories");
   const [showItemModal, setShowItemModal] = useState(false);
   const [editingItem, setEditingItem] = useState<CatalogueItem | null>(null);
+  const [showStockModal, setShowStockModal] = useState(false);
+  const [stockItemName, setStockItemName] = useState<string | null>(null);
+  const [types, setTypes] = useState<PPEType[]>([]);
 
   useEffect(() => {
-    if (isOpen) fetchCatalogue();
+    if (isOpen) {
+      fetchCatalogue();
+      fetchTypes();
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen]);
+
+  const fetchTypes = async () => {
+    try {
+      const response = await fetch(`${API_URL}/ppe/catalogue/types`, { headers: authHeaders() });
+      if (response.ok) setTypes(await response.json());
+    } catch (error) {
+      console.error("Error fetching PPE types:", error);
+    }
+  };
 
   const fetchCatalogue = async () => {
     setIsLoading(true);
     setLoadError(null);
     try {
-      const response = await fetch(`${API_URL}/ppe/catalogue`, {
-        headers: authHeaders(),
-      });
+      const response = await fetch(`${API_URL}/ppe/catalogue`, { headers: authHeaders() });
       if (!response.ok) {
         if (response.status === 401) throw new Error("Your session has expired. Please log in again.");
         if (response.status === 403) throw new Error("You don't have permission to view the PPE catalogue.");
         throw new Error(`Failed to fetch PPE catalogue (HTTP ${response.status}).`);
       }
-      const data = await response.json();
-      setItems(data);
+      setItems(await response.json());
     } catch (error: any) {
       console.error("Error fetching PPE catalogue:", error);
       setLoadError(error?.message || "Couldn't load the PPE catalogue. Check your connection and try again.");
@@ -57,10 +75,7 @@ export function PPECatalogue({ isOpen, onClose, onCatalogueChanged }: PPECatalog
 
   if (!isOpen) return null;
 
-  const categories = [
-    "All Categories",
-    ...Array.from(new Set(items.map((item) => item.category))).sort(),
-  ];
+  const categories = ["All Categories", ...Array.from(new Set(items.map((i) => i.category))).sort()];
 
   const filteredItems = items.filter((item) =>
     selectedCategory === "All Categories" ? true : item.category === selectedCategory,
@@ -71,9 +86,8 @@ export function PPECatalogue({ isOpen, onClose, onCatalogueChanged }: PPECatalog
       return { color: "var(--compliance-danger)", label: "Low Stock", status: "critical" };
     } else if (item.stock_level < item.min_stock_level * 1.5) {
       return { color: "var(--compliance-warning)", label: "Monitor", status: "warning" };
-    } else {
-      return { color: "var(--compliance-success)", label: "In Stock", status: "good" };
     }
+    return { color: "var(--compliance-success)", label: "In Stock", status: "good" };
   };
 
   const replacementLabel = (days: number) => {
@@ -84,62 +98,61 @@ export function PPECatalogue({ isOpen, onClose, onCatalogueChanged }: PPECatalog
     return `Every ${days} days`;
   };
 
-  const totalItems = items.length;
-  const lowStockItems = items.filter((item) => item.stock_level < item.min_stock_level).length;
-  const totalStockValue = items.reduce((sum, item) => sum + item.stock_level, 0);
-  const activeSuppliers = new Set(items.map((item) => item.supplier).filter(Boolean)).size;
+  const sizeStockOrdered = (item: CatalogueItem) =>
+    SIZE_TYPES[item.size_type].map((size) => ({
+      size,
+      quantity: item.size_stock.find((s) => s.size === size)?.quantity ?? 0,
+    }));
 
-  const openAddModal = () => {
-    setEditingItem(null);
-    setShowItemModal(true);
-  };
+  const totalItems = items.length;
+  const lowStockItems = items.filter((i) => i.stock_level < i.min_stock_level).length;
+  const totalStockUnits = items.reduce((sum, i) => sum + i.stock_level, 0);
+  const totalCategories = new Set(items.map((i) => i.category)).size;
 
   const openEditModal = (item: CatalogueItem) => {
     setEditingItem(item);
     setShowItemModal(true);
   };
 
-  const handleItemSubmit = async (form: {
-    itemName: string;
-    category: string;
-    supplier: string;
-    requiresSize: boolean;
-    sizes: string;
-    replacementDays: number;
-    stockLevel: number;
-    minStockLevel: number;
-  }) => {
-    const body = {
-      itemName: form.itemName,
-      category: form.category,
-      supplier: form.supplier,
-      requiresSize: form.requiresSize,
-      sizes: form.sizes,
-      replacementDays: form.replacementDays,
-      stockLevel: form.stockLevel,
-      minStockLevel: form.minStockLevel,
-    };
+  const openStockModal = (itemName: string | null = null) => {
+    setStockItemName(itemName);
+    setShowStockModal(true);
+  };
 
-    const url = editingItem
-      ? `${API_URL}/ppe/catalogue/${editingItem.id}`
-      : `${API_URL}/ppe/catalogue`;
-    const method = editingItem ? "PATCH" : "POST";
+  const readError = async (response: Response, fallback: string) => {
+    const errBody = await response.json().catch(() => ({}));
+    return new Error(errBody.error || fallback);
+  };
 
-    const response = await fetch(url, {
-      method,
+  // Edits replacement days / min stock only. Name, category and sizing come from the PPE list.
+  const handleItemSubmit = async (form: CatalogueItemForm) => {
+    if (!editingItem) return;
+    const response = await fetch(`${API_URL}/ppe/catalogue/${editingItem.id}`, {
+      method: "PATCH",
       headers: { "Content-Type": "application/json", ...authHeaders() },
-      body: JSON.stringify(body),
+      body: JSON.stringify(form),
     });
-
-    if (!response.ok) {
-      const errBody = await response.json().catch(() => ({}));
-      throw new Error(errBody.error || "Failed to save catalogue item");
-    }
+    if (!response.ok) throw await readError(response, "Failed to save changes");
 
     await fetchCatalogue();
     onCatalogueChanged?.();
     setShowItemModal(false);
   };
+
+  const handleStockSubmit = async ({ itemName, mode, entries }: StockSubmit) => {
+    const response = await fetch(`${API_URL}/ppe/catalogue/stock`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...authHeaders() },
+      body: JSON.stringify({ itemName, mode, entries }),
+    });
+    if (!response.ok) throw await readError(response, "Failed to update stock");
+
+    await fetchCatalogue();
+    onCatalogueChanged?.();
+    setShowStockModal(false);
+  };
+
+  const chipStyle = { backgroundColor: "rgba(255, 255, 255, 0.1)", color: "#F8FAFC" };
 
   return (
     <div
@@ -164,12 +177,12 @@ export function PPECatalogue({ isOpen, onClose, onCatalogueChanged }: PPECatalog
 
             <div className="flex gap-3">
               <button
-                onClick={openAddModal}
+                onClick={() => openStockModal(null)}
                 className="px-5 py-2.5 rounded-lg font-medium text-white transition-opacity flex items-center gap-2 hover:opacity-90"
                 style={{ backgroundColor: "#3B82F6" }}
               >
-                <Plus className="size-4" />
-                Add New Item
+                <PackagePlus className="size-4" />
+                Add Stock
               </button>
               <button
                 onClick={onClose}
@@ -209,11 +222,11 @@ export function PPECatalogue({ isOpen, onClose, onCatalogueChanged }: PPECatalog
             </div>
             <div className="px-6 py-4 rounded-lg" style={{ backgroundColor: "#1E293B" }}>
               <p className="text-sm mb-2" style={{ color: "#94A3B8" }}>Total Stock Units</p>
-              <p className="text-3xl font-bold" style={{ color: "#F8FAFC" }}>{totalStockValue}</p>
+              <p className="text-3xl font-bold" style={{ color: "#F8FAFC" }}>{totalStockUnits}</p>
             </div>
             <div className="px-6 py-4 rounded-lg" style={{ backgroundColor: "#1E293B" }}>
-              <p className="text-sm mb-2" style={{ color: "#94A3B8" }}>Active Suppliers</p>
-              <p className="text-3xl font-bold" style={{ color: "#F8FAFC" }}>{activeSuppliers}</p>
+              <p className="text-sm mb-2" style={{ color: "#94A3B8" }}>Categories</p>
+              <p className="text-3xl font-bold" style={{ color: "#F8FAFC" }}>{totalCategories}</p>
             </div>
           </div>
         </div>
@@ -242,7 +255,7 @@ export function PPECatalogue({ isOpen, onClose, onCatalogueChanged }: PPECatalog
                 <table className="w-full border-collapse">
                   <thead>
                     <tr style={{ backgroundColor: "#0F172A" }}>
-                      {["Item Name", "Category", "Supplier", "Replacement Cycle", "Available Sizes", "Stock Level", "Actions"].map((label) => (
+                      {["Item Name", "Category", "Replacement Cycle", "Stock by Size", "Total Stock", "Actions"].map((label) => (
                         <th key={label} className="px-6 py-4 text-left">
                           <span className="text-sm font-medium" style={{ color: "#94A3B8" }}>{label}</span>
                         </th>
@@ -252,13 +265,14 @@ export function PPECatalogue({ isOpen, onClose, onCatalogueChanged }: PPECatalog
                   <tbody>
                     {filteredItems.length === 0 ? (
                       <tr>
-                        <td colSpan={7} className="px-6 py-12 text-center text-sm" style={{ color: "#94A3B8" }}>
-                          No catalogue items yet. Click "Add New Item" to create one.
+                        <td colSpan={6} className="px-6 py-12 text-center text-sm" style={{ color: "#94A3B8" }}>
+                          No stock recorded yet. Click "Add Stock" to choose a PPE item and enter quantities.
                         </td>
                       </tr>
                     ) : (
                       filteredItems.map((item, index) => {
                         const stockStatus = getStockStatus(item);
+                        const sizeRows = sizeStockOrdered(item);
 
                         return (
                           <tr
@@ -278,7 +292,6 @@ export function PPECatalogue({ isOpen, onClose, onCatalogueChanged }: PPECatalog
                               </div>
                             </td>
                             <td className="px-6 py-4"><span className="text-sm" style={{ color: "#94A3B8" }}>{item.category}</span></td>
-                            <td className="px-6 py-4"><span className="text-sm" style={{ color: "#94A3B8" }}>{item.supplier || "—"}</span></td>
                             <td className="px-6 py-4">
                               <div>
                                 <div className="text-sm font-medium" style={{ color: "#F8FAFC" }}>{replacementLabel(item.replacement_days)}</div>
@@ -286,18 +299,19 @@ export function PPECatalogue({ isOpen, onClose, onCatalogueChanged }: PPECatalog
                               </div>
                             </td>
                             <td className="px-6 py-4">
-                              {item.sizes && item.sizes.length > 0 ? (
-                                <div className="flex flex-wrap gap-1">
-                                  {item.sizes.slice(0, 3).map((size) => (
-                                    <span key={size} className="inline-flex items-center px-2 py-0.5 rounded text-xs" style={{ backgroundColor: "rgba(255, 255, 255, 0.1)", color: "#F8FAFC" }}>
-                                      {size}
+                              {sizeRows.length > 0 ? (
+                                <div className="flex flex-wrap gap-1 max-w-[320px]">
+                                  {sizeRows.map(({ size, quantity }) => (
+                                    <span
+                                      key={size}
+                                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs"
+                                      style={{ ...chipStyle, opacity: quantity === 0 ? 0.4 : 1 }}
+                                      title={`Size ${size}: ${quantity} in stock`}
+                                    >
+                                      <span style={{ color: "#94A3B8" }}>{size}</span>
+                                      <span className="font-medium">{quantity}</span>
                                     </span>
                                   ))}
-                                  {item.sizes.length > 3 && (
-                                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs" style={{ backgroundColor: "rgba(255, 255, 255, 0.1)", color: "#F8FAFC" }}>
-                                      +{item.sizes.length - 3}
-                                    </span>
-                                  )}
                                 </div>
                               ) : (
                                 <span className="text-sm" style={{ color: "#94A3B8" }}>Universal</span>
@@ -313,14 +327,26 @@ export function PPECatalogue({ isOpen, onClose, onCatalogueChanged }: PPECatalog
                               </div>
                             </td>
                             <td className="px-6 py-4">
-                              <button
-                                onClick={() => openEditModal(item)}
-                                className="p-2 rounded-lg transition-colors"
-                                style={{ backgroundColor: "rgba(255, 255, 255, 0.1)" }}
-                                aria-label="Edit item"
-                              >
-                                <Edit className="size-4" style={{ color: "#94A3B8" }} />
-                              </button>
+                              <div className="flex gap-2">
+                                <button
+                                  onClick={() => openStockModal(item.item_name)}
+                                  className="p-2 rounded-lg transition-colors"
+                                  style={{ backgroundColor: "rgba(255, 255, 255, 0.1)" }}
+                                  aria-label="Add stock"
+                                  title="Add stock"
+                                >
+                                  <PackagePlus className="size-4" style={{ color: "#94A3B8" }} />
+                                </button>
+                                <button
+                                  onClick={() => openEditModal(item)}
+                                  className="p-2 rounded-lg transition-colors"
+                                  style={{ backgroundColor: "rgba(255, 255, 255, 0.1)" }}
+                                  aria-label="Edit item"
+                                  title="Edit item"
+                                >
+                                  <Edit className="size-4" style={{ color: "#94A3B8" }} />
+                                </button>
+                              </div>
                             </td>
                           </tr>
                         );
@@ -339,6 +365,15 @@ export function PPECatalogue({ isOpen, onClose, onCatalogueChanged }: PPECatalog
         onClose={() => setShowItemModal(false)}
         onSubmit={handleItemSubmit}
         editingItem={editingItem}
+      />
+
+      <PPEAddStockModal
+        isOpen={showStockModal}
+        onClose={() => setShowStockModal(false)}
+        types={types}
+        items={items}
+        initialName={stockItemName}
+        onSubmit={handleStockSubmit}
       />
     </div>
   );

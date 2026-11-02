@@ -6,6 +6,7 @@ import {
   getEmployeeById,
   updateEmployee,
   deactivateEmployee,
+  activateEmployee,
   deleteEmployee,
 } from "../models/employee";
 
@@ -87,6 +88,20 @@ export const deactivateEmployeeController = async (
   } catch (error: any) {
     console.error("Failed to deactivate employee:", error);
     res.status(500).json({ message: error.message || "Failed to deactivate employee" });
+  }
+};
+
+export const activateEmployeeController = async (
+  req: Request,
+  res: Response,
+) => {
+  try {
+    const updated = await activateEmployee(Number(req.params.id));
+    if (!updated) return res.status(404).json({ message: "Employee not found" });
+    res.json(withFileUrls(updated));
+  } catch (error: any) {
+    console.error("Failed to activate employee:", error);
+    res.status(500).json({ message: error.message || "Failed to activate employee" });
   }
 };
 

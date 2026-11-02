@@ -1,11 +1,12 @@
 import { Router } from "express";
 
 import {
-  addCatalogueItem,
   getAllCatalogueItems,
   getCatalogueItem,
   editCatalogueItem,
   deleteCatalogueItemController,
+  getPPETypes,
+  addStockByNameController,
 } from "../controllers/ppeCatalogueController";
 
 import {
@@ -33,11 +34,11 @@ const catalogue = Router();
 catalogue.use(authorize("rss_staff"));
 
 catalogue.get("/", getAllCatalogueItems);
-catalogue.post("/", addCatalogueItem);
+catalogue.get("/types", getPPETypes);              // MUST be above "/:id"
+catalogue.post("/stock", addStockByNameController);
 catalogue.get("/:id", getCatalogueItem);
 catalogue.patch("/:id", editCatalogueItem);
 catalogue.delete("/:id", deleteCatalogueItemController);
-
 // ---- Transactions (issue log): staff full access, clients read own site ----
 const transactions = Router();
 
@@ -76,5 +77,4 @@ transactions.delete(
 
 router.use("/catalogue", catalogue);
 router.use("/transactions", transactions);
-
 export default router;

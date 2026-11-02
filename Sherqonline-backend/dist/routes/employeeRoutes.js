@@ -23,6 +23,8 @@ router.post("/:id/id-document", upload.single("idDocument"), employeeController_
 router.post("/:id/profile-picture", upload.single("profilePicture"), employeeController_1.uploadProfilePictureController);
 // Soft delete
 router.patch("/:id/deactivate", employeeController_1.deactivateEmployeeController);
+// Restore a deactivated employee
+router.patch("/:id/activate", employeeController_1.activateEmployeeController);
 // Hard delete
 router.delete("/:id", employeeController_1.deleteEmployeeController);
 exports.default = router;

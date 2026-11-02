@@ -1,7 +1,11 @@
 import pool from "../config/db";
 import { getCatalogueItemById, decrementStockWithClient } from "./ppeCatalogue";
+import { SIZE_TYPES, SizeType } from "../config/ppeSizes";
 
 export const PPE_RETENTION_DAYS = 30;
+
+const httpError = (status: number, message: string) =>
+  Object.assign(new Error(message), { status });
 
 export interface IssuePPEItem {
   itemId: number;
@@ -25,6 +29,10 @@ export interface IssuePPEInput {
  * failure partway through never leaves stock counts out of sync
  * with the issue log.
  *
+ * Sized items (boots, overalls, etc.) must be issued with a valid
+ * size, and the stock for THAT size is decremented. Issuing a size
+ * that is out of stock fails the whole issuance (nothing is saved).
+ *
  * The site is taken from the EMPLOYEE (site_id), never from the
  * request, so an issue can't be filed under the wrong client.
  */
@@ -43,7 +51,7 @@ export async function createPPETransactions(data: IssuePPEInput) {
     );
 
     if (!employeeResult.rows[0]) {
-      throw new Error(`Employee ${data.employeeId} not found`);
+      throw httpError(404, `Employee ${data.employeeId} not found`);
     }
 
     const siteId: number | null = employeeResult.rows[0].site_id ?? null;
@@ -61,7 +69,20 @@ export async function createPPETransactions(data: IssuePPEInput) {
       const catalogueItem = await getCatalogueItemById(item.itemId);
 
       if (!catalogueItem) {
-        throw new Error(`PPE catalogue item ${item.itemId} not found`);
+        throw httpError(404, `PPE catalogue item ${item.itemId} not found`);
+      }
+
+      // Sized items need a valid size; unsized items never store one.
+      const sizeType = catalogueItem.size_type as SizeType;
+      let size: string | null = null;
+      if (sizeType !== "none") {
+        if (!item.size || !SIZE_TYPES[sizeType].includes(item.size)) {
+          throw httpError(
+            400,
+            `Select a valid size for ${catalogueItem.item_name}.`,
+          );
+        }
+        size = item.size;
       }
 
       const replacementDue = new Date();
@@ -88,8 +109,8 @@ export async function createPPETransactions(data: IssuePPEInput) {
           catalogueItem.id,
           catalogueItem.item_name,
           catalogueItem.category,
-          catalogueItem.supplier || "Standard Issue",
-          item.size || null,
+          null, // ppe_brand: suppliers were removed from the catalogue
+          size,
           today,
           item.condition,
           replacementDue.toISOString().slice(0, 10),
@@ -99,12 +120,10 @@ export async function createPPETransactions(data: IssuePPEInput) {
         ],
       );
 
-      // Stock is allowed to go negative rather than blocking
-      // issuance — a compliance officer issuing PPE for safety
-      // reasons should never be stopped by a stock-count edge case.
-      // Low/negative stock surfaces via the catalogue's stock alerts
-      // instead, which is a purchasing signal, not an issuance gate.
-      await decrementStockWithClient(client, catalogueItem.id, 1);
+      // Decrements the per-size stock (sized items) or the item's
+      // stock_level (unsized). Throws a 400 if there isn't enough, which
+      // rolls back the entire issuance.
+      await decrementStockWithClient(client, catalogueItem.id, 1, size);
 
       createdIds.push(insertResult.rows[0].id);
     }

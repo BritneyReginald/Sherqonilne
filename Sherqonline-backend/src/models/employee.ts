@@ -253,6 +253,21 @@ export const deactivateEmployee = async (id: number) => {
   return getEmployeeById(id);
 };
 
+export const activateEmployee = async (id: number) => {
+  const result = await pool.query(
+    `
+    UPDATE employees
+    SET status = 'Active'
+    WHERE id = $1
+    RETURNING id
+    `,
+    [id],
+  );
+
+  if (!result.rows[0]) return undefined;
+  return getEmployeeById(id);
+};
+
 export const deleteEmployee = async (id: number) => {
   const result = await pool.query(
     `

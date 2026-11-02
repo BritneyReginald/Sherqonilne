@@ -9,6 +9,7 @@ import {
   XCircle,
   Trash2,
   UserX,
+  UserCheck,
   Camera,
   FileText,
 } from "lucide-react";
@@ -31,6 +32,8 @@ const complianceOptions = statuses.filter((s) => s.value !== "all");
 const employmentTypes = ["Permanent", "Contract", "Temporary"];
 const workerTypes = ["Internal", "External"] as const;
 type WorkerType = (typeof workerTypes)[number];
+
+type ConfirmType = "activate" | "deactivate" | "delete";
 
 interface SiteOption {
   id: string;
@@ -126,7 +129,7 @@ export function Workforce() {
   );
   const [employeeList, setEmployeeList] = useState<Employee[]>([]);
   const [confirmModal, setConfirmModal] = useState<{
-    type: "deactivate" | "delete";
+    type: ConfirmType;
     employee: Employee;
   } | null>(null);
   const [isActioning, setIsActioning] = useState(false);
@@ -445,6 +448,28 @@ export function Workforce() {
     }
   };
 
+  const handleActivate = async (employee: Employee) => {
+    setIsActioning(true);
+    try {
+      const response = await fetch(
+        `${API_URL}/employees/${employee.id}/activate`,
+        { method: "PATCH", headers: { "Content-Type": "application/json" } },
+      );
+      if (!response.ok) throw new Error("Failed");
+
+      setEmployeeList((prev) =>
+        prev.map((e) =>
+          e.id === employee.id ? { ...e, status: "Active" } : e,
+        ),
+      );
+      setConfirmModal(null);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsActioning(false);
+    }
+  };
+
   const handleDelete = async (employee: Employee) => {
     setIsActioning(true);
     try {
@@ -468,6 +493,14 @@ export function Workforce() {
     } finally {
       setIsActioning(false);
     }
+  };
+
+  const handleConfirm = () => {
+    if (!confirmModal) return;
+    const { type, employee } = confirmModal;
+    if (type === "delete") handleDelete(employee);
+    else if (type === "activate") handleActivate(employee);
+    else handleDeactivate(employee);
   };
 
   useEffect(() => {
@@ -510,6 +543,56 @@ export function Workforce() {
     border: `1px solid ${colors.border || "rgba(255,255,255,0.1)"}`,
   };
   const labelClass = "block text-sm font-medium mb-2";
+
+  // Per-action copy and colours for the confirmation modal
+  const confirmConfig: Record<
+    ConfirmType,
+    {
+      title: string;
+      verb: string;
+      note: string;
+      noteColor: string;
+      iconBg: string;
+      iconColor: string;
+      buttonBg: string;
+      buttonLabel: string;
+      Icon: typeof Trash2;
+    }
+  > = {
+    delete: {
+      title: "Delete Permanently",
+      verb: "permanently delete",
+      note: "⚠ This cannot be undone. All data will be removed from the database.",
+      noteColor: "#DC2626",
+      iconBg: "#FEE2E2",
+      iconColor: "#DC2626",
+      buttonBg: "#DC2626",
+      buttonLabel: "Yes, Delete",
+      Icon: Trash2,
+    },
+    deactivate: {
+      title: "Deactivate Employee",
+      verb: "deactivate",
+      note: "Their record will be kept but marked as Inactive.",
+      noteColor: colors.subText,
+      iconBg: "#FEF3C7",
+      iconColor: "#B45309",
+      buttonBg: "#D97706",
+      buttonLabel: "Yes, Deactivate",
+      Icon: UserX,
+    },
+    activate: {
+      title: "Activate Employee",
+      verb: "activate",
+      note: "Their record will be marked as Active again.",
+      noteColor: colors.subText,
+      iconBg: "#DCFCE7",
+      iconColor: "#15803D",
+      buttonBg: "#16A34A",
+      buttonLabel: "Yes, Activate",
+      Icon: UserCheck,
+    },
+  };
 
   return (
     <div
@@ -926,18 +1009,33 @@ export function Workforce() {
                 borderColor: colors.border || "var(--grey-200)",
               }}
             >
-              <button
-                onClick={() => {
-                  const employee = menuAnchor.employee;
-                  setMenuAnchor(null);
-                  setConfirmModal({ type: "deactivate", employee });
-                }}
-                className="w-full px-4 py-3 text-sm text-left flex items-center gap-2"
-                style={{ color: "#B45309" }}
-              >
-                <UserX className="size-4" />
-                Deactivate Employee
-              </button>
+              {menuAnchor.employee.status === "Inactive" ? (
+                <button
+                  onClick={() => {
+                    const employee = menuAnchor.employee;
+                    setMenuAnchor(null);
+                    setConfirmModal({ type: "activate", employee });
+                  }}
+                  className="w-full px-4 py-3 text-sm text-left flex items-center gap-2"
+                  style={{ color: "#15803D" }}
+                >
+                  <UserCheck className="size-4" />
+                  Activate Employee
+                </button>
+              ) : (
+                <button
+                  onClick={() => {
+                    const employee = menuAnchor.employee;
+                    setMenuAnchor(null);
+                    setConfirmModal({ type: "deactivate", employee });
+                  }}
+                  className="w-full px-4 py-3 text-sm text-left flex items-center gap-2"
+                  style={{ color: "#B45309" }}
+                >
+                  <UserX className="size-4" />
+                  Deactivate Employee
+                </button>
+              )}
               <div
                 style={{
                   borderTop: `1px solid ${colors.border || "var(--grey-100)"}`,
@@ -1590,87 +1688,68 @@ export function Workforce() {
         </div>
       )}
 
-      {confirmModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div
-            className="w-full max-w-md rounded-xl shadow-xl p-6"
-            style={{ backgroundColor: colors.surface }}
-          >
-            <div className="flex items-center gap-3 mb-4">
+      {/* Activate / Deactivate / Delete confirmation */}
+      {confirmModal &&
+        (() => {
+          const cfg = confirmConfig[confirmModal.type];
+          const { Icon } = cfg;
+          return (
+            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
               <div
-                className="size-10 rounded-full flex items-center justify-center"
-                style={{
-                  backgroundColor:
-                    confirmModal.type === "delete" ? "#FEE2E2" : "#FEF3C7",
-                }}
+                className="w-full max-w-md rounded-xl shadow-xl p-6"
+                style={{ backgroundColor: colors.surface }}
               >
-                {confirmModal.type === "delete" ? (
-                  <Trash2 className="size-5" style={{ color: "#DC2626" }} />
-                ) : (
-                  <UserX className="size-5" style={{ color: "#B45309" }} />
-                )}
+                <div className="flex items-center gap-3 mb-4">
+                  <div
+                    className="size-10 rounded-full flex items-center justify-center"
+                    style={{ backgroundColor: cfg.iconBg }}
+                  >
+                    <Icon className="size-5" style={{ color: cfg.iconColor }} />
+                  </div>
+                  <h2
+                    className="text-lg font-medium"
+                    style={{ color: colors.primaryText }}
+                  >
+                    {cfg.title}
+                  </h2>
+                </div>
+                <p
+                  className="text-sm mb-1"
+                  style={{ color: colors.primaryText }}
+                >
+                  Are you sure you want to {cfg.verb}{" "}
+                  <strong>{confirmModal.employee.fullName}</strong>?
+                </p>
+                <p
+                  className="text-sm mb-6"
+                  style={{ color: cfg.noteColor }}
+                >
+                  {cfg.note}
+                </p>
+                <div className="flex justify-end gap-3">
+                  <button
+                    onClick={() => setConfirmModal(null)}
+                    className="px-4 py-2 rounded-lg text-sm"
+                    style={{
+                      backgroundColor: colors.background,
+                      color: colors.primaryText,
+                    }}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleConfirm}
+                    disabled={isActioning}
+                    className="px-4 py-2 rounded-lg text-sm text-white disabled:opacity-60"
+                    style={{ backgroundColor: cfg.buttonBg }}
+                  >
+                    {isActioning ? "Processing…" : cfg.buttonLabel}
+                  </button>
+                </div>
               </div>
-              <h2
-                className="text-lg font-medium"
-                style={{ color: colors.primaryText }}
-              >
-                {confirmModal.type === "delete"
-                  ? "Delete Permanently"
-                  : "Deactivate Employee"}
-              </h2>
             </div>
-            <p className="text-sm mb-1" style={{ color: colors.primaryText }}>
-              Are you sure you want to{" "}
-              {confirmModal.type === "delete"
-                ? "permanently delete"
-                : "deactivate"}{" "}
-              <strong>{confirmModal.employee.fullName}</strong>?
-            </p>
-            <p
-              className="text-sm mb-6"
-              style={{
-                color:
-                  confirmModal.type === "delete" ? "#DC2626" : colors.subText,
-              }}
-            >
-              {confirmModal.type === "delete"
-                ? "⚠ This cannot be undone. All data will be removed from the database."
-                : "Their record will be kept but marked as Inactive."}
-            </p>
-            <div className="flex justify-end gap-3">
-              <button
-                onClick={() => setConfirmModal(null)}
-                className="px-4 py-2 rounded-lg text-sm"
-                style={{
-                  backgroundColor: colors.background,
-                  color: colors.primaryText,
-                }}
-              >
-                Cancel
-              </button>
-              <button
-                onClick={() =>
-                  confirmModal.type === "delete"
-                    ? handleDelete(confirmModal.employee)
-                    : handleDeactivate(confirmModal.employee)
-                }
-                disabled={isActioning}
-                className="px-4 py-2 rounded-lg text-sm text-white disabled:opacity-60"
-                style={{
-                  backgroundColor:
-                    confirmModal.type === "delete" ? "#DC2626" : "#D97706",
-                }}
-              >
-                {isActioning
-                  ? "Processing…"
-                  : confirmModal.type === "delete"
-                    ? "Yes, Delete"
-                    : "Yes, Deactivate"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+          );
+        })()}
     </div>
   );
 }

@@ -27,7 +27,8 @@ const PORT = process.env.PORT || 3000;
 const corsOptions = {
   origin: [
     "http://localhost:5173",
-    "https://ohs-online-web-hsc0c5a6f2d2ghg8.southafricanorth-01.azurewebsites.net",
+    "https://ohs.sherq.co.za",
+    // "https://fire.sherq.co.za",
   ],
   methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"],

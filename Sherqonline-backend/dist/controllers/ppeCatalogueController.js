@@ -1,25 +1,36 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.deleteCatalogueItemController = exports.editCatalogueItem = exports.getCatalogueItem = exports.getAllCatalogueItems = exports.addCatalogueItem = void 0;
+exports.addStockByNameController = exports.getPPETypes = exports.deleteCatalogueItemController = exports.editCatalogueItem = exports.getCatalogueItem = exports.getAllCatalogueItems = exports.addCatalogueItem = void 0;
 const ppeCatalogue_1 = require("../models/ppeCatalogue");
+const ppeSizes_1 = require("../config/ppeSizes");
+const ppeTypes_1 = require("../config/ppeTypes");
+const fail = (res, err) => {
+    if (!err.status)
+        console.error(err);
+    res.status(err.status || 500).json({ error: err.message });
+};
 function parseCatalogueBody(body) {
     return {
-        itemName: body.itemName,
-        category: body.category,
-        supplier: body.supplier || null,
-        requiresSize: body.requiresSize === true || body.requiresSize === "true",
-        sizes: body.sizes
-            ? Array.isArray(body.sizes)
-                ? body.sizes
-                : String(body.sizes)
-                    .split(",")
-                    .map((s) => s.trim())
-                    .filter(Boolean)
-            : null,
+        itemName: String(body.itemName || "").trim(),
+        category: String(body.category || "").trim(),
+        sizeType: (0, ppeSizes_1.isSizeType)(body.sizeType) ? body.sizeType : "none",
         replacementDays: Number(body.replacementDays) || 180,
-        stockLevel: Number(body.stockLevel) || 0,
         minStockLevel: Number(body.minStockLevel) || 0,
     };
+}
+function parseCatalogueUpdate(body) {
+    const out = {};
+    if (body.itemName !== undefined)
+        out.itemName = String(body.itemName).trim();
+    if (body.category !== undefined)
+        out.category = String(body.category).trim();
+    if (body.sizeType !== undefined && (0, ppeSizes_1.isSizeType)(body.sizeType))
+        out.sizeType = body.sizeType;
+    if (body.replacementDays !== undefined)
+        out.replacementDays = Number(body.replacementDays) || 180;
+    if (body.minStockLevel !== undefined)
+        out.minStockLevel = Number(body.minStockLevel) || 0;
+    return out;
 }
 const addCatalogueItem = async (req, res) => {
     try {
@@ -28,23 +39,19 @@ const addCatalogueItem = async (req, res) => {
             res.status(400).json({ error: "itemName and category are required" });
             return;
         }
-        const item = await (0, ppeCatalogue_1.createCatalogueItem)(data);
-        res.status(201).json(item);
+        res.status(201).json(await (0, ppeCatalogue_1.createCatalogueItem)(data));
     }
     catch (err) {
-        console.error(err);
-        res.status(500).json({ error: err.message, detail: err.detail, code: err.code });
+        fail(res, err);
     }
 };
 exports.addCatalogueItem = addCatalogueItem;
 const getAllCatalogueItems = async (req, res) => {
     try {
-        const items = await (0, ppeCatalogue_1.getCatalogueItems)(req.query.category);
-        res.json(items);
+        res.json(await (0, ppeCatalogue_1.getCatalogueItems)(req.query.category));
     }
     catch (err) {
-        console.error(err);
-        res.status(500).json({ error: err.message });
+        fail(res, err);
     }
 };
 exports.getAllCatalogueItems = getAllCatalogueItems;
@@ -58,13 +65,13 @@ const getCatalogueItem = async (req, res) => {
         res.json(item);
     }
     catch (err) {
-        res.status(500).json({ error: err.message });
+        fail(res, err);
     }
 };
 exports.getCatalogueItem = getCatalogueItem;
 const editCatalogueItem = async (req, res) => {
     try {
-        const item = await (0, ppeCatalogue_1.updateCatalogueItem)(Number(req.params.id), parseCatalogueBody(req.body));
+        const item = await (0, ppeCatalogue_1.updateCatalogueItem)(Number(req.params.id), parseCatalogueUpdate(req.body));
         if (!item) {
             res.status(404).json({ message: "Catalogue item not found" });
             return;
@@ -72,10 +79,25 @@ const editCatalogueItem = async (req, res) => {
         res.json(item);
     }
     catch (err) {
-        res.status(500).json({ error: err.message });
+        fail(res, err);
     }
 };
 exports.editCatalogueItem = editCatalogueItem;
+// POST /ppe/catalogue/:id/stock
+// body: { mode: "add" | "set", entries: [{ size?: "9", quantity: 4 }, ...] }
+// export const updateStockController = async (req: Request, res: Response): Promise<void> => {
+//   try {
+//     const mode = req.body.mode === "set" ? "set" : "add";
+//     const entries = Array.isArray(req.body.entries) ? req.body.entries : [];
+//     if (entries.length === 0) {
+//       res.status(400).json({ error: "Enter at least one quantity." });
+//       return;
+//     }
+//     res.json(await applyStock(Number(req.params.id), mode, entries));
+//   } catch (err) {
+//     fail(res, err);
+//   }
+// };
 const deleteCatalogueItemController = async (req, res) => {
     try {
         const deleted = await (0, ppeCatalogue_1.deleteCatalogueItem)(Number(req.params.id));
@@ -86,7 +108,33 @@ const deleteCatalogueItemController = async (req, res) => {
         res.json({ message: "Catalogue item permanently deleted", id: deleted.id });
     }
     catch (err) {
-        res.status(500).json({ error: err.message });
+        fail(res, err);
     }
 };
 exports.deleteCatalogueItemController = deleteCatalogueItemController;
+// GET /ppe/catalogue/types: the dropdown list
+const getPPETypes = async (_req, res) => {
+    res.json(ppeTypes_1.PPE_TYPES);
+};
+exports.getPPETypes = getPPETypes;
+// POST /ppe/catalogue/stock
+// body: { itemName: "Safety Boots", mode: "add" | "set", entries: [{ size?: "9", quantity: 4 }] }
+const addStockByNameController = async (req, res) => {
+    try {
+        const mode = req.body.mode === "set" ? "set" : "add";
+        const entries = Array.isArray(req.body.entries) ? req.body.entries : [];
+        if (!req.body.itemName) {
+            res.status(400).json({ error: "Choose a PPE item." });
+            return;
+        }
+        if (entries.length === 0) {
+            res.status(400).json({ error: "Enter at least one quantity." });
+            return;
+        }
+        res.json(await (0, ppeCatalogue_1.stockByName)(String(req.body.itemName), mode, entries));
+    }
+    catch (err) {
+        fail(res, err);
+    }
+};
+exports.addStockByNameController = addStockByNameController;

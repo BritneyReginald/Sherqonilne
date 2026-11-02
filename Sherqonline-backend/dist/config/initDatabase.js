@@ -385,9 +385,8 @@ CREATE TABLE IF NOT EXISTS ppe_catalogue_items (
 ALTER TABLE ppe_catalogue_items
   ADD COLUMN IF NOT EXISTS item_name TEXT NOT NULL,
   ADD COLUMN IF NOT EXISTS category TEXT NOT NULL,
-  ADD COLUMN IF NOT EXISTS supplier TEXT,
-  ADD COLUMN IF NOT EXISTS requires_size BOOLEAN NOT NULL DEFAULT FALSE,
-  ADD COLUMN IF NOT EXISTS sizes TEXT[],
+  ADD COLUMN IF NOT EXISTS size_type TEXT NOT NULL DEFAULT 'none'
+    CHECK (size_type IN ('none', 'letter', 'waist', 'shoe')),
   ADD COLUMN IF NOT EXISTS replacement_days INTEGER NOT NULL DEFAULT 180,
   ADD COLUMN IF NOT EXISTS stock_level INTEGER NOT NULL DEFAULT 0,
   ADD COLUMN IF NOT EXISTS min_stock_level INTEGER NOT NULL DEFAULT 0,
@@ -551,6 +550,32 @@ CREATE INDEX IF NOT EXISTS idx_training_records_employee_id
 
 CREATE INDEX IF NOT EXISTS idx_training_records_expiry_date
   ON training_records(expiry_date);
+    `);
+        /*
+         * ------------------------------------------------------------
+         * MIGRATION: PPE catalogue: per-size stock
+         * ------------------------------------------------------------
+         * Items now pick from a fixed PPE list (config/ppeTypes.ts).
+         * Sized items keep stock per size in ppe_item_sizes; unsized
+         * items keep using ppe_catalogue_items.stock_level.
+         * The old supplier / requires_size / sizes columns are gone.
+         */
+        await client.query(`
+      ALTER TABLE ppe_catalogue_items
+        DROP COLUMN IF EXISTS supplier,
+        DROP COLUMN IF EXISTS requires_size,
+        DROP COLUMN IF EXISTS sizes;
+
+      CREATE TABLE IF NOT EXISTS ppe_item_sizes (
+        item_id  INTEGER NOT NULL
+          REFERENCES ppe_catalogue_items(id) ON DELETE CASCADE,
+        size     TEXT NOT NULL,
+        quantity INTEGER NOT NULL DEFAULT 0 CHECK (quantity >= 0),
+        PRIMARY KEY (item_id, size)
+      );
+
+      CREATE UNIQUE INDEX IF NOT EXISTS ppe_catalogue_items_item_name_key
+        ON ppe_catalogue_items (item_name);
     `);
         /*
          * ============================================================
