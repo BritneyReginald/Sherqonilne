@@ -152,8 +152,12 @@ export function UploadDocumentModal({
             </button>
           </div>
 
-          {/* Body (scrolls) */}
-          <div className="px-6 py-6 space-y-4 flex-1 min-h-0 overflow-y-auto">
+          {/* Body (scrolls). scrollbarGutter keeps the width constant so the
+              layout doesn't shift when a scrollbar appears or disappears. */}
+          <div
+            className="px-6 py-6 space-y-4 flex-1 min-h-0 overflow-y-auto"
+            style={{ scrollbarGutter: "stable" }}
+          >
             {/* File picker */}
             <div>
               <label
@@ -290,8 +294,10 @@ export function UploadDocumentModal({
               </div>
             )}
 
+            {/* min-w-0 on each cell lets the grid column shrink, so a long
+                employee name can't push the select wider than its column. */}
             <div className="grid grid-cols-2 gap-4">
-              <div>
+              <div className="min-w-0">
                 <label
                   className={labelClass}
                   style={{ color: "var(--grey-700)" }}
@@ -301,7 +307,7 @@ export function UploadDocumentModal({
                 <select
                   value={updatedById}
                   onChange={(e) => setUpdatedById(e.target.value)}
-                  className="w-full px-3 py-2 rounded-lg border outline-none bg-white"
+                  className="block w-full max-w-full min-w-0 px-3 py-2 rounded-lg border outline-none bg-white overflow-hidden text-ellipsis whitespace-nowrap"
                   style={inputStyle}
                 >
                   <option value="">Select employee…</option>
@@ -312,7 +318,7 @@ export function UploadDocumentModal({
                   ))}
                 </select>
               </div>
-              <div>
+              <div className="min-w-0">
                 <label
                   className={labelClass}
                   style={{ color: "var(--grey-700)" }}
@@ -323,7 +329,7 @@ export function UploadDocumentModal({
                   type="date"
                   value={updatedDate}
                   onChange={(e) => setUpdatedDate(e.target.value)}
-                  className="w-full px-3 py-2 rounded-lg border outline-none"
+                  className="block w-full max-w-full min-w-0 px-3 py-2 rounded-lg border outline-none"
                   style={inputStyle}
                 />
               </div>
@@ -363,14 +369,15 @@ export function UploadDocumentModal({
               />
             </div>
 
-            {error && (
-              <p
-                className="text-sm"
-                style={{ color: "var(--compliance-danger)" }}
-              >
-                {error}
-              </p>
-            )}
+            {/* Always rendered with a reserved height, so showing or clearing
+                an error never changes the body height. */}
+            <p
+              className="text-sm min-h-5"
+              style={{ color: "var(--compliance-danger)" }}
+              role="alert"
+            >
+              {error}
+            </p>
           </div>
 
           {/* Footer (always visible) */}
