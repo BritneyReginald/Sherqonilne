@@ -188,11 +188,9 @@
                             <td class="text-center no-print"><a href="{{ url_for('edit_asset', category='extinguisher', qr_id=item.qr_code_id) }}" class="btn btn-warning btn-sm fw-bold">Edit</a></td>
                             <td class="text-center no-print text-nowrap">
                                 {% if item.status == 'Inactive' %}
-                                <a href="{{ url_for('set_active', category='extinguisher', qr_id=item.qr_code_id) }}" class="btn btn-success btn-sm">Active</a>
-                                <span class="btn btn-outline-secondary btn-sm disabled" aria-disabled="true">Inactive</span>
+                                <a href="{{ url_for('set_active', category='extinguisher', qr_id=item.qr_code_id) }}" class="btn btn-success btn-sm" title="Click to make this asset active again">Active</a>
                                 {% else %}
-                                <span class="btn btn-outline-secondary btn-sm disabled" aria-disabled="true">Active</span>
-                                <a href="{{ url_for('toggle_inactive', category='extinguisher', qr_id=item.qr_code_id) }}" class="btn btn-outline-danger btn-sm">Inactive</a>
+                                <a href="{{ url_for('toggle_inactive', category='extinguisher', qr_id=item.qr_code_id) }}" class="btn btn-outline-danger btn-sm" title="Click to make this asset inactive">Inactive</a>
                                 {% endif %}
                             </td>
                         </tr>
@@ -255,11 +253,9 @@
                             <td class="text-center no-print"><a href="{{ url_for('edit_asset', category='hose', qr_id=item.qr_code_id) }}" class="btn btn-warning btn-sm fw-bold">Edit</a></td>
                             <td class="text-center no-print text-nowrap">
                                 {% if item.status == 'Inactive' %}
-                                <a href="{{ url_for('set_active', category='hose', qr_id=item.qr_code_id) }}" class="btn btn-success btn-sm">Active</a>
-                                <span class="btn btn-outline-secondary btn-sm disabled" aria-disabled="true">Inactive</span>
+                                <a href="{{ url_for('set_active', category='hose', qr_id=item.qr_code_id) }}" class="btn btn-success btn-sm" title="Click to make this asset active again">Active</a>
                                 {% else %}
-                                <span class="btn btn-outline-secondary btn-sm disabled" aria-disabled="true">Active</span>
-                                <a href="{{ url_for('toggle_inactive', category='hose', qr_id=item.qr_code_id) }}" class="btn btn-outline-danger btn-sm">Inactive</a>
+                                <a href="{{ url_for('toggle_inactive', category='hose', qr_id=item.qr_code_id) }}" class="btn btn-outline-danger btn-sm" title="Click to make this asset inactive">Inactive</a>
                                 {% endif %}
                             </td>
                         </tr>
@@ -322,11 +318,9 @@
                             <td class="text-center no-print"><a href="{{ url_for('edit_asset', category='hydrant', qr_id=item.qr_code_id) }}" class="btn btn-warning btn-sm fw-bold">Edit</a></td>
                             <td class="text-center no-print text-nowrap">
                                 {% if item.status == 'Inactive' %}
-                                <a href="{{ url_for('set_active', category='hydrant', qr_id=item.qr_code_id) }}" class="btn btn-success btn-sm">Active</a>
-                                <span class="btn btn-outline-secondary btn-sm disabled" aria-disabled="true">Inactive</span>
+                                <a href="{{ url_for('set_active', category='hydrant', qr_id=item.qr_code_id) }}" class="btn btn-success btn-sm" title="Click to make this asset active again">Active</a>
                                 {% else %}
-                                <span class="btn btn-outline-secondary btn-sm disabled" aria-disabled="true">Active</span>
-                                <a href="{{ url_for('toggle_inactive', category='hydrant', qr_id=item.qr_code_id) }}" class="btn btn-outline-danger btn-sm">Inactive</a>
+                                <a href="{{ url_for('toggle_inactive', category='hydrant', qr_id=item.qr_code_id) }}" class="btn btn-outline-danger btn-sm" title="Click to make this asset inactive">Inactive</a>
                                 {% endif %}
                             </td>
                         </tr>

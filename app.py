@@ -48,18 +48,21 @@ def on_admin_address():
 
 @app.before_request
 def remember_sherq_online_visitors():
-    if on_admin_address():
-        # fire.sherq.co.za: bypass all logins
-        session.pop('login_required', None)
-        session['admin_logged_in'] = True
-        session['username'] = session.get('username') or 'Admin'
-        return None
+    # 1. Came from SHERQ Online (ohs.sherq.co.za/login/inspector): must ALWAYS log in on our
+    #    login page, on any address (also fire.sherq.co.za). They get the Logout button.
     if came_from_sherq_online():
-        # Every time someone comes (back) from SHERQ Online they must log in again,
-        # so an old session is never kept open.
         session.pop('admin_logged_in', None)
         session.pop('username', None)
         session['login_required'] = True
+        return None
+    # 2. Admin typing / bookmarking fire.sherq.co.za: no login at all, no Logout button.
+    if on_admin_address():
+        if not request.referrer:
+            session.pop('login_required', None)   # opened directly, so this is the admin
+        if not session.get('login_required'):
+            session['admin_logged_in'] = True
+            session['username'] = session.get('username') or 'Admin'
+        return None
 
 
 @app.route('/', methods=['GET'])
