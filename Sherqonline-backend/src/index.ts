@@ -28,7 +28,7 @@ const corsOptions = {
   origin: [
     "http://localhost:5173",
     "https://ohs.sherq.co.za",
-    // "https://fire.sherq.co.za",
+    "https://fire.sherq.co.za",
   ],
   methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"],
