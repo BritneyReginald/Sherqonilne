@@ -22,7 +22,7 @@ jobs:
 
       - name: Install and build the frontend
         env:
-            VITE_API_URL: https://ohs.sherq.co.za
+            VITE_API_URL: https://ohs-online-api-b7arh7fdgphbc9e5.southafricanorth-01.azurewebsites.net
         run: |
           npm install
           npm run build
