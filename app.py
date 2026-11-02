@@ -443,7 +443,6 @@ def resolve_alert(report_id):
     if unit:
         unit.status = 'In Position'
     db.session.commit()
-    flash(f"Asset {report.qr_code_id} has been resolved.", "success")
     return redirect(url_for('admin_alerts'))
 
 @app.route('/admin/dashboard',methods=['GET', 'POST'])
@@ -509,7 +508,6 @@ def add_asset(category):
             new_asset = Hydrant(qr_code_id=generated_id, unit_weight=form_weight or 'Standard Flow', authorized_location=form_location, status='In Position')
         db.session.add(new_asset)
         db.session.commit()
-        flash(f"Asset {generated_id} added successfully!")
         return redirect(url_for('register'))
     return render_template('add_asset.html', category=category, next_id=generated_id)
 
@@ -672,7 +670,6 @@ def download_all_reports(qr_id):
         return redirect(url_for('login'))
     reports = InspectionReport.query.filter_by(qr_code_id=qr_id, deleted_at=None).order_by(InspectionReport.inspection_date.desc()).all()
     if not reports:
-        flash(f"No reports found for {qr_id}.", "warning")
         return redirect(url_for('view_history', qr_id=qr_id))
     pdf_bytes = build_reports_pdf(reports)
     return send_file(io.BytesIO(pdf_bytes), mimetype='application/pdf', as_attachment=True, download_name=f"All_Inspection_Reports_{qr_id}.pdf")
@@ -689,7 +686,6 @@ def edit_asset(category, qr_id):
             if hasattr(unit, 'extinguisher_type'):
                 unit.extinguisher_type = request.form.get('type') or request.form.get('extinguisher_type')
             db.session.commit()
-            flash(f"Asset {qr_id} updated successfully!")
             return redirect(url_for('register'))
     return render_template('edit_asset.html', category=category, qr_id=qr_id, item=unit)
 
@@ -701,7 +697,6 @@ def toggle_inactive(category, qr_id):
     if unit:
         unit.status = 'Inactive'
         db.session.commit()
-        flash(f"Asset {qr_id} marked as inactive.")
     return redirect(url_for('register'))
 
 @app.route('/admin/set_active/<category>/<qr_id>')
@@ -713,7 +708,6 @@ def set_active(category, qr_id):
     if unit:
         unit.status = 'In Position'
         db.session.commit()
-        flash(f"Asset {qr_id} marked as active.")
     return redirect(url_for('register'))
 
 @app.route('/admin/inspection_register')
@@ -743,11 +737,10 @@ def employee_management():
         email = request.form.get('email', '').strip()
         role = request.form.get('role', 'Inspector')
         if Employee.query.filter_by(employee_number=emp_num).first():
-            flash(f"Employee ID {emp_num} is already registered.", "danger")
+            pass  # duplicate employee number: not saved (no pop-up message)
         else:
             db.session.add(Employee(employee_number=emp_num, full_name=name, email=email, role=role))
             db.session.commit()
-            flash("Employee registered successfully!", "success")
     return render_template('employee_management.html', employees=Employee.query.order_by(Employee.employee_number.asc()).all())
 
 @app.route('/admin/employees/update/<int:id>', methods=['POST'])
@@ -759,7 +752,6 @@ def update_employee(id):
     emp.email = request.form.get('email', '').strip()
     emp.role = request.form.get('role')
     db.session.commit()
-    flash("Employee updated.", "success")
     return redirect(url_for('employee_management'))
 
 @app.route('/admin/employees/delete/<int:id>')
@@ -768,7 +760,6 @@ def delete_employee(id):
         return redirect(url_for('login'))
     db.session.delete(Employee.query.get_or_404(id))
     db.session.commit()
-    flash("Employee removed.", "warning")
     return redirect(url_for('employee_management'))
 
 @app.route('/api/validate_inspector', methods=['POST'])
@@ -938,7 +929,6 @@ def restore_item(report_id):
     report = InspectionReport.query.get_or_404(report_id)
     report.deleted_at = None 
     db.session.commit()
-    flash("Report restored successfully!", "success")
     return redirect(url_for('recycle_bin'))
 
 @app.route('/delete_permanent/<int:report_id>', methods=['POST'])
@@ -948,13 +938,11 @@ def delete_permanent(report_id):
     report = InspectionReport.query.get_or_404(report_id)
     if report.deleted_at is None:
         # Safety: only reports that are already in the Recycle Bin can be permanently deleted
-        flash("Only reports in the Recycle Bin can be permanently deleted.", "warning")
         return redirect(url_for('recycle_bin'))
     InspectionPhoto.query.filter_by(report_id=report.id).delete()
     InspectionSignature.query.filter_by(report_id=report.id).delete()
     db.session.delete(report)
     db.session.commit()
-    flash(f"Report #{report_id} permanently deleted.", "success")
     return redirect(url_for('recycle_bin'))
 
 @app.route('/choose-method/<category>')
