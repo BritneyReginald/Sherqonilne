@@ -3,6 +3,7 @@ import { useState } from "react";
 import { Flame } from "lucide-react";
 import { useAuth } from "../contexts/auth-context";
 import { LoginLayout } from "../components/login-layout";
+import { PasswordInput } from "../components/password-input";
 import { useTheme } from "../contexts/theme-context";
 
 // Inspectors skip the main AppShell entirely — they land straight in
@@ -82,18 +83,7 @@ export function LoginInspector() {
           >
             Password
           </label>
-          <input
-            type="password"
-            required
-            autoComplete="current-password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="w-full px-3 py-2 rounded-lg border outline-none"
-            style={{
-              backgroundColor: colors.background,
-              color: colors.primaryText,
-            }}
-          />
+          <PasswordInput value={password} onChange={setPassword} />
         </div>
         <button
           type="submit"

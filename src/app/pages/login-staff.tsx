@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { ShieldCheck } from "lucide-react";
 import { useAuth } from "../contexts/auth-context";
 import { LoginLayout } from "../components/login-layout";
+import { PasswordInput } from "../components/password-input";
 import { useTheme } from "../contexts/theme-context";
 
 export function LoginStaff() {
@@ -39,13 +40,19 @@ export function LoginStaff() {
         {error && (
           <div
             className="px-3 py-2 rounded-lg text-sm"
-            style={{ backgroundColor: "rgba(239, 68, 68, 0.1)", color: "var(--compliance-danger)" }}
+            style={{
+              backgroundColor: "rgba(239, 68, 68, 0.1)",
+              color: "var(--compliance-danger)",
+            }}
           >
             {error}
           </div>
         )}
         <div>
-          <label className="block text-sm font-medium mb-1" style={{ color: colors.primaryText }}>
+          <label
+            className="block text-sm font-medium mb-1"
+            style={{ color: colors.primaryText }}
+          >
             Email
           </label>
           <input
@@ -54,27 +61,29 @@ export function LoginStaff() {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             className="w-full px-3 py-2 rounded-lg border outline-none"
-            style={{ backgroundColor: colors.background, color: colors.primaryText }}
+            style={{
+              backgroundColor: colors.background,
+              color: colors.primaryText,
+            }}
           />
         </div>
         <div>
-          <label className="block text-sm font-medium mb-1" style={{ color: colors.primaryText }}>
+          <label
+            className="block text-sm font-medium mb-1"
+            style={{ color: colors.primaryText }}
+          >
             Password
           </label>
-          <input
-            type="password"
-            required
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="w-full px-3 py-2 rounded-lg border outline-none"
-            style={{ backgroundColor: colors.background, color: colors.primaryText }}
-          />
+          <PasswordInput value={password} onChange={setPassword} />
         </div>
         <button
           type="submit"
           disabled={loading}
           className="w-full py-2.5 rounded-lg font-medium text-white transition-opacity"
-          style={{ backgroundColor: "var(--brand-blue)", opacity: loading ? 0.7 : 1 }}
+          style={{
+            backgroundColor: "var(--brand-blue)",
+            opacity: loading ? 0.7 : 1,
+          }}
         >
           {loading ? "Logging in..." : "Log in"}
         </button>

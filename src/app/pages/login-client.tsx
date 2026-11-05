@@ -4,6 +4,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { Building2 } from "lucide-react";
 import { useAuth } from "../contexts/auth-context";
 import { LoginLayout } from "../components/login-layout";
+import { PasswordInput } from "../components/password-input";
 import { useTheme } from "../contexts/theme-context";
 
 export function LoginClient() {
@@ -76,17 +77,10 @@ export function LoginClient() {
           >
             Password
           </label>
-          <input
-            type="password"
-            required
-            autoFocus={!!email}
+          <PasswordInput
             value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="w-full px-3 py-2 rounded-lg border outline-none"
-            style={{
-              backgroundColor: colors.background,
-              color: colors.primaryText,
-            }}
+            onChange={setPassword}
+            autoFocus={!!email}
           />
         </div>
         <button
