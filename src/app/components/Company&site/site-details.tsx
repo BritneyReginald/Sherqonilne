@@ -14,7 +14,11 @@ import { useTheme } from "../../contexts/theme-context";
 import { ImageWithFallback } from "../../components/figma/ImageWithFallback";
 import { toast } from "sonner";
 import { deleteSite, updateSite } from "../../../api/siteAPI";
-import { getSiteClientAccess } from "../../../api/clientAPI";
+import {
+  getSiteClientAccess,
+  getSiteClientPassword,
+  resetSiteClientPassword,
+} from "../../../api/clientAPI";
 import { AddClientModal } from "../add-client-modal";
 import { CreateClientCredentials } from "./create-client-credentials";
 
@@ -51,6 +55,11 @@ export function SiteDetails({ site, onBack, onDeleted }: SiteDetailsProps) {
   const [clientAccess, setClientAccess] = useState<ClientAccess | null>(null);
   const [accessLoading, setAccessLoading] = useState(true);
 
+  // The login's password, shown to RSS staff under the login email.
+  // null = not available (e.g. login created before passwords were stored)
+  const [clientPassword, setClientPassword] = useState<string | null>(null);
+  const [resetting, setResetting] = useState(false);
+
   // Reload whenever we open a site or come back from the "create login" screen
   useEffect(() => {
     if (showCredentials) return;
@@ -59,12 +68,29 @@ export function SiteDetails({ site, onBack, onDeleted }: SiteDetailsProps) {
     setAccessLoading(true);
 
     getSiteClientAccess(site.id)
-      .then((data) => {
-        if (!cancelled) setClientAccess(data);
+      .then(async (data) => {
+        if (cancelled) return;
+        setClientAccess(data);
+
+        if (!data) {
+          setClientPassword(null);
+          return;
+        }
+
+        try {
+          const password = await getSiteClientPassword(site.id);
+          if (!cancelled) setClientPassword(password);
+        } catch (err) {
+          console.error("Failed to load client password:", err);
+          if (!cancelled) setClientPassword(null);
+        }
       })
       .catch((err) => {
         console.error("Failed to load client access:", err);
-        if (!cancelled) setClientAccess(null);
+        if (!cancelled) {
+          setClientAccess(null);
+          setClientPassword(null);
+        }
       })
       .finally(() => {
         if (!cancelled) setAccessLoading(false);
@@ -126,6 +152,31 @@ export function SiteDetails({ site, onBack, onDeleted }: SiteDetailsProps) {
 
     const params = new URLSearchParams({ email: clientAccess.email });
     window.location.assign(`/login/client?${params.toString()}`);
+  };
+
+  /*
+   * Generates a new password for the existing client login and shows it.
+   * The previous password stops working.
+   */
+  const handleResetPassword = async () => {
+    const confirmed = window.confirm(
+      `Generate a new password for the "${site.name}" client login? The current password will stop working.`,
+    );
+    if (!confirmed) return;
+
+    try {
+      setResetting(true);
+      const newPassword = await resetSiteClientPassword(site.id);
+      setClientPassword(newPassword);
+      toast.success("New password generated");
+    } catch (error) {
+      console.error("Reset password error:", error);
+      toast.error(
+        error instanceof Error ? error.message : "Failed to reset password.",
+      );
+    } finally {
+      setResetting(false);
+    }
   };
 
   if (showCredentials) {
@@ -310,6 +361,22 @@ export function SiteDetails({ site, onBack, onDeleted }: SiteDetailsProps) {
                     {clientAccess.email}
                   </strong>
                 </p>
+                <p className="mt-1">
+                  Password:{" "}
+                  {clientPassword ? (
+                    <strong
+                      className="font-mono select-all"
+                      style={{ color: colors.primaryText }}
+                    >
+                      {clientPassword}
+                    </strong>
+                  ) : (
+                    <span>
+                      Not available — use Reset Password below to generate a
+                      new one
+                    </span>
+                  )}
+                </p>
                 <p className="mt-1">Status: {statusLabel}</p>
                 {clientAccess.last_login_at && (
                   <p className="mt-1">
@@ -320,23 +387,34 @@ export function SiteDetails({ site, onBack, onDeleted }: SiteDetailsProps) {
               </div>
             </div>
 
-            <button
-              onClick={handleClientLogin}
-              disabled={clientAccess.status === "disabled"}
-              className="flex items-center gap-2 px-5 py-3 rounded-lg font-medium disabled:opacity-60"
-              style={{
-                backgroundColor: "var(--brand-blue)",
-                color: "white",
-              }}
-            >
-              <LogIn className="size-4" />
-              Login
-            </button>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={handleClientLogin}
+                disabled={clientAccess.status === "disabled"}
+                className="flex items-center gap-2 px-5 py-3 rounded-lg font-medium disabled:opacity-60"
+                style={{
+                  backgroundColor: "var(--brand-blue)",
+                  color: "white",
+                }}
+              >
+                <LogIn className="size-4" />
+                Login
+              </button>
+
+              <button
+                onClick={handleResetPassword}
+                disabled={resetting}
+                className="flex items-center gap-2 px-5 py-3 rounded-lg font-medium border disabled:opacity-60"
+                style={{ color: colors.primaryText }}
+              >
+                <KeyRound className="size-4" />
+                {resetting ? "Resetting..." : "Reset Password"}
+              </button>
+            </div>
 
             <p className="text-xs mt-3" style={{ color: colors.subText }}>
-              Opens the client login page. You will need the password that was
-              emailed when the login was created. You'll be signed out of your
-              RSS staff account.
+              Opens the client login page. Use the password shown above. You'll
+              be signed out of your RSS staff account.
             </p>
           </>
         ) : (

@@ -45,3 +45,45 @@ export async function getSiteClientAccess(siteId: string) {
 
   return data.clientAccess ?? null;
 }
+
+/*
+ * Returns the client login's password (RSS staff only), or null when
+ * it isn't available (login created before passwords were stored).
+ */
+export async function getSiteClientPassword(
+  siteId: string,
+): Promise<string | null> {
+  const response = await fetch(
+    `${API_BASE}/auth/credentials/client/${siteId}/password`,
+    { headers: authHeaders() },
+  );
+
+  const data = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    throw new Error(data.error || "Failed to load client password");
+  }
+
+  return data.password ?? null;
+}
+
+/*
+ * Generates a new password for the site's existing client login
+ * (RSS staff only). The old password stops working.
+ */
+export async function resetSiteClientPassword(
+  siteId: string,
+): Promise<string> {
+  const response = await fetch(
+    `${API_BASE}/auth/credentials/client/${siteId}/reset-password`,
+    { method: "POST", headers: authHeaders() },
+  );
+
+  const data = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    throw new Error(data.error || "Failed to reset client password");
+  }
+
+  return data.password;
+}

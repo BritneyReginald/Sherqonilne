@@ -17,6 +17,7 @@ import {
   scopeSites,
 } from "../middleware/authMiddleware";
 import { scopeByIdParam, lookupSite } from "../middleware/siteScope";
+import { forceClientSite } from "../middleware/clientGuards";
 
 const router = Router();
 
@@ -25,7 +26,7 @@ const upload = multer({
   limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
 });
 
-// Staff see everything; a client sees (read-only) their own site only.
+// Staff see everything; a client manages their own site's assessments.
 router.use(authenticate, authorize("rss_staff", "client"), scopeSites);
 
 router.param(
@@ -39,23 +40,13 @@ router.param(
 router.get("/", getAllRiskAssessments);
 router.get("/:id", getRiskAssessment);
 
-// Writes: RSS staff only (authorize runs before the upload middleware)
-router.post("/", authorize("rss_staff"), addRiskAssessment);
-router.patch("/:id", authorize("rss_staff"), editRiskAssessment);
+// Writes: clients are pinned to their own site (any siteId they send is replaced)
+router.post("/", forceClientSite, addRiskAssessment);
+router.patch("/:id", forceClientSite, editRiskAssessment);
 
-router.post(
-  "/:id/logo",
-  authorize("rss_staff"),
-  upload.single("logo"),
-  uploadLogoController,
-);
-router.post(
-  "/:id/pdf",
-  authorize("rss_staff"),
-  upload.single("pdf"),
-  uploadPdfController,
-);
+router.post("/:id/logo", upload.single("logo"), uploadLogoController);
+router.post("/:id/pdf", upload.single("pdf"), uploadPdfController);
 
-router.delete("/:id", authorize("rss_staff"), deleteRiskAssessmentController);
+router.delete("/:id", deleteRiskAssessmentController);
 
 export default router;

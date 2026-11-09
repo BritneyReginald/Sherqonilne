@@ -16,6 +16,7 @@ import {
   scopeSites,
 } from "../middleware/authMiddleware";
 import { scopeByIdParam, lookupSite } from "../middleware/siteScope";
+import { requireEmployeeInScope } from "../middleware/clientGuards";
 
 const router = Router();
 
@@ -33,21 +34,27 @@ router.param(
   ),
 );
 
-// Writes: RSS staff only (authorize runs before the upload middleware)
+// Create: clients can add records, but only for employees on their own site.
+// The guard runs AFTER multer so the multipart fields are parsed.
 router.post(
   "/",
-  authorize("rss_staff"),
   uploadTrainingCertificate,
+  requireEmployeeInScope("employeeId"),
   addTrainingRecord,
 );
 
-// Reads: staff + the client's own site
+// Reads (controller filters the list with siteIdsFor(req))
 router.get("/", getAllTrainingRecords);
 router.get("/:id", getTrainingRecord);
 router.get("/:id/file", getTrainingRecordFileUrl);
 
-router.patch("/:id", authorize("rss_staff"), editTrainingRecord);
+// Update: may not be re-pointed at another site's employee
+router.patch(
+  "/:id",
+  (req, res, next) => requireEmployeeInScope("employeeId", { optional: true })(req, res, next),
+  editTrainingRecord,
+);
 
-router.delete("/:id", authorize("rss_staff"), deleteTrainingRecordController);
+router.delete("/:id", deleteTrainingRecordController);
 
 export default router;

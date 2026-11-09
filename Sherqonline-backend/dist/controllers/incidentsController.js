@@ -17,6 +17,9 @@ function parseIncidentBody(body) {
         site: body.site || null,
         // siteId is resolved separately (see resolveIncidentSite)
         siteId: undefined,
+        // undefined (not null) when the request doesn't send it, so a
+        // partial edit (e.g. a first-aider signing) never wipes it out.
+        supervisor: body.supervisor !== undefined ? body.supervisor || null : undefined,
         incidentDate: body.incidentDate || null,
         incidentTime: body.incidentTime || null,
         category: body.category || null,
@@ -89,6 +92,13 @@ async function buildFullRecord(id) {
             immediateCause: investigationRow?.immediate_cause ?? undefined,
             rootCause: investigationRow?.root_cause ?? undefined,
             contributingFactors: investigationRow?.contributing_factors ?? undefined,
+            // 5 Whys + damage to property/equipment
+            fiveWhys: investigationRow?.five_whys ?? undefined,
+            propertyDamage: investigationRow?.property_damage ?? undefined,
+            // Action tables (rows of action / responsible person / target date)
+            correctiveActionItems: investigationRow?.corrective_action_items ?? undefined,
+            preventiveActionItems: investigationRow?.preventive_action_items ?? undefined,
+            // Legacy single-text fields, kept so older records still display
             correctiveActions: investigationRow?.corrective_actions ?? [],
             responsiblePerson: investigationRow?.responsible_person ?? undefined,
             dueDate: investigationRow?.due_date ?? undefined,

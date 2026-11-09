@@ -14,11 +14,23 @@ const FIELD_MAP = {
     immediateCause: "immediate_cause",
     rootCause: "root_cause",
     contributingFactors: "contributing_factors",
+    fiveWhys: "five_whys",
+    propertyDamage: "property_damage",
+    correctiveActionItems: "corrective_action_items",
+    preventiveActionItems: "preventive_action_items",
     correctiveActions: "corrective_actions",
     responsiblePerson: "responsible_person",
     dueDate: "due_date",
     preventiveActions: "preventive_actions",
 };
+// JSONB columns. node-pg turns a JS array into a Postgres ARRAY
+// literal, which JSONB rejects, so these must be stringified first.
+const JSON_FIELDS = new Set([
+    "fiveWhys",
+    "correctiveActionItems",
+    "preventiveActionItems",
+]);
+const toDbValue = (key, value) => JSON_FIELDS.has(key) && value !== null ? JSON.stringify(value) : value;
 async function getInvestigationByRecordId(recordId) {
     const result = await db_1.default.query(`SELECT * FROM investigations WHERE record_id = $1`, [recordId]);
     return result.rows[0] || null;
@@ -36,7 +48,7 @@ async function upsertInvestigation(recordId, data) {
         for (const [key, column] of Object.entries(FIELD_MAP)) {
             const value = data[key];
             if (value !== undefined) {
-                values.push(value);
+                values.push(toDbValue(key, value));
                 columns.push(column);
                 placeholders.push(`$${values.length}`);
             }
@@ -49,7 +61,7 @@ async function upsertInvestigation(recordId, data) {
     for (const [key, column] of Object.entries(FIELD_MAP)) {
         const value = data[key];
         if (value !== undefined) {
-            values.push(value);
+            values.push(toDbValue(key, value));
             fields.push(`${column} = $${values.length}`);
         }
     }

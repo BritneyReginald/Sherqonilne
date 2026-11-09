@@ -6,6 +6,12 @@ import {
   FirstAiderIdentity,
   FirstAiderLoginGate,
 } from "./first-aider-login-gate";
+import {
+  pick,
+  toDateInput,
+  toInjuryFormInitial,
+  toTimeInput,
+} from "../form-helpers";
 
 interface SiteOption {
   id: string;
@@ -14,12 +20,41 @@ interface SiteOption {
 
 interface InjuryFormProps {
   onSubmit: (data: any) => void;
+  /** Used in Edit mode to return to the registry. */
   onBack?: () => void;
   incidentType: string;
   incidentNumber: string;
   employees: EmployeeOption[];
   sites: SiteOption[];
+  /** Pass the existing record to open the form in Edit mode. */
+  initialData?: any;
 }
+
+const blankEntry = (): FirstAidEntry => ({
+  id: crypto.randomUUID(),
+
+  employeeId: "",
+  date: "",
+  time: "",
+
+  employeeName: "",
+  employeeNumber: "",
+
+  injury: "",
+  treatment: "",
+  comments: "",
+
+  firstAider: "",
+
+  furtherMedicalAttention: false,
+
+  status: "draft",
+});
+
+const isFirstAidRecord = (r: any) =>
+  String(pick(r, "injuryType", "injury_type") ?? "")
+    .toLowerCase()
+    .replace(/[_-]/g, "") === "firstaid";
 
 export function InjuryForm({
   onSubmit,
@@ -28,59 +63,58 @@ export function InjuryForm({
   incidentNumber,
   employees,
   sites,
+  initialData,
 }: InjuryFormProps) {
-  const [step, setStep] = useState<InjuryType>(null);
+  const isEditing = !!initialData;
+
+  // In Edit mode jump straight to the right step for this record.
+  const [step, setStep] = useState<InjuryType>(
+    initialData ? (isFirstAidRecord(initialData) ? "firstAid" : "hospital") : null,
+  );
   const [firstAiderAuth, setFirstAiderAuth] =
     useState<FirstAiderIdentity | null>(null);
 
   // Shared site for a First Aid log (the log itself isn't per-entry
   // located — the entries within it are for the same site/shift).
-  const [firstAidSite, setFirstAidSite] = useState("");
+  const [firstAidSite, setFirstAidSite] = useState(initialData?.site ?? "");
 
   // form state (for hospital case)
-  const [form, setForm] = useState({
-    division: "",
-    site: "",
-    date: "",
-    time: "",
-    employeeId: "",
-    employeeName: "",
-    employeeNumber: "",
-    supervisor: "",
-    description: "",
-    bodyPart: "",
-    otherBodyPart: "",
-    effect: "",
-    disablement: "",
-  });
+  const [form, setForm] = useState(
+    initialData && !isFirstAidRecord(initialData)
+      ? toInjuryFormInitial(initialData)
+      : {
+          division: "",
+          site: "",
+          date: "",
+          time: "",
+          employeeId: "",
+          employeeName: "",
+          employeeNumber: "",
+          supervisor: "",
+          description: "",
+          bodyPart: "",
+          otherBodyPart: "",
+          effect: "",
+          disablement: "",
+        },
+  );
 
-  const [entries, setEntries] = useState<FirstAidEntry[]>([
-    {
-      id: crypto.randomUUID(),
-
-      employeeId: "",
-      date: "",
-      time: "",
-
-      employeeName: "",
-      employeeNumber: "",
-
-      injury: "",
-      treatment: "",
-      comments: "",
-
-      firstAider: "",
-
-      furtherMedicalAttention: false,
-
-      status: "draft",
-    },
-  ]);
+  const [entries, setEntries] = useState<FirstAidEntry[]>(
+    initialData?.firstAidEntries?.length
+      ? initialData.firstAidEntries.map((e: any) => ({
+          ...e,
+          date: toDateInput(e.date),
+          time: toTimeInput(e.time),
+        }))
+      : [blankEntry()],
+  );
 
   const handleChange = (field: string, value: string) => {
     setForm((prev) => ({ ...prev, [field]: value }));
   };
 
+  // Picking an employee pulls in their supervisor, but the field
+  // stays editable so it can be corrected or typed manually.
   const handleEmployeeSelect = (id: string) => {
     const selected = employees.find((emp) => emp.id === id);
     setForm((prev) => ({
@@ -145,35 +179,23 @@ export function InjuryForm({
   };
 
   const addRow = () => {
-    setEntries([
-      ...entries,
-      {
-        id: crypto.randomUUID(),
-
-        employeeId: "",
-        date: "",
-        time: "",
-
-        employeeName: "",
-        employeeNumber: "",
-
-        injury: "",
-        treatment: "",
-        comments: "",
-
-        firstAider: "",
-
-        furtherMedicalAttention: false,
-
-        status: "draft",
-      },
-    ]);
+    setEntries([...entries, blankEntry()]);
   };
 
   const removeRow = (index: number) => {
     const updated = entries.filter((_, i) => i !== index);
     setEntries(updated);
   };
+
+  // Back from a step: in Edit mode go back to the registry, otherwise
+  // return to the injury-type chooser.
+  const leaveStep = () => {
+    if (isEditing) onBack?.();
+    else setStep(null);
+  };
+
+  const siteMissingFromList =
+    !!form.site && !sites.some((s) => s.name === form.site);
 
   // ================= STEP 1: SELECTION =================
   if (!step) {
@@ -207,7 +229,7 @@ export function InjuryForm({
     return (
       <FirstAiderLoginGate
         onSuccess={setFirstAiderAuth}
-        onCancel={() => setStep(null)}
+        onCancel={leaveStep}
       />
     );
   }
@@ -226,7 +248,7 @@ export function InjuryForm({
         handleFirstAiderSign={handleFirstAiderSign}
         removeRow={removeRow}
         addRow={addRow}
-        onBack={() => setStep(null)}
+        onBack={leaveStep}
         onSubmit={() =>
           onSubmit({
             type: "firstAid",
@@ -261,6 +283,9 @@ export function InjuryForm({
             className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900"
           >
             <option value="">Select Site</option>
+            {siteMissingFromList && (
+              <option value={form.site}>{form.site}</option>
+            )}
             {sites.map((s) => (
               <option key={s.id} value={s.name}>
                 {s.name}
@@ -340,8 +365,9 @@ export function InjuryForm({
           <label className="text-sm text-gray-600">Supervisor</label>
           <input
             value={form.supervisor}
-            readOnly
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-700"
+            onChange={(e) => handleChange("supervisor", e.target.value)}
+            placeholder="Auto-filled from employee — you can edit"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
         </div>
       </div>
@@ -437,7 +463,7 @@ export function InjuryForm({
       {/* ACTIONS */}
       <div className="flex gap-4">
         <button
-          onClick={() => setStep(null)}
+          onClick={leaveStep}
           className="bg-gray-500 text-white px-4 py-2 rounded"
         >
           Back
@@ -453,7 +479,7 @@ export function InjuryForm({
           }
           className="bg-blue-600 text-white px-4 py-2 rounded"
         >
-          Save Injury
+          {isEditing ? "Save Changes" : "Save Injury"}
         </button>
       </div>
     </div>

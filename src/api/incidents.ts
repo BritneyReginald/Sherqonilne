@@ -31,6 +31,7 @@ function normalizeRecord(row: any): IncidentRecord {
 
     division: row.division ?? undefined,
     site: row.site ?? undefined,
+    supervisor: row.supervisor ?? undefined,
     incidentDate: row.incident_date ?? undefined,
     incidentTime: row.incident_time ?? undefined,
 
@@ -99,11 +100,13 @@ export interface FirstAidEntryPayload {
   status?: string;
 }
 
-export async function createIncidentRecord(input: {
+// Shared by create (POST) and update (PUT).
+export interface IncidentRecordPayload {
   type: RecordType;
   employeeId?: number;
   division?: string;
   site?: string;
+  supervisor?: string;
   incidentDate?: string;
   incidentTime?: string;
   category?: string;
@@ -117,9 +120,28 @@ export async function createIncidentRecord(input: {
   bodyPart?: string;
   effect?: string;
   disablement?: string;
-}): Promise<IncidentRecord> {
+}
+
+export async function createIncidentRecord(
+  input: IncidentRecordPayload,
+): Promise<IncidentRecord> {
   const res = await fetch(BASE_URL, {
     method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+
+  const row = await handle<any>(res);
+  return normalizeRecord(row);
+}
+
+// Edits an existing record (used by the register's Edit button).
+export async function updateIncidentRecord(
+  id: number,
+  input: IncidentRecordPayload,
+): Promise<IncidentRecord> {
+  const res = await fetch(`${BASE_URL}/${id}`, {
+    method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(input),
   });

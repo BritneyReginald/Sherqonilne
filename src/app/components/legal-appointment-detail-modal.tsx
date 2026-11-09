@@ -25,6 +25,7 @@ import {
   generateAppointmentLetter,
 } from "../templates/appointment-templates";
 import { SignaturePad } from "./legal-appointment-signature-pad";
+import { authFetch } from "../utils/auth-fetch";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
 
@@ -94,7 +95,7 @@ async function loadImageAsDataUrl(url: string): Promise<string | null> {
  */
 async function fetchSiteLogo(appointmentId: string): Promise<string | null> {
   try {
-    const res = await fetch(`${API_URL}/legal-appointments/${appointmentId}`);
+    const res = await await authFetch(`${API_URL}/legal-appointments/${appointmentId}`);
     if (!res.ok) throw new Error(`Failed to load appointment (${res.status})`);
     const fresh = await res.json();
     return fresh.site_logo ?? null;
@@ -110,7 +111,7 @@ async function fetchSiteLogo(appointmentId: string): Promise<string | null> {
  */
 async function getFreshDocumentUrl(appointmentId: string, fallback?: string) {
   try {
-    const res = await fetch(`${API_URL}/legal-appointments/${appointmentId}`);
+    const res = await authFetch(`${API_URL}/legal-appointments/${appointmentId}`);
     if (!res.ok)
       throw new Error(`Failed to refresh appointment (${res.status})`);
     const fresh = await res.json();

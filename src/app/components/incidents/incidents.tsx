@@ -13,6 +13,7 @@ import {
 } from "./types";
 import {
   createIncidentRecord,
+  updateIncidentRecord, // NEW — see snippets.md
   deleteIncidentRecord,
   fetchIncidentRecords,
   fetchIncidentRecord,
@@ -39,6 +40,8 @@ interface SiteOption {
   name: string;
 }
 
+type PendingPatch = { recordId: number; field: string; value: any };
+
 export default function Incidents() {
   const [incidentCategory, setIncidentCategory] = useState<string | null>(null);
   const [view, setView] = useState<ViewType>("registry");
@@ -48,12 +51,20 @@ export default function Incidents() {
     null,
   );
 
+  // The record currently open in a report form for editing (null = new report)
+  const [editingRecord, setEditingRecord] = useState<IncidentRecord | null>(
+    null,
+  );
+
   const [employees, setEmployees] = useState<EmployeeOption[]>([]);
   const [sites, setSites] = useState<SiteOption[]>([]);
 
   const debounceTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>(
     {},
   );
+  // Investigation edits waiting for their debounce timer, so Save /
+  // Mark as Complete can push them out immediately.
+  const pendingPatches = useRef<Record<string, PendingPatch>>({});
 
   useEffect(() => {
     let cancelled = false;
@@ -93,13 +104,26 @@ export default function Incidents() {
   const nextNcrNumber = getNextRecordNumber(records, "ncr", "NCR");
   const nextInjuryNumber = getNextRecordNumber(records, "injury", "INJ");
 
+  const backToRegistry = () => {
+    setEditingRecord(null);
+    setView("registry");
+  };
+
   const addRecord = async (data: any) => {
     // InjuryForm's First Aid step submits { type: "firstAid", ... }
     // directly (it isn't gated by `view`, since both injury steps
     // share the "injury" view) — detect it up front.
     const isFirstAid = data.type === "firstAid";
+
+    // When editing, the record's own type wins.
     const type = (
-      isFirstAid ? "injury" : view === "incident-form" ? "incident" : view
+      editingRecord
+        ? editingRecord.type
+        : isFirstAid
+          ? "injury"
+          : view === "incident-form"
+            ? "incident"
+            : view
     ) as RecordType;
 
     try {
@@ -122,10 +146,6 @@ export default function Incidents() {
             treatment: e.treatment,
             comments: e.comments,
             firstAider: e.firstAider,
-            // Was previously dropped here, so a signature captured on
-            // the form (see FirstAidCard/onFirstAiderSign) never made
-            // it to the API even though the backend already accepts
-            // and stores it — this is the fix.
             firstAiderSignature: e.firstAiderSignature,
             furtherMedicalAttention: e.furtherMedicalAttention,
             status: e.status,
@@ -138,6 +158,7 @@ export default function Incidents() {
           category: incidentCategory || undefined,
           division: data.division,
           site: data.site,
+          supervisor: data.supervisor,
           incidentDate: data.date,
           incidentTime: data.time,
           description: data.description,
@@ -162,6 +183,7 @@ export default function Incidents() {
           injuryType: "hospital",
           division: data.division,
           site: data.site,
+          supervisor: data.supervisor,
           incidentDate: data.date,
           incidentTime: data.time,
           description: data.description,
@@ -173,19 +195,53 @@ export default function Incidents() {
         };
       }
 
-      const newRecord = await createIncidentRecord(payload);
-      setRecords((prev) => [newRecord, ...prev]);
-      setView("registry");
+      if (editingRecord) {
+        const updated = await updateIncidentRecord(editingRecord.id, payload);
+        setRecords((prev) =>
+          prev.map((r) => (r.id === updated.id ? updated : r)),
+        );
+      } else {
+        const newRecord = await createIncidentRecord(payload);
+        setRecords((prev) => [newRecord, ...prev]);
+      }
+
+      backToRegistry();
     } catch (err) {
       console.error("Failed to save record", err);
       alert("Couldn't save that record — check your connection and try again.");
     }
   };
 
+  // Writes out any investigation edits still waiting on their debounce
+  // timer, so a status change never races ahead of unsaved typing.
+  const flushInvestigation = async () => {
+    const pending = Object.entries(pendingPatches.current);
+    pendingPatches.current = {};
+
+    pending.forEach(([key]) => {
+      clearTimeout(debounceTimers.current[key]);
+      delete debounceTimers.current[key];
+    });
+
+    await Promise.all(
+      pending.map(([, p]) =>
+        patchInvestigationField(
+          p.recordId,
+          p.field as keyof InvestigationData,
+          p.value,
+        ).catch((err) =>
+          console.error("Failed to save investigation field", err),
+        ),
+      ),
+    );
+  };
+
   const updateStatus = async (newStatus: RecordStatus) => {
     if (!selectedRecord) return;
 
     try {
+      await flushInvestigation();
+
       const updated = await updateIncidentStatus(selectedRecord.id, newStatus);
       setSelectedRecord(updated);
       setRecords((prev) =>
@@ -215,6 +271,8 @@ export default function Incidents() {
   const updateInvestigation = (field: string, value: any) => {
     if (!selectedRecord) return;
 
+    const recordId = selectedRecord.id;
+
     const updatedRecord = {
       ...selectedRecord,
       investigation: {
@@ -225,15 +283,20 @@ export default function Incidents() {
 
     setSelectedRecord(updatedRecord);
     setRecords((prev) =>
-      prev.map((rec) => (rec.id === selectedRecord.id ? updatedRecord : rec)),
+      prev.map((rec) => (rec.id === recordId ? updatedRecord : rec)),
     );
 
-    const key = `${selectedRecord.id}:${field}`;
+    const key = `${recordId}:${field}`;
     if (debounceTimers.current[key]) clearTimeout(debounceTimers.current[key]);
 
+    pendingPatches.current[key] = { recordId, field, value };
+
     debounceTimers.current[key] = setTimeout(() => {
+      delete pendingPatches.current[key];
+      delete debounceTimers.current[key];
+
       patchInvestigationField(
-        selectedRecord.id,
+        recordId,
         field as keyof InvestigationData,
         value,
       ).catch((err) =>
@@ -315,6 +378,41 @@ export default function Incidents() {
       alert("Couldn't load the latest incident data.");
     }
   };
+
+  // The registry list doesn't carry investigation detail, so fetch the
+  // full record first — otherwise saved investigation data wouldn't show.
+  const openInvestigation = async (record: IncidentRecord) => {
+    try {
+      const freshRecord = await fetchIncidentRecord(record.id);
+      setSelectedRecord(freshRecord);
+      setView("investigation");
+    } catch (err) {
+      console.error("Failed to load latest incident", err);
+      alert("Couldn't load the latest incident data.");
+    }
+  };
+
+  // Opens the right report form, prefilled with the saved record.
+  const openEdit = async (record: IncidentRecord) => {
+    try {
+      const freshRecord = await fetchIncidentRecord(record.id);
+      setEditingRecord(freshRecord);
+
+      if (freshRecord.type === "incident") {
+        setIncidentCategory(freshRecord.category ?? null);
+        setView("incident-form");
+      } else if (freshRecord.type === "ncr") {
+        setView("ncr");
+      } else {
+        setView("injury");
+      }
+    } catch (err) {
+      console.error("Failed to load record for editing", err);
+      alert("Couldn't load that record for editing.");
+    }
+  };
+
+  const verb = editingRecord ? "Edit" : "Report";
 
   return (
     <div className="p-6">
@@ -405,10 +503,14 @@ export default function Incidents() {
                     <td className="p-3 whitespace-nowrap">
                       <div className="flex gap-3">
                         <button
-                          onClick={() => {
-                            setSelectedRecord(record);
-                            setView("investigation");
-                          }}
+                          onClick={() => openEdit(record)}
+                          className="text-green-700 hover:underline text-sm"
+                        >
+                          Edit
+                        </button>
+
+                        <button
+                          onClick={() => openInvestigation(record)}
                           className="text-blue-600 hover:underline text-sm"
                         >
                           Investigate
@@ -448,13 +550,15 @@ export default function Incidents() {
       {view === "incident-form" && (
         <>
           <button
-            onClick={() => setView("incident-type")}
+            onClick={() =>
+              editingRecord ? backToRegistry() : setView("incident-type")
+            }
             className="mb-4 text-blue-600"
           >
             ← Back
           </button>
 
-          <h1 className="text-2xl font-bold mb-2">Report Incident</h1>
+          <h1 className="text-2xl font-bold mb-2">{verb} Incident</h1>
 
           <p className="mb-4 text-gray-500">
             Type:{" "}
@@ -462,11 +566,13 @@ export default function Incidents() {
           </p>
 
           <IncidentForm
+            key={editingRecord?.id ?? "new-incident"}
             onSubmit={addRecord}
             incidentType={incidentCategory}
-            incidentNumber={nextIncidentNumber}
+            incidentNumber={editingRecord?.title || nextIncidentNumber}
             employees={employees}
             sites={sites}
+            initialData={editingRecord ?? undefined}
           />
         </>
       )}
@@ -482,36 +588,38 @@ export default function Incidents() {
       {/* ================= NCR PAGE ================= */}
       {view === "ncr" && (
         <>
-          <button
-            onClick={() => setView("registry")}
-            className="mb-4 text-blue-600"
-          >
+          <button onClick={backToRegistry} className="mb-4 text-blue-600">
             ← Back
           </button>
 
-          <h1 className="text-2xl font-bold mb-4">Report NCR</h1>
+          <h1 className="text-2xl font-bold mb-4">{verb} NCR</h1>
 
-          <NCRForm onSubmit={addRecord} ncrNumber={nextNcrNumber} />
+          <NCRForm
+            key={editingRecord?.id ?? "new-ncr"}
+            onSubmit={addRecord}
+            ncrNumber={editingRecord?.title || nextNcrNumber}
+            initialData={editingRecord ?? undefined}
+          />
         </>
       )}
 
       {/* ================= INJURY PAGE ================= */}
       {view === "injury" && (
         <>
-          <button
-            onClick={() => setView("registry")}
-            className="mb-4 text-blue-600"
-          >
+          <button onClick={backToRegistry} className="mb-4 text-blue-600">
             ← Back
           </button>
 
-          <h1 className="text-2xl font-bold mb-4">Report Injury</h1>
+          <h1 className="text-2xl font-bold mb-4">{verb} Injury</h1>
 
           <InjuryForm
+            key={editingRecord?.id ?? "new-injury"}
             incidentType="Injury"
-            incidentNumber={nextInjuryNumber}
+            incidentNumber={editingRecord?.title || nextInjuryNumber}
             employees={employees}
             sites={sites}
+            onBack={backToRegistry}
+            initialData={editingRecord ?? undefined}
             onSubmit={(data: any) => addRecord(data)}
           />
         </>
@@ -519,10 +627,7 @@ export default function Incidents() {
 
       {view === "incident-type" && (
         <>
-          <button
-            onClick={() => setView("registry")}
-            className="mb-4 text-blue-600"
-          >
+          <button onClick={backToRegistry} className="mb-4 text-blue-600">
             ← Back
           </button>
 

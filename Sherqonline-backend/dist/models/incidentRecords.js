@@ -28,6 +28,7 @@ const SELECT_BASE = `
     r.division,
     r.site,
     r.site_id,
+    r.supervisor,
     r.incident_date,
     r.incident_time,
 
@@ -60,6 +61,7 @@ const FIELD_MAP = {
     division: "division",
     site: "site",
     siteId: "site_id",
+    supervisor: "supervisor",
     incidentDate: "incident_date",
     incidentTime: "incident_time",
     category: "category",
@@ -80,9 +82,9 @@ async function createIncidentRecord(data) {
       type, employee_id, division, site, incident_date, incident_time,
       category, title, description, status, injury_type,
       ncr_type, identified_by, department,
-      body_part, effect, disablement, site_id
+      body_part, effect, disablement, site_id, supervisor
     )
-    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)
+    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)
     RETURNING id
     `, [
         data.type,
@@ -103,6 +105,7 @@ async function createIncidentRecord(data) {
         data.effect || null,
         data.disablement || null,
         data.siteId ?? null,
+        data.supervisor || null,
     ]);
     return getIncidentRecordById(result.rows[0].id);
 }

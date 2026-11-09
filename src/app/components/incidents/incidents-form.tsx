@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { EmployeeOption } from "../../../api/employees";
+import { toIncidentFormInitial } from "./form-helpers";
 
 interface SiteOption {
   id: string;
@@ -12,6 +13,8 @@ interface IncidentFormProps {
   incidentNumber: string;
   employees: EmployeeOption[];
   sites: SiteOption[];
+  /** Pass the existing record to open the form in Edit mode. */
+  initialData?: any;
 }
 
 export function IncidentForm({
@@ -20,23 +23,32 @@ export function IncidentForm({
   incidentNumber,
   employees,
   sites,
+  initialData,
 }: IncidentFormProps) {
-  const [form, setForm] = useState({
-    division: "",
-    date: "",
-    employeeId: "",
-    employeeName: "",
-    supervisor: "",
-    site: "",
-    time: "",
-    employeeNumber: "",
-    description: "",
-  });
+  const isEditing = !!initialData;
+
+  const [form, setForm] = useState(
+    initialData
+      ? toIncidentFormInitial(initialData)
+      : {
+          division: "",
+          date: "",
+          employeeId: "",
+          employeeName: "",
+          supervisor: "",
+          site: "",
+          time: "",
+          employeeNumber: "",
+          description: "",
+        },
+  );
 
   const handleChange = (field: string, value: string) => {
     setForm((prev) => ({ ...prev, [field]: value }));
   };
 
+  // Picking an employee pulls in their supervisor, but the field
+  // stays editable so it can be corrected or typed manually.
   const handleEmployeeSelect = (id: string) => {
     const selected = employees.find((emp) => emp.id === id);
     setForm((prev) => ({
@@ -47,6 +59,11 @@ export function IncidentForm({
       supervisor: selected?.reportingManager || "",
     }));
   };
+
+  // Keep an old record's site selectable even if the name no longer
+  // matches a site in the list.
+  const siteMissingFromList =
+    !!form.site && !sites.some((s) => s.name === form.site);
 
   return (
     <div className="space-y-6">
@@ -74,6 +91,9 @@ export function IncidentForm({
               className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900"
             >
               <option value="">Select Site</option>
+              {siteMissingFromList && (
+                <option value={form.site}>{form.site}</option>
+              )}
               {sites.map((site) => (
                 <option key={site.id} value={site.name}>
                   {site.name}
@@ -148,12 +168,14 @@ export function IncidentForm({
               className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-700"
             />
           </div>
+
           <div>
             <label className="text-sm text-gray-600">Supervisor</label>
             <input
               value={form.supervisor}
-              readOnly
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-700"
+              onChange={(e) => handleChange("supervisor", e.target.value)}
+              placeholder="Auto-filled from employee — you can edit"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
         </div>
@@ -179,7 +201,7 @@ export function IncidentForm({
           onClick={() => onSubmit({ ...form, incidentNumber })}
           className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg"
         >
-          Save Incident
+          {isEditing ? "Save Changes" : "Save Incident"}
         </button>
       </div>
     </div>

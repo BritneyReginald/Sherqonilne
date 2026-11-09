@@ -16,6 +16,10 @@ import {
   scopeSites,
 } from "../middleware/authMiddleware";
 import { scopeByIdParam, lookupSite } from "../middleware/siteScope";
+import {
+  forceClientSite,
+  requireEmployeeInScope,
+} from "../middleware/clientGuards";
 
 const router = Router();
 
@@ -24,7 +28,7 @@ const upload = multer({
   limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
 });
 
-// Staff see everything; a client sees (read-only) their own site only.
+// Staff see everything; a client manages their own site's appointments.
 router.use(authenticate, authorize("rss_staff", "client"), scopeSites);
 
 // Any route with :id is checked against the caller's sites first.
@@ -39,17 +43,28 @@ router.param(
 router.get("/", getAllLegalAppointments);
 router.get("/:id", getLegalAppointment);
 
-// Writes: RSS staff only
-router.post("/", authorize("rss_staff"), addLegalAppointment);
-router.patch("/:id", authorize("rss_staff"), editLegalAppointment);
+// Create: employee must be on the caller's site, and the site is forced.
+router.post(
+  "/",
+  requireEmployeeInScope("employeeId"),
+  forceClientSite,
+  addLegalAppointment,
+);
+
+// Update (renew, e-signature, ...): can't be re-pointed at another site/employee.
+router.patch(
+  "/:id",
+  (req, res, next) => requireEmployeeInScope("employeeId", { optional: true })(req, res, next),
+  forceClientSite,
+  editLegalAppointment,
+);
 
 router.post(
   "/:id/document",
-  authorize("rss_staff"),
   upload.single("document"),
   uploadLegalAppointmentDocumentController,
 );
 
-router.delete("/:id", authorize("rss_staff"), deleteLegalAppointmentController);
+router.delete("/:id", deleteLegalAppointmentController);
 
 export default router;

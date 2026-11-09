@@ -15,7 +15,17 @@ import {
   restoreDocumentController,
 } from "../controllers/documentLibraryController";
 
-import { authenticate, authorize } from "../middleware/authMiddleware";
+import {
+  authenticate,
+  authorize,
+  scopeSites,
+} from "../middleware/authMiddleware";
+import { scopeByIdParam, lookupSite } from "../middleware/siteScope";
+import {
+  forceClientSite,
+  requireFolderInScope,
+  requireEmployeeInScope,
+} from "../middleware/clientGuards";
 
 const router = Router();
 
@@ -24,22 +34,75 @@ const upload = multer({
   limits: { fileSize: 25 * 1024 * 1024 }, // 25MB
 });
 
-// The document library has no site concept, so it is RSS staff only.
-router.use(authenticate, authorize("rss_staff"));
+// Every folder (and so every document) belongs to a site.
+// Staff see all sites; a client sees only their own.
+router.use(authenticate, authorize("rss_staff", "client"), scopeSites);
 
-// Folders
-router.get("/folders", listFolders);
-router.post("/folders", addFolder);
-router.get("/folders/:id/documents", listDocuments);
-router.get("/folders/:id/download", downloadFolderZip);
+/* ------------------------------ folders ------------------------------ */
+// ":id" means a FOLDER id here, so folders and documents get separate
+// sub-routers (router.param is per router, not per path).
+const folders = Router();
 
-// Documents
-router.post("/documents", upload.single("file"), uploadDocumentController);
-router.post("/documents/:id/versions", upload.single("file"), uploadNewVersionController);
-router.get("/documents/:id/versions", listVersions);
-router.get("/documents/:id/url", getDocumentUrl);
-router.patch("/documents/:id/archive", archiveDocumentController);
-router.get("/archived", listArchivedDocuments);
-router.patch("/documents/:id/restore", restoreDocumentController);
+folders.param(
+  "id",
+  scopeByIdParam(lookupSite("SELECT site_id FROM document_folders WHERE id = $1")),
+);
+
+folders.get("/", listFolders); // controller must filter by siteIdsFor(req)
+
+// A sub-folder must sit inside one of the caller's folders; a client's
+// top-level folder is stamped with their site. Controller: store
+// body.siteId on top-level folders, and copy the parent's site_id onto sub-folders.
+folders.post(
+  "/",
+  requireFolderInScope("parentId", { optional: true }),
+  forceClientSite,
+  addFolder,
+);
+
+folders.get("/:id/documents", listDocuments);
+folders.get("/:id/download", downloadFolderZip);
+
+/* ----------------------------- documents ----------------------------- */
+// ":id" means a DOCUMENT id here; its site comes from its folder.
+const documents = Router();
+
+documents.param(
+  "id",
+  scopeByIdParam(
+    lookupSite(
+      `SELECT f.site_id
+         FROM documents d
+         JOIN document_folders f ON f.id = d.folder_id
+        WHERE d.id = $1`,
+    ),
+  ),
+);
+
+// Upload: target folder (and the "updated by" employee, if sent) must be in scope.
+documents.post(
+  "/",
+  upload.single("file"),
+  requireFolderInScope("folderId"),
+  requireEmployeeInScope("updatedByEmployeeId", { optional: true }),
+  uploadDocumentController,
+);
+documents.post(
+  "/:id/versions",
+  upload.single("file"),
+  requireEmployeeInScope("updatedByEmployeeId", { optional: true }),
+  uploadNewVersionController,
+);
+documents.get("/:id/versions", listVersions);
+documents.get("/:id/url", getDocumentUrl);
+documents.patch("/:id/archive", archiveDocumentController);
+// Restore stays RSS-only
+documents.patch("/:id/restore", authorize("rss_staff"), restoreDocumentController);
+
+/* ----------------------- archive list (RSS only) ---------------------- */
+router.get("/archived", authorize("rss_staff"), listArchivedDocuments);
+
+router.use("/folders", folders);
+router.use("/documents", documents);
 
 export default router;

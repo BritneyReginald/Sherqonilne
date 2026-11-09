@@ -20,8 +20,9 @@ interface SiteOption {
 export function RiskAssessmentRegisterEnhanced() {
   const { colors } = useTheme();
   const { user } = useAuth();
-  // Clients get a read-only view of their own site's assessments.
-  const isClient = user?.role === "client";
+  // Clients have full access, but only for their own site(s).
+  const clientCompany = user?.role === "client" ? user.company : null;
+  const isClient = !!clientCompany;
 
   const [assessments, setAssessments] = useState<RiskAssessmentRecord[]>([]);
   const [loading, setLoading] = useState(true);
@@ -34,9 +35,14 @@ export function RiskAssessmentRegisterEnhanced() {
   const [selectedAssessment, setSelectedAssessment] =
     useState<RiskAssessmentRecord | null>(null);
 
-  // Which client site the assessment is for (staff only)
+  // Which site the assessment is for. Staff pick any site; clients are limited
+  // to their own (auto-selected when they only have one).
   const [siteOptions, setSiteOptions] = useState<SiteOption[]>([]);
   const [siteId, setSiteId] = useState("");
+
+  const clientSingleSite = isClient && siteOptions.length === 1;
+  const effectiveSiteId =
+    siteId || (clientSingleSite ? siteOptions[0].id : "");
 
   const loadAssessments = async () => {
     try {
@@ -55,19 +61,33 @@ export function RiskAssessmentRegisterEnhanced() {
   }, []);
 
   useEffect(() => {
-    if (isClient) return;
     getSites()
-      .then((data: any[]) =>
-        setSiteOptions(data.map((s) => ({ id: String(s.id), name: s.name }))),
-      )
+      .then((data: any[]) => {
+        const all = data.map((s) => ({ id: String(s.id), name: s.name }));
+
+        if (clientCompany) {
+          const mine = all.filter(
+            (s) =>
+              s.id === String(clientCompany.id) || s.name === clientCompany.name,
+          );
+          setSiteOptions(
+            mine.length > 0
+              ? mine
+              : [{ id: String(clientCompany.id), name: clientCompany.name }],
+          );
+        } else {
+          setSiteOptions(all);
+        }
+      })
       .catch((err) => console.error("Failed to load sites:", err));
-  }, [isClient]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clientCompany?.id]);
 
   /* ===============================
      CREATE / EDIT VIEW
   =============================== */
 
-  if (!isClient && (creatingRA || editingRA)) {
+  if (creatingRA || editingRA) {
     return (
       <div className="h-full w-full p-6 overflow-y-auto">
         {saving && (
@@ -76,23 +96,26 @@ export function RiskAssessmentRegisterEnhanced() {
           </div>
         )}
 
-        <div className="mb-4 max-w-md">
-          <label className="block text-sm font-medium mb-1 text-white">
-            Site (client) this assessment is for *
-          </label>
-          <select
-            value={siteId}
-            onChange={(e) => setSiteId(e.target.value)}
-            className="w-full border p-2 rounded text-gray-900 bg-white"
-          >
-            <option value="">Select Site</option>
-            {siteOptions.map((site) => (
-              <option key={site.id} value={site.id}>
-                {site.name}
-              </option>
-            ))}
-          </select>
-        </div>
+        {/* Clients with a single site don't need to choose */}
+        {!clientSingleSite && (
+          <div className="mb-4 max-w-md">
+            <label className="block text-sm font-medium mb-1 text-white">
+              Site this assessment is for *
+            </label>
+            <select
+              value={siteId}
+              onChange={(e) => setSiteId(e.target.value)}
+              className="w-full border p-2 rounded text-gray-900 bg-white"
+            >
+              <option value="">Select Site</option>
+              {siteOptions.map((site) => (
+                <option key={site.id} value={site.id}>
+                  {site.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
 
         <NewRiskAssessment
           existingData={editingRA?.rawData}
@@ -102,7 +125,7 @@ export function RiskAssessmentRegisterEnhanced() {
             setSiteId("");
           }}
           onSave={async (newRA) => {
-            if (!siteId) {
+            if (!effectiveSiteId) {
               alert("Please select the site this assessment is for.");
               return;
             }
@@ -110,7 +133,7 @@ export function RiskAssessmentRegisterEnhanced() {
               setSaving(true);
               await saveRiskAssessmentToRegister({
                 id: editingRA?.id,
-                siteId,
+                siteId: effectiveSiteId,
                 beforeControls: newRA.beforeControls,
                 afterControls: newRA.afterControls,
                 details: newRA.details,
@@ -136,6 +159,9 @@ export function RiskAssessmentRegisterEnhanced() {
      MAIN REGISTER VIEW
   =============================== */
 
+  // Clients with one site don't need a Site column
+  const showSiteColumn = !clientSingleSite;
+
   return (
     <div className="h-full w-full p-6 overflow-y-auto text-gray-900">
       <div className="max-w-[1600px] mx-auto">
@@ -144,18 +170,16 @@ export function RiskAssessmentRegisterEnhanced() {
             Risk Assessment Register
           </h1>
 
-          {!isClient && (
-            <button
-              onClick={() => {
-                setSiteId("");
-                setCreatingRA(true);
-              }}
-              className="px-4 py-2 bg-blue-600 text-white rounded"
-            >
-              <Plus className="size-4 inline mr-2" />
-              New Risk Assessment
-            </button>
-          )}
+          <button
+            onClick={() => {
+              setSiteId("");
+              setCreatingRA(true);
+            }}
+            className="px-4 py-2 bg-blue-600 text-white rounded"
+          >
+            <Plus className="size-4 inline mr-2" />
+            New Risk Assessment
+          </button>
         </div>
 
         <div className="bg-white rounded-lg shadow overflow-hidden">
@@ -164,7 +188,9 @@ export function RiskAssessmentRegisterEnhanced() {
               <tr>
                 <th className="px-4 py-3 text-left">Assessment</th>
                 <th className="px-4 py-3 text-left">Reference</th>
-                {!isClient && <th className="px-4 py-3 text-left">Site</th>}
+                {showSiteColumn && (
+                  <th className="px-4 py-3 text-left">Site</th>
+                )}
                 <th className="px-4 py-3 text-left">Saved Date</th>
                 <th className="px-4 py-3 text-left">Actions</th>
               </tr>
@@ -190,7 +216,7 @@ export function RiskAssessmentRegisterEnhanced() {
                 <tr key={assessment.id} className="border-t">
                   <td className="px-4 py-3">{assessment.assessmentName}</td>
                   <td className="px-4 py-3">{assessment.referenceNo}</td>
-                  {!isClient && (
+                  {showSiteColumn && (
                     <td className="px-4 py-3">
                       {assessment.siteId ? (
                         assessment.linkedSite
@@ -235,31 +261,27 @@ export function RiskAssessmentRegisterEnhanced() {
                       </button>
                     )}
 
-                    {!isClient && (
-                      <>
-                        <button
-                          onClick={() => {
-                            setEditingRA(assessment);
-                            setSiteId(assessment.siteId);
-                            setCreatingRA(true);
-                          }}
-                          className="text-green-600"
-                        >
-                          Edit
-                        </button>
+                    <button
+                      onClick={() => {
+                        setEditingRA(assessment);
+                        setSiteId(assessment.siteId);
+                        setCreatingRA(true);
+                      }}
+                      className="text-green-600"
+                    >
+                      Edit
+                    </button>
 
-                        <button
-                          onClick={() => {
-                            setSelectedAssessment(assessment);
-                            setModalOpen(true);
-                          }}
-                          className="text-red-600"
-                          title="Delete"
-                        >
-                          <Trash2 className="size-4" />
-                        </button>
-                      </>
-                    )}
+                    <button
+                      onClick={() => {
+                        setSelectedAssessment(assessment);
+                        setModalOpen(true);
+                      }}
+                      className="text-red-600"
+                      title="Delete"
+                    >
+                      <Trash2 className="size-4" />
+                    </button>
                   </td>
                 </tr>
               ))}

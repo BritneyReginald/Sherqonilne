@@ -5,6 +5,7 @@ import {
   useEffect,
   ReactNode,
 } from "react";
+import { authFetch } from "../utils/auth-fetch";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
 
@@ -114,7 +115,7 @@ export function LegalAppointmentsProvider({
   const refresh = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`${API_URL}/legal-appointments`);
+      const res = await authFetch(`${API_URL}/legal-appointments`);
       if (!res.ok) throw new Error("Failed to fetch legal appointments");
       const data = await res.json();
       setAppointments(data.map(mapApiAppointment));
@@ -132,7 +133,7 @@ export function LegalAppointmentsProvider({
   const addAppointment = async (
     input: NewLegalAppointmentInput,
   ): Promise<LegalAppointment> => {
-    const res = await fetch(`${API_URL}/legal-appointments`, {
+    const res = await authFetch(`${API_URL}/legal-appointments`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(input),
@@ -151,7 +152,7 @@ export function LegalAppointmentsProvider({
     id: string,
     updates: Record<string, any>,
   ): Promise<LegalAppointment> => {
-    const res = await fetch(`${API_URL}/legal-appointments/${id}`, {
+    const res = await authFetch(`${API_URL}/legal-appointments/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(updates),
@@ -165,7 +166,7 @@ export function LegalAppointmentsProvider({
   };
 
   const deleteAppointment = async (id: string) => {
-    const res = await fetch(`${API_URL}/legal-appointments/${id}`, {
+    const res = await authFetch(`${API_URL}/legal-appointments/${id}`, {
       method: "DELETE",
     });
     if (!res.ok)
@@ -179,7 +180,7 @@ export function LegalAppointmentsProvider({
   ): Promise<LegalAppointment> => {
     const formData = new FormData();
     formData.append("document", file);
-    const res = await fetch(`${API_URL}/legal-appointments/${id}/document`, {
+    const res = await authFetch(`${API_URL}/legal-appointments/${id}/document`, {
       method: "POST",
       body: formData,
     });

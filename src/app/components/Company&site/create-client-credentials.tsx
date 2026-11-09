@@ -4,6 +4,10 @@ import { useTheme } from "../../contexts/theme-context";
 import { toast } from "sonner";
 import { createClientCredentials } from "../../../api/clientAPI";
 
+// Where the generated login details are emailed. The server sends to
+// CREDENTIALS_NOTIFY_EMAIL, so set that env var to this same address.
+const CREDENTIALS_RECIPIENT = "milly.reginald@sherq.co.za";
+
 interface Site {
   id: string;
   name: string;
@@ -41,7 +45,7 @@ export function CreateClientCredentials({
       await createClientCredentials(email.trim(), Number(site.id));
 
       toast.success(
-        `Client login created for ${site.name}. The login details were emailed to the RSS notification address.`,
+        `Client login created for ${site.name}. The login details were emailed to ${CREDENTIALS_RECIPIENT}.`,
       );
 
       onBack();
@@ -172,9 +176,12 @@ export function CreateClientCredentials({
 
               <p>
                 The login details for <strong>{site.name}</strong> will be
-                emailed to the RSS notification address. The client will sign
-                in with the email above, and their account will only have
-                access to information associated with{" "}
+                emailed to{" "}
+                <strong style={{ color: colors.primaryText }}>
+                  {CREDENTIALS_RECIPIENT}
+                </strong>
+                . The client will sign in with the email above, and their
+                account will only have access to information associated with{" "}
                 <strong>{site.name}</strong>.
               </p>
             </div>

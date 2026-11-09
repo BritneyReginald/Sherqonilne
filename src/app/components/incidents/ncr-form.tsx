@@ -1,20 +1,29 @@
 import { useState } from "react";
+import { toNcrFormInitial } from "./form-helpers";
 
 interface NCRFormProps {
   onSubmit: (data: any) => void;
   ncrNumber: string;
+  /** Pass the existing record to open the form in Edit mode. */
+  initialData?: any;
 }
 
-export function NCRForm({ onSubmit, ncrNumber }: NCRFormProps) {
-  const [formData, setFormData] = useState({
-    dateIdentified: "",
-    identifiedBy: "",
-    department: "",
-    type: "",
-    description: "",
-    category: "",
-    customCategory: "",
-  });
+export function NCRForm({ onSubmit, ncrNumber, initialData }: NCRFormProps) {
+  const isEditing = !!initialData;
+
+  const [formData, setFormData] = useState(
+    initialData
+      ? toNcrFormInitial(initialData)
+      : {
+          dateIdentified: "",
+          identifiedBy: "",
+          department: "",
+          type: "",
+          description: "",
+          category: "",
+          customCategory: "",
+        },
+  );
 
   const handleChange = (e: any) => {
     const { name, value } = e.target;
@@ -26,7 +35,9 @@ export function NCRForm({ onSubmit, ncrNumber }: NCRFormProps) {
       ...formData,
       ncrNo: ncrNumber,
       category:
-        formData.category === "Other" ? formData.customCategory : formData.category,
+        formData.category === "Other"
+          ? formData.customCategory
+          : formData.category,
     });
   };
 
@@ -145,7 +156,7 @@ export function NCRForm({ onSubmit, ncrNumber }: NCRFormProps) {
         onClick={handleSubmit}
         className="mt-4 bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-xl transition"
       >
-        Save NCR
+        {isEditing ? "Save Changes" : "Save NCR"}
       </button>
     </div>
   );

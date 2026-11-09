@@ -1,3 +1,5 @@
+import { authFetch } from "../app/utils/auth-fetch";
+
 const API_BASE = import.meta.env.VITE_API_URL ?? "http://localhost:3000";
 const BASE = `${API_BASE}/document-library`;
 
@@ -5,6 +7,8 @@ export interface ApiFolder {
   id: number;
   name: string;
   parent_id: number | null;
+  /** Which client site owns the folder (RSS-owned folders have none) */
+  site_id?: number | null;
 }
 
 export interface ApiDocument {
@@ -52,22 +56,29 @@ export interface ApiEmployee {
   status?: string;
 }
 
+// Every call carries the login token so the server knows which site you are.
 async function request<T>(url: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(url, init);
+  const res = await authFetch(url, init);
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
-    throw new Error(body.message || `Request failed (${res.status})`);
+    throw new Error(body.message || body.error || `Request failed (${res.status})`);
   }
   return res.json();
 }
 
 export const fetchFolders = () => request<ApiFolder[]>(`${BASE}/folders`);
 
-export const createFolder = (name: string, parentId: number | null) =>
+// siteId is only used by RSS staff creating a TOP-LEVEL folder for a client.
+// For clients the server stamps their own site and ignores it.
+export const createFolder = (
+  name: string,
+  parentId: number | null,
+  siteId?: number | null,
+) =>
   request<ApiFolder>(`${BASE}/folders`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ name, parentId }),
+    body: JSON.stringify({ name, parentId, siteId: siteId ?? undefined }),
   });
 
 export const fetchDocuments = (folderId: number) =>
@@ -107,7 +118,7 @@ export const fetchEmployees = () =>
   request<ApiEmployee[]>(`${API_BASE}/employees`);
 
 export async function downloadFolderZip(folder: ApiFolder) {
-  const res = await fetch(`${BASE}/folders/${folder.id}/download`);
+  const res = await authFetch(`${BASE}/folders/${folder.id}/download`);
   if (!res.ok) throw new Error("Failed to download folder");
   const blob = await res.blob();
   const url = URL.createObjectURL(blob);

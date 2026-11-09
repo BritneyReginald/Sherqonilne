@@ -1128,6 +1128,25 @@ CREATE INDEX IF NOT EXISTS idx_training_records_expiry_date
        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
      );
    `);
+        /*
+         * ------------------------------------------------------------
+         * MIGRATION: Investigation redesign + editable supervisor
+         * ------------------------------------------------------------
+         * five_whys / *_action_items are JSONB arrays of rows.
+         * root_cause is reused as the "Identified Root Cause" field.
+         * The old corrective_actions / responsible_person / due_date /
+         * preventive_actions columns stay so existing data still shows.
+         */
+        await client.query(`
+      ALTER TABLE incident_records
+        ADD COLUMN IF NOT EXISTS supervisor TEXT;
+
+      ALTER TABLE investigations
+        ADD COLUMN IF NOT EXISTS five_whys JSONB,
+        ADD COLUMN IF NOT EXISTS property_damage TEXT,
+        ADD COLUMN IF NOT EXISTS corrective_action_items JSONB,
+        ADD COLUMN IF NOT EXISTS preventive_action_items JSONB;
+    `);
         await (0, siteScopeMigration_1.migrateSiteScope)(client);
         await client.query("COMMIT");
         console.log("✅ Database initialization/migration successful");

@@ -8,6 +8,10 @@ import {
   issueClientCredentials,
   issueInspectorCredentials,
 } from "../controllers/authController";
+import {
+  getClientPassword,
+  resetClientPassword,
+} from "../controllers/clientPasswordController";
 import { authenticate, authorize } from "../middleware/authMiddleware";
 
 const router = Router();
@@ -30,6 +34,22 @@ router.post(
   authenticate,
   authorize("rss_staff"),
   issueInspectorCredentials
+);
+
+// RSS-only: view the password of a site's client login
+router.get(
+  "/credentials/client/:siteId/password",
+  authenticate,
+  authorize("rss_staff"),
+  getClientPassword
+);
+
+// RSS-only: generate a new password for a site's existing client login
+router.post(
+  "/credentials/client/:siteId/reset-password",
+  authenticate,
+  authorize("rss_staff"),
+  resetClientPassword
 );
 
 export default router;

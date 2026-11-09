@@ -179,19 +179,19 @@ const bottomNavigationItems: NavigationItem[] = [
   },
 ];
 
-const CLIENT_ALLOWED_IDS = new Set([
-  "compliance",
-  "appointments",
-  "legal-appointments",
-  "training",
-  "medicals",
-  "ppe",
-  "fire-equipment",
-  "risk-assessments",
-  "incidents",
+// Modules clients must NOT see. Everything else staff can see is available
+// to clients. "settings" is the parent group, so hiding it also removes
+// Security & Privacy (and the other settings children).
+const CLIENT_HIDDEN_IDS = new Set<string>([
+  "company-sites",
+  "inspectors", // Onboarding Page
+  "settings",
+  "security-privacy",
+  "system-settings",
+  "system-audit-log",
 ]);
 
-// Modules hidden from the UI for now. Remove an id to bring it back.
+// Modules hidden from the UI for now (for everyone). Remove an id to bring it back.
 const HIDDEN_NAV_IDS = new Set([
   "reports",
   "global-training-matrix",
@@ -201,12 +201,15 @@ const HIDDEN_NAV_IDS = new Set([
   "appointments",
 ]);
 
-function removeHiddenItems(items: NavigationItem[]): NavigationItem[] {
+function removeItemsById(
+  items: NavigationItem[],
+  ids: Set<string>,
+): NavigationItem[] {
   return items
-    .filter((item) => !HIDDEN_NAV_IDS.has(item.id))
+    .filter((item) => !ids.has(item.id))
     .map((item) =>
       item.children
-        ? { ...item, children: removeHiddenItems(item.children) }
+        ? { ...item, children: removeItemsById(item.children, ids) }
         : item,
     );
 }
@@ -220,20 +223,7 @@ function filterNavForRole(
   }
 
   if (role === "client") {
-    return items
-      .filter((item) => CLIENT_ALLOWED_IDS.has(item.id))
-      .map((item) => {
-        if (!item.children) {
-          return item;
-        }
-
-        return {
-          ...item,
-          children: item.children.filter((child) =>
-            CLIENT_ALLOWED_IDS.has(child.id),
-          ),
-        };
-      });
+    return removeItemsById(items, CLIENT_HIDDEN_IDS);
   }
 
   return [];
@@ -246,15 +236,21 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
   const { setSelectedSite } = useSiteFilter();
   const clientCompany = user?.role === "client" ? user.company : null;
 
-  // Clients land straight on a client module, never on the staff dashboard
-  const [activeItem, setActiveItem] = useState<string>(
-    user?.role === "client" ? "legal-appointments" : "dashboard",
-  );
+  // Everyone (staff and clients) lands on the dashboard
+  const [activeItem, setActiveItem] = useState<string>("dashboard");
   useEffect(() => {
     if (!user) return;
 
-    setActiveItem(user.role === "client" ? "legal-appointments" : "dashboard");
+    setActiveItem("dashboard");
   }, [user]);
+
+  // Safety net: if a client somehow lands on a page they can't see
+  // (e.g. via a dashboard shortcut), send them back to the dashboard.
+  useEffect(() => {
+    if (user?.role === "client" && CLIENT_HIDDEN_IDS.has(activeItem)) {
+      setActiveItem("dashboard");
+    }
+  }, [activeItem, user]);
 
   const [expandedItems, setExpandedItems] = useState<string[]>([]);
   useEffect(() => {
@@ -267,6 +263,8 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
     }
   }, [user]);
 
+  // Clients are pinned to their own company/site so every module that reads
+  // the global site filter only shows their entries.
   useEffect(() => {
     if (user?.role === "client" && user.company) {
       setSelectedSite({
@@ -281,11 +279,15 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
   const [showSearchResults, setShowSearchResults] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [showAlertHistory, setShowAlertHistory] = useState(false);
-  const visibleNavItems = removeHiddenItems(
+  const visibleNavItems = removeItemsById(
     filterNavForRole(navigationItems, user!.role),
+    HIDDEN_NAV_IDS,
   );
+  // Recycle Bin is available to staff and to clients
   const visibleBottomNavItems =
-    user!.role === "rss_staff" ? bottomNavigationItems : [];
+    user!.role === "rss_staff" || user!.role === "client"
+      ? bottomNavigationItems
+      : [];
 
   const toggleExpanded = (id: string) => {
     setExpandedItems((prev) =>
@@ -446,9 +448,7 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
               {activeItem === "dashboard"
                 ? "Dashboard"
                 : activeItem === "company-sites"
-                  ? user?.role === "client"
-                    ? "My Sites"
-                    : "Company & Sites"
+                  ? "Company & Sites"
                   : activeItem === "workforce"
                     ? "Workforce"
                     : activeItem === "inspectors"
@@ -488,67 +488,67 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
 
           {/* Right Side: Search, Notifications & Log out */}
           <div className="flex items-center gap-4">
-            {/* Search Bar */}
+            {/* Search Bar (staff only: global search spans every site) */}
             {user?.role !== "client" && (
-            <div className="relative">
-              <Search
-                className="absolute left-3 top-1/2 -translate-y-1/2 size-4"
-                style={{
-                  color:
-                    navTextColor === "#F8FAFC"
-                      ? "rgba(248, 250, 252, 0.6)"
-                      : "rgba(15, 23, 42, 0.6)",
-                }}
-              />
-              <input
-                type="text"
-                placeholder="Search..."
-                className="w-64 h-9 pl-10 pr-4 rounded-lg focus:outline-none focus:ring-2"
-                style={{
-                  backgroundColor:
-                    navTextColor === "#F8FAFC"
-                      ? "rgba(255, 255, 255, 0.1)"
-                      : "rgba(15, 23, 42, 0.1)",
-                  border: "none",
-                  color: navTextColor,
-                }}
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                onFocus={() => setShowSearchResults(true)}
-                onBlur={() =>
-                  setTimeout(() => setShowSearchResults(false), 200)
-                }
-              />
-              {showSearchResults && searchQuery && (
-                <div
-                  className="absolute left-0 top-full mt-1 w-full rounded-lg border shadow-lg overflow-hidden z-50"
+              <div className="relative">
+                <Search
+                  className="absolute left-3 top-1/2 -translate-y-1/2 size-4"
                   style={{
-                    backgroundColor: "white",
-                    borderColor: "var(--grey-200)",
+                    color:
+                      navTextColor === "#F8FAFC"
+                        ? "rgba(248, 250, 252, 0.6)"
+                        : "rgba(15, 23, 42, 0.6)",
                   }}
-                >
+                />
+                <input
+                  type="text"
+                  placeholder="Search..."
+                  className="w-64 h-9 pl-10 pr-4 rounded-lg focus:outline-none focus:ring-2"
+                  style={{
+                    backgroundColor:
+                      navTextColor === "#F8FAFC"
+                        ? "rgba(255, 255, 255, 0.1)"
+                        : "rgba(15, 23, 42, 0.1)",
+                    border: "none",
+                    color: navTextColor,
+                  }}
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onFocus={() => setShowSearchResults(true)}
+                  onBlur={() =>
+                    setTimeout(() => setShowSearchResults(false), 200)
+                  }
+                />
+                {showSearchResults && searchQuery && (
                   <div
-                    className="px-4 py-3 border-b"
-                    style={{ borderColor: "var(--grey-200)" }}
-                  >
-                    <p
-                      className="text-sm font-medium"
-                      style={{ color: "var(--grey-900)" }}
-                    >
-                      Search Results
-                    </p>
-                  </div>
-                  <GlobalSearch
-                    query={searchQuery}
-                    onResultClick={(result) => {
-                      console.log("Clicked:", result);
-                      setSearchQuery("");
-                      setShowSearchResults(false);
+                    className="absolute left-0 top-full mt-1 w-full rounded-lg border shadow-lg overflow-hidden z-50"
+                    style={{
+                      backgroundColor: "white",
+                      borderColor: "var(--grey-200)",
                     }}
-                  />
-                </div>
-              )}
-            </div>
+                  >
+                    <div
+                      className="px-4 py-3 border-b"
+                      style={{ borderColor: "var(--grey-200)" }}
+                    >
+                      <p
+                        className="text-sm font-medium"
+                        style={{ color: "var(--grey-900)" }}
+                      >
+                        Search Results
+                      </p>
+                    </div>
+                    <GlobalSearch
+                      query={searchQuery}
+                      onResultClick={(result) => {
+                        console.log("Clicked:", result);
+                        setSearchQuery("");
+                        setShowSearchResults(false);
+                      }}
+                    />
+                  </div>
+                )}
+              </div>
             )}
 
             {/* Notification Bell */}

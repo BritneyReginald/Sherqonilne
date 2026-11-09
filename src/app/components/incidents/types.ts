@@ -1,6 +1,17 @@
 export type RecordType = "incident" | "ncr" | "injury";
 export type RecordStatus = "Created" | "Under Investigation" | "Complete";
 
+export interface WhyRow {
+  question: string;
+  finding: string;
+}
+
+export interface ActionRow {
+  action: string;
+  responsiblePerson: string;
+  targetDate: string;
+}
+
 export type EvidenceFile = {
   id: number;
   name: string;
@@ -24,6 +35,11 @@ export type InvestigationData = {
 
   preventiveActions?: string;
   evidence?: EvidenceFile[];
+
+  fiveWhys?: WhyRow[];
+  propertyDamage?: string;
+  correctiveActionItems?: ActionRow[];
+  preventiveActionItems?: ActionRow[];
 };
 
 // Matches the backend's first_aider_signature JSONB shape exactly
@@ -103,4 +119,5 @@ export type IncidentRecord = {
   updatedAt?: string;
 
   investigation?: InvestigationData;
+  supervisor?: string | null;
 };

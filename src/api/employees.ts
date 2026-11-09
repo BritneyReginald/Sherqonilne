@@ -1,3 +1,5 @@
+import { authFetch } from "../app/utils/auth-fetch";
+
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
 
 export interface EmployeeOption {
@@ -23,7 +25,7 @@ function mapEmployeeOption(row: any): EmployeeOption {
 }
 
 export async function getEmployees(): Promise<EmployeeOption[]> {
-  const res = await fetch(`${API_URL}/employees`);
+  const res = await authFetch(`${API_URL}/employees`);
   if (!res.ok) {
     throw new Error(`Failed to fetch employees (${res.status})`);
   }
