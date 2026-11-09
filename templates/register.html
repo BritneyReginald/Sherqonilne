@@ -10,6 +10,31 @@
         body { background-color: #f8f9fa; font-family: Arial, sans-serif; }
         .navbar { background-color: #003366; border-bottom: 4px solid #99cc33; }
         .brand-green { color: #99cc33; }
+        /* Clickable status with its little list (Inactive / Activated) */
+        .status-wrap { position: relative; display: inline-block; }
+        .status-btn { border: none; cursor: pointer; }
+        .status-btn::after { content: " \25BE"; font-size: 0.8em; }
+        .status-menu { display: none; position: fixed; z-index: 1500; min-width: 150px;
+                       background: #fff; border: 1px solid #ced4da; border-radius: 8px; box-shadow: 0 6px 16px rgba(0,0,0,0.15); overflow: hidden; }
+        .status-wrap.open .status-menu { display: block; }
+        .status-option { display: block; width: 100%; text-align: left; padding: 10px 14px; border: none; background: #fff;
+                         font-size: 0.9rem; font-weight: 600; text-decoration: none; border-bottom: 1px solid #f0f0f0; }
+        .status-option:last-child { border-bottom: none; }
+        .opt-inactive { color: #c62828; }
+        .opt-active { color: #2e7d32; }
+        .status-option:hover:not([disabled]):not(.disabled) { background: #f4f7f6; }
+        .status-option[disabled], .status-option.disabled { color: #adb5bd; cursor: not-allowed; }
+        @media print { .status-btn::after { content: ""; } .status-menu { display: none !important; } }
+        /* Reason shown under an inactive asset's status */
+        .inactive-note { margin-top: 6px; font-size: 0.8rem; color: #7a1f1f; background: #fdecea; border-left: 3px solid #c62828; border-radius: 4px; padding: 4px 8px; max-width: 260px; white-space: normal; }
+        .inactive-meta { color: #6c757d; font-size: 0.72rem; margin-top: 2px; }
+        /* "Why are you deactivating?" box */
+        .reason-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 2000; align-items: center; justify-content: center; padding: 16px; }
+        .reason-overlay.show { display: flex; }
+        .reason-box { background: #fff; border-radius: 14px; width: 100%; max-width: 460px; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.3); }
+        .reason-head { background: #1a365d; color: #fff; padding: 16px 20px; border-bottom: 4px solid #99cc33; }
+        .reason-head h5 { margin: 0; font-weight: bold; }
+        @media print { .reason-overlay { display: none !important; } }
 
         /* Side panel (matches the dashboard) */
         .sidebar { background-color: #1a365d; min-height: 100vh; color: white; padding: 20px; position: fixed; top: 0; left: 0; width: 250px; z-index: 1000; overflow-y: auto; }
@@ -168,7 +193,6 @@
                             <th>Status</th>
                             <th class="no-print">Reports</th> 
                             <th class="no-print text-center">Modify</th>
-                            <th class="no-print text-center">Availability</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -181,18 +205,26 @@
                             <td class="text-center no-print">
                                 <a href="{{ url_for('print_qr', qr_code_id=item.qr_code_id) }}" target="_blank"><i class="fa-solid fa-qrcode" style="font-size: 1.2rem; color: #003366;"></i></a>
                             </td>
-                            <td data-field="status">
-                                <span class="badge badge-status {% if item.status == 'In Position' %}bg-success{% else %}bg-danger{% endif %}">{{ item.status }}</span>
+                            <td>
+                                <div class="status-wrap">
+                                    <button type="button" class="badge badge-status status-btn {% if item.status == 'In Position' %}bg-success{% else %}bg-danger{% endif %}" data-field="status" title="Click to change">{{ item.status }}</button>
+                                    <div class="status-menu no-print">
+                                        <button type="button" class="status-option opt-inactive js-inactive" data-url="{{ url_for('toggle_inactive', category='extinguisher', qr_id=item.qr_code_id) }}" data-qr="{{ item.qr_code_id }}" {% if item.status == 'Inactive' %}disabled{% endif %}>Inactive</button>
+                                        {% if item.status == 'Inactive' %}
+                                        <a class="status-option opt-active" href="{{ url_for('set_active', category='extinguisher', qr_id=item.qr_code_id) }}">Activated</a>
+                                        {% else %}
+                                        <span class="status-option opt-active disabled">Activated</span>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                {% if item.status == 'Inactive' and item.inactive_reason %}
+                                <div class="inactive-note"><strong>Reason:</strong> {{ item.inactive_reason }}
+                                    <div class="inactive-meta">by {{ item.inactive_by }}{% if item.inactive_at %} &middot; {{ item.inactive_at }}{% endif %}</div>
+                                </div>
+                                {% endif %}
                             </td>
                             <td class="no-print"><a href="{{ url_for('view_history', qr_id=item.qr_code_id) }}" class="btn btn-view btn-sm">View Reports</a></td>
                             <td class="text-center no-print"><a href="{{ url_for('edit_asset', category='extinguisher', qr_id=item.qr_code_id) }}" class="btn btn-warning btn-sm fw-bold">Edit</a></td>
-                            <td class="text-center no-print text-nowrap">
-                                {% if item.status == 'Inactive' %}
-                                <a href="{{ url_for('set_active', category='extinguisher', qr_id=item.qr_code_id) }}" class="btn btn-success btn-sm" title="Click to make this asset active again">Active</a>
-                                {% else %}
-                                <a href="{{ url_for('toggle_inactive', category='extinguisher', qr_id=item.qr_code_id) }}" class="btn btn-outline-danger btn-sm" title="Click to make this asset inactive">Inactive</a>
-                                {% endif %}
-                            </td>
                         </tr>
                         {% endfor %}
                     </tbody>
@@ -234,7 +266,6 @@
                             <th>Status</th>
                             <th class="no-print">Reports</th>
                             <th class="no-print text-center">Modify</th>
-                            <th class="no-print text-center">Availability</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -246,18 +277,26 @@
                             <td class="text-center no-print">
                                 <a href="{{ url_for('print_qr', qr_code_id=item.qr_code_id) }}" target="_blank"><i class="fa-solid fa-qrcode" style="font-size: 1.2rem; color: #003366;"></i></a>
                             </td>
-                            <td data-field="status">
-                                <span class="badge badge-status {% if item.status == 'In Position' %}bg-success{% else %}bg-danger{% endif %}">{{ item.status }}</span>
+                            <td>
+                                <div class="status-wrap">
+                                    <button type="button" class="badge badge-status status-btn {% if item.status == 'In Position' %}bg-success{% else %}bg-danger{% endif %}" data-field="status" title="Click to change">{{ item.status }}</button>
+                                    <div class="status-menu no-print">
+                                        <button type="button" class="status-option opt-inactive js-inactive" data-url="{{ url_for('toggle_inactive', category='hose', qr_id=item.qr_code_id) }}" data-qr="{{ item.qr_code_id }}" {% if item.status == 'Inactive' %}disabled{% endif %}>Inactive</button>
+                                        {% if item.status == 'Inactive' %}
+                                        <a class="status-option opt-active" href="{{ url_for('set_active', category='hose', qr_id=item.qr_code_id) }}">Activated</a>
+                                        {% else %}
+                                        <span class="status-option opt-active disabled">Activated</span>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                {% if item.status == 'Inactive' and item.inactive_reason %}
+                                <div class="inactive-note"><strong>Reason:</strong> {{ item.inactive_reason }}
+                                    <div class="inactive-meta">by {{ item.inactive_by }}{% if item.inactive_at %} &middot; {{ item.inactive_at }}{% endif %}</div>
+                                </div>
+                                {% endif %}
                             </td>
                             <td class="no-print"><a href="{{ url_for('view_history', qr_id=item.qr_code_id) }}" class="btn btn-view btn-sm">View Reports</a></td>
                             <td class="text-center no-print"><a href="{{ url_for('edit_asset', category='hose', qr_id=item.qr_code_id) }}" class="btn btn-warning btn-sm fw-bold">Edit</a></td>
-                            <td class="text-center no-print text-nowrap">
-                                {% if item.status == 'Inactive' %}
-                                <a href="{{ url_for('set_active', category='hose', qr_id=item.qr_code_id) }}" class="btn btn-success btn-sm" title="Click to make this asset active again">Active</a>
-                                {% else %}
-                                <a href="{{ url_for('toggle_inactive', category='hose', qr_id=item.qr_code_id) }}" class="btn btn-outline-danger btn-sm" title="Click to make this asset inactive">Inactive</a>
-                                {% endif %}
-                            </td>
                         </tr>
                         {% endfor %}
                     </tbody>
@@ -299,7 +338,6 @@
                             <th>Status</th>
                             <th class="no-print">Reports</th>
                             <th class="no-print text-center">Modify</th>
-                            <th class="no-print text-center">Availability</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -311,18 +349,26 @@
                             <td class="text-center no-print">
                                 <a href="{{ url_for('print_qr', qr_code_id=item.qr_code_id) }}" target="_blank"><i class="fa-solid fa-qrcode" style="font-size: 1.2rem; color: #003366;"></i></a>
                             </td>
-                            <td data-field="status">
-                                <span class="badge badge-status {% if item.status == 'In Position' %}bg-success{% else %}bg-danger{% endif %}">{{ item.status }}</span>
+                            <td>
+                                <div class="status-wrap">
+                                    <button type="button" class="badge badge-status status-btn {% if item.status == 'In Position' %}bg-success{% else %}bg-danger{% endif %}" data-field="status" title="Click to change">{{ item.status }}</button>
+                                    <div class="status-menu no-print">
+                                        <button type="button" class="status-option opt-inactive js-inactive" data-url="{{ url_for('toggle_inactive', category='hydrant', qr_id=item.qr_code_id) }}" data-qr="{{ item.qr_code_id }}" {% if item.status == 'Inactive' %}disabled{% endif %}>Inactive</button>
+                                        {% if item.status == 'Inactive' %}
+                                        <a class="status-option opt-active" href="{{ url_for('set_active', category='hydrant', qr_id=item.qr_code_id) }}">Activated</a>
+                                        {% else %}
+                                        <span class="status-option opt-active disabled">Activated</span>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                {% if item.status == 'Inactive' and item.inactive_reason %}
+                                <div class="inactive-note"><strong>Reason:</strong> {{ item.inactive_reason }}
+                                    <div class="inactive-meta">by {{ item.inactive_by }}{% if item.inactive_at %} &middot; {{ item.inactive_at }}{% endif %}</div>
+                                </div>
+                                {% endif %}
                             </td>
                             <td class="no-print"><a href="{{ url_for('view_history', qr_id=item.qr_code_id) }}" class="btn btn-view btn-sm">View Reports</a></td>
                             <td class="text-center no-print"><a href="{{ url_for('edit_asset', category='hydrant', qr_id=item.qr_code_id) }}" class="btn btn-warning btn-sm fw-bold">Edit</a></td>
-                            <td class="text-center no-print text-nowrap">
-                                {% if item.status == 'Inactive' %}
-                                <a href="{{ url_for('set_active', category='hydrant', qr_id=item.qr_code_id) }}" class="btn btn-success btn-sm" title="Click to make this asset active again">Active</a>
-                                {% else %}
-                                <a href="{{ url_for('toggle_inactive', category='hydrant', qr_id=item.qr_code_id) }}" class="btn btn-outline-danger btn-sm" title="Click to make this asset inactive">Inactive</a>
-                                {% endif %}
-                            </td>
                         </tr>
                         {% endfor %}
                     </tbody>
@@ -416,6 +462,78 @@
             var backdrop = document.querySelector('.sidebar-backdrop');
             if (backdrop) backdrop.addEventListener('click', closeMenu);
             document.querySelectorAll('.sidebar a').forEach(function (a) { a.addEventListener('click', closeMenu); });
+        })();
+    </script>
+
+    <!-- Box that asks why an asset is being made inactive -->
+    <div class="reason-overlay" id="reasonOverlay" role="dialog" aria-modal="true" aria-labelledby="reasonTitle">
+        <div class="reason-box">
+            <div class="reason-head"><h5 id="reasonTitle">Deactivate <span id="reasonQr"></span></h5></div>
+            <form method="POST" id="reasonForm" class="p-4">
+                <label for="reasonText" class="form-label fw-bold">Why are you deactivating this item? <span class="text-danger">*</span></label>
+                <textarea id="reasonText" name="reason" class="form-control mb-3" rows="3" maxlength="1000" required
+                          placeholder="e.g. Sent for service, damaged, removed from site..."></textarea>
+                <label for="reasonBy" class="form-label fw-bold">Your name <span class="text-danger">*</span></label>
+                <input id="reasonBy" name="done_by" class="form-control mb-1" maxlength="150" required
+                       value="{{ session.get('username') if session.get('username') and session.get('username') != 'Admin' else '' }}">
+                <small class="text-muted d-block mb-3">Your reason will be shown on the Asset Register so others can see it.</small>
+                <div class="d-flex gap-2 justify-content-end">
+                    <button type="button" class="btn btn-light" id="reasonCancel">Cancel</button>
+                    <button type="submit" class="btn btn-danger fw-bold">Make Inactive</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    <script>
+        // Status list: click a status to see Inactive / Activated
+        (function () {
+            document.querySelectorAll('.status-btn').forEach(function (btn) {
+                btn.addEventListener('click', function (e) {
+                    e.stopPropagation();
+                    var wrap = btn.closest('.status-wrap');
+                    var wasOpen = wrap.classList.contains('open');
+                    document.querySelectorAll('.status-wrap.open').forEach(function (w) { w.classList.remove('open'); });
+                    if (wasOpen) return;
+                    wrap.classList.add('open');
+                    // Float the list next to the status so the table never cuts it off
+                    var menu = wrap.querySelector('.status-menu');
+                    var r = btn.getBoundingClientRect();
+                    var h = menu.offsetHeight, w = menu.offsetWidth;
+                    var top = (r.bottom + 4 + h > window.innerHeight) ? r.top - h - 4 : r.bottom + 4;
+                    var left = Math.min(r.left, window.innerWidth - w - 8);
+                    menu.style.top = Math.max(8, top) + 'px';
+                    menu.style.left = Math.max(8, left) + 'px';
+                });
+            });
+            function closeAll() {
+                document.querySelectorAll('.status-wrap.open').forEach(function (w) { w.classList.remove('open'); });
+            }
+            document.addEventListener('click', closeAll);
+            window.addEventListener('scroll', closeAll, true);
+            window.addEventListener('resize', closeAll);
+        })();
+    </script>
+    <script>
+        (function () {
+            var overlay = document.getElementById('reasonOverlay');
+            var form = document.getElementById('reasonForm');
+            function close() { overlay.classList.remove('show'); }
+            document.querySelectorAll('.js-inactive').forEach(function (btn) {
+                btn.addEventListener('click', function () {
+                    form.action = btn.getAttribute('data-url');
+                    document.getElementById('reasonQr').textContent = btn.getAttribute('data-qr');
+                    document.getElementById('reasonText').value = '';
+                    overlay.classList.add('show');
+                    document.getElementById('reasonText').focus();
+                });
+            });
+            document.getElementById('reasonCancel').addEventListener('click', close);
+            overlay.addEventListener('click', function (e) { if (e.target === overlay) close(); });
+            document.addEventListener('keydown', function (e) { if (e.key === 'Escape') close(); });
+            form.addEventListener('submit', function (e) {
+                var r = document.getElementById('reasonText'), b = document.getElementById('reasonBy');
+                if (!r.value.trim() || !b.value.trim()) { e.preventDefault(); (r.value.trim() ? b : r).focus(); }
+            });
         })();
     </script>
 </body>

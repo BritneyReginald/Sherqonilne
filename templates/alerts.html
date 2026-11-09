@@ -145,7 +145,7 @@
                                    {% if alert.report_status == 'Completed' %}
                                        <span class="badge bg-success"><i class="bi bi-check-circle"></i> Resolved</span>
                                    {% else %}
-                                       <a href="{{ url_for('resolve_alert', report_id=alert.id) }}" class="btn btn-sm btn-danger fw-bold">
+                                       <a href="{{ url_for('load_recovery', qr_code_id=alert.qr_code_id, alert=alert.id) }}" class="btn btn-sm btn-danger fw-bold">
                                            <i class="bi bi-exclamation-circle"></i> Attend
                                        </a>
                                    {% endif %}

@@ -164,6 +164,17 @@ class InspectionSignature(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
 # --- NEW: EMPLOYEE & USER MANAGEMENT SCHEMA ---
+# Why an asset was made inactive (or active again), kept so everyone can see it
+class AssetStatusNote(db.Model):
+    __tablename__ = 'asset_status_notes'
+    id = db.Column(db.Integer, primary_key=True)
+    qr_code_id = db.Column(db.String(50), nullable=False, index=True)
+    action = db.Column(db.String(20), nullable=False)   # 'Inactive' or 'Active'
+    reason = db.Column(db.Text)
+    done_by = db.Column(db.String(150))
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+
 class Employee(db.Model):
     __tablename__ = 'employees'
     id = db.Column(db.Integer, primary_key=True)
@@ -218,6 +229,10 @@ with app.app_context():
         InspectionSignature.__table__.create(db.engine, checkfirst=True)
     except Exception as e:
         print("Could not create inspection_signatures table:", e)
+    try:
+        AssetStatusNote.__table__.create(db.engine, checkfirst=True)
+    except Exception as e:
+        print("Could not create asset_status_notes table:", e)
 
 
 def save_inspection_signature(report_id, data_url, signer_name):
@@ -418,6 +433,8 @@ def admin_alerts():
     for alert in raw_alerts:
         try:
             res_data = json.loads(alert.responses)
+            if res_data.get("Superseded By Report"):
+                continue  # this alert was attended and replaced by a newer recovery log
             if res_data.get("Is Unit Returned To Authorized Position?") == "NO" or alert.report_status == 'In Progress':
                 asset_obj, cat = get_unit_and_category(alert.qr_code_id)
                 loc = asset_obj.authorized_location if asset_obj else "System Track Misplaced"
@@ -482,6 +499,16 @@ def register():
     extinguishers = [{'qr_code_id': item.qr_code_id, 'type': item.extinguisher_type, 'unit_weight': item.unit_weight, 'location': item.authorized_location, 'status': item.status or 'In Position'} for item in raw_extinguishers]
     hoses = [{'qr_code_id': item.qr_code_id, 'unit_weight': item.unit_weight or 'Standard 30m', 'location': item.authorized_location, 'status': item.status or 'In Position'} for item in raw_hoses]
     hydrants = [{'qr_code_id': item.qr_code_id, 'unit_weight': item.unit_weight or 'Standard Flow', 'location': item.authorized_location, 'status': item.status or 'In Position'} for item in raw_hydrants]
+
+    # Attach the latest "why it was made inactive" note to each inactive asset
+    latest_notes = {}
+    for note in AssetStatusNote.query.filter_by(action='Inactive').order_by(AssetStatusNote.created_at.asc()).all():
+        latest_notes[note.qr_code_id] = note
+    for item in extinguishers + hoses + hydrants:
+        note = latest_notes.get(item['qr_code_id']) if item['status'] == 'Inactive' else None
+        item['inactive_reason'] = note.reason if note else None
+        item['inactive_by'] = note.done_by if note else None
+        item['inactive_at'] = (note.created_at + timedelta(hours=2)).strftime('%Y-%m-%d %H:%M') if note and note.created_at else None  # South African time
     return render_template('register.html', extinguishers=extinguishers, hoses=hoses, hydrants=hydrants)
 
 @app.route('/admin/add_asset/<category>', methods=['GET', 'POST'])
@@ -689,13 +716,19 @@ def edit_asset(category, qr_id):
             return redirect(url_for('register'))
     return render_template('edit_asset.html', category=category, qr_id=qr_id, item=unit)
 
-@app.route('/admin/toggle_inactive/<category>/<qr_id>')
+@app.route('/admin/toggle_inactive/<category>/<qr_id>', methods=['GET', 'POST'])
 def toggle_inactive(category, qr_id):
     if not session.get('admin_logged_in'):
         return redirect(url_for('login'))
+    reason = (request.form.get('reason') or '').strip()
+    done_by = (request.form.get('done_by') or '').strip()
+    # A reason is required: without one (or when opened as a plain link) nothing changes
+    if request.method != 'POST' or not reason or not done_by:
+        return redirect(url_for('register'))
     unit, assigned_category = get_unit_and_category(qr_id)
     if unit:
         unit.status = 'Inactive'
+        db.session.add(AssetStatusNote(qr_code_id=qr_id, action='Inactive', reason=reason[:1000], done_by=done_by[:150]))
         db.session.commit()
     return redirect(url_for('register'))
 
@@ -707,6 +740,7 @@ def set_active(category, qr_id):
     unit, assigned_category = get_unit_and_category(qr_id)
     if unit:
         unit.status = 'In Position'
+        db.session.add(AssetStatusNote(qr_code_id=qr_id, action='Active', done_by=session.get('username')))
         db.session.commit()
     return redirect(url_for('register'))
 
@@ -817,7 +851,9 @@ def load_questionnaire(qr_code_id):
 @app.route('/recovery/<string:qr_code_id>')
 def load_recovery(qr_code_id):
     unit, category = get_unit_and_category(qr_code_id)
-    return render_template('recovery.html', unit=unit, category=category, employees=Employee.query.order_by(Employee.full_name.asc()).all()) if unit else ("Not Found", 404)
+    # ?alert=<id> means the admin pressed "Attend" on the Alerts page
+    alert_id = request.args.get('alert', type=int)
+    return render_template('recovery.html', unit=unit, category=category, alert_id=alert_id, employees=Employee.query.order_by(Employee.full_name.asc()).all()) if unit else ("Not Found", 404)
 
 @app.route('/submit_recovery/<string:qr_code_id>', methods=['POST'])
 def submit_recovery(qr_code_id):
@@ -834,6 +870,34 @@ def submit_recovery(qr_code_id):
     db.session.add(new_report)
     if unit: unit.status = 'In Position' if clean_resp == 'yes' else 'Displaced'
     db.session.commit()
+
+    # Opened with "Attend" from the Alerts page: close the alert that was attended
+    try:
+        alert_id = request.form.get('alert_id', type=int)
+        old_alert = InspectionReport.query.get(alert_id) if alert_id else None
+        if (old_alert and old_alert.id != new_report.id and old_alert.qr_code_id == qr_code_id
+                and 'Recovery' in (old_alert.category or '') and old_alert.deleted_at is None):
+            old_alert.report_status = 'Completed'
+            if clean_resp == 'no':
+                # Still cannot be moved: the new log (with its new reason and dates) becomes the alert
+                old_data = json.loads(old_alert.responses or '{}')
+                old_data["Superseded By Report"] = new_report.id
+                old_alert.responses = json.dumps(old_data)
+            db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        print("Failed to update attended alert:", e)
+
+    # Save the recovery photo (taken with the camera or chosen from files)
+    try:
+        photo_file = request.files.get('inspection_photo_camera')
+        if not photo_file or not photo_file.filename:
+            photo_file = request.files.get('inspection_photo_file')
+        if save_inspection_photo(new_report.id, photo_file):
+            db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        print("Failed to save recovery photo:", e)
     try:
         if save_inspection_signature(new_report.id, request.form.get('signature_data'), request.form.get('inspector_name')):
             db.session.commit()

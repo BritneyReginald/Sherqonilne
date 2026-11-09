@@ -21,6 +21,13 @@
                            color: #9aa5b1; font-size: 0.95rem; pointer-events: none; }
         .sig-wrap.has-ink .sig-placeholder { display: none; }
         .sig-wrap.sig-missing { border-color: #dc3545; }
+
+        /* ===== Photo (Take Photo / Choose from files) ===== */
+        #attachMenu { display: none; position: absolute; z-index: 1000; background: white; border: 1px solid #ced4da;
+                      border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); min-width: 180px; margin-top: 5px; }
+        #attachMenu .dropdown-item { padding: 12px 16px; color: #333; cursor: pointer; border-bottom: 1px solid #f0f0f0; }
+        #attachMenu .dropdown-item:last-child { border-bottom: none; }
+        #attachMenu .dropdown-item:hover { background-color: #f8f9fa; }
     </style>
 </head>
 <body>
@@ -28,7 +35,7 @@
         
         <div class="row align-items-center mx-auto mb-4" style="max-width: 600px;">
             <div class="col-3 text-start">
-                <a href="/details/{{ unit.qr_code_id }}" class="btn btn-light px-3 shadow-sm" style="border-radius: 20px; font-weight: 500; color: #333; background-color: #ffffff; border: 1px solid #e2e8f0;">
+                <a href="{{ url_for('admin_alerts') if alert_id else '/details/' ~ unit.qr_code_id }}" class="btn btn-light px-3 shadow-sm" style="border-radius: 20px; font-weight: 500; color: #333; background-color: #ffffff; border: 1px solid #e2e8f0;">
                     &larr; Back
                 </a>
             </div>
@@ -43,7 +50,8 @@
                 <h4 class="fw-bold">{{ unit.authorized_location }}</h4>
             </div>
 
-            <form action="/submit_recovery/{{ unit.qr_code_id }}" method="POST" onsubmit="if (this.dataset.submitting === 'yes') { return false; } if (!window.sigPad || !window.sigPad.hasInk()) { if (window.sigPad) window.sigPad.showMissing(); return false; } window.sigPad.capture(); this.dataset.submitting = 'yes'; var b = this.querySelector('button[type=submit]'); if (b) { b.disabled = true; b.innerText = 'Submitting... please wait'; } return true;">
+            <form action="/submit_recovery/{{ unit.qr_code_id }}" method="POST" enctype="multipart/form-data" onsubmit="return checkRecoveryForm(this);">
+                <input type="hidden" name="alert_id" value="{{ alert_id or '' }}">
                 <p class="fw-bold text-dark text-center mb-4">Are you returning this unit to its original location now?</p>
                 
                 <div class="btn-group w-100 mb-4" role="group">
@@ -85,6 +93,19 @@
                     </div>
 
 
+                    <div class="mb-3 position-relative">
+                        <label class="form-label fw-bold text-dark d-block">Photo: <span class="text-danger">*</span></label>
+                        <button type="button" class="btn btn-outline-secondary" id="attachFileTrigger" style="border-radius: 20px; padding: 6px 20px;">📁 Attach</button>
+                        <span id="selectedFileName" class="text-muted small ms-2">No file chosen</span>
+                        <input type="file" name="inspection_photo_camera" id="cameraInput" accept="image/*" capture="environment" class="d-none">
+                        <input type="file" name="inspection_photo_file" id="fileInput" accept="image/*,application/pdf" class="d-none">
+                        <div id="attachMenu">
+                            <div class="dropdown-item" id="actionCamera">📷 Take Photo</div>
+                            <div class="dropdown-item" id="actionUpload">📂 Choose from files</div>
+                        </div>
+                        <small id="photoError" class="text-danger fw-bold d-none d-block mt-1">Please add a photo before submitting.</small>
+                    </div>
+
                     <div class="signature-block mt-3">
                     <label class="form-label fw-bold required text-dark">Signature:</label>
                     <div class="sig-wrap" id="sigWrap">
@@ -107,6 +128,54 @@
     </div>
 
     <script>
+        // ===== Photo: Take Photo / Choose from files =====
+        (function () {
+            var menu = document.getElementById('attachMenu');
+            var nameBox = document.getElementById('selectedFileName');
+            document.getElementById('attachFileTrigger').addEventListener('click', function (e) {
+                e.stopPropagation(); menu.style.display = (menu.style.display === 'block') ? 'none' : 'block';
+            });
+            document.addEventListener('click', function () { menu.style.display = 'none'; });
+            document.getElementById('actionCamera').addEventListener('click', function () { document.getElementById('cameraInput').click(); });
+            document.getElementById('actionUpload').addEventListener('click', function () { document.getElementById('fileInput').click(); });
+            function picked(input, otherId) {
+                if (input.files.length > 0) {
+                    nameBox.textContent = input.files[0].name;
+                    document.getElementById(otherId).value = '';
+                    document.getElementById('photoError').classList.add('d-none');
+                }
+            }
+            document.getElementById('cameraInput').addEventListener('change', function () { picked(this, 'fileInput'); });
+            document.getElementById('fileInput').addEventListener('change', function () { picked(this, 'cameraInput'); });
+        })();
+
+        function hasPhoto() {
+            return document.getElementById('cameraInput').files.length > 0 || document.getElementById('fileInput').files.length > 0;
+        }
+
+        // Runs when "Submit Recovery Log" is pressed
+        function checkRecoveryForm(form) {
+            if (form.dataset.submitting === 'yes') { return false; }
+            var ok = true;
+            if (!hasPhoto()) {
+                document.getElementById('photoError').classList.remove('d-none');
+                ok = false;
+            }
+            if (!window.sigPad || !window.sigPad.hasInk()) {
+                if (window.sigPad) window.sigPad.showMissing();
+                ok = false;
+            }
+            if (!ok) {
+                (hasPhoto() ? document.getElementById('sigWrap') : document.getElementById('attachFileTrigger')).scrollIntoView({ behavior: 'smooth', block: 'center' });
+                return false;
+            }
+            window.sigPad.capture();
+            form.dataset.submitting = 'yes';
+            var b = form.querySelector('button[type=submit]');
+            if (b) { b.disabled = true; b.innerText = 'Submitting... please wait'; }
+            return true;
+        }
+
         function showWorkflow(isEscalation) {
             // Show the main interaction area (Combo box, Comment box, Submit button)
             document.getElementById('interactionArea').style.display = 'block';
