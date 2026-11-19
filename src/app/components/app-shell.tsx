@@ -113,7 +113,7 @@ const navigationItems: NavigationItem[] = [
     label: "Fire Equipment",
     icon: <Flame className="size-5" />,
     externalUrl:
-      "https://ohs-online-fire-a2a2duhchxd2cjcg.southafricanorth-01.azurewebsites.net/",
+      "https://fire.sherq.co.za/",
   },
   {
     id: "risk-assessments",
