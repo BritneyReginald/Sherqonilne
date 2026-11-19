@@ -27,7 +27,7 @@ const PORT = process.env.PORT || 3000;
 const corsOptions = {
   origin: [
     "http://localhost:5173",
-    "https://ohs.sherq.co.za",
+    "https://client.sherq.co.za",
     "https://fire.sherq.co.za",
   ],
   methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
